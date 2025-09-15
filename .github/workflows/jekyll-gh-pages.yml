@@ -35,6 +35,11 @@ jobs:
         with:
           source: ./
           destination: ./_site
+      - name: Normalize generated homepage name
+        run: |
+          if [ -f "_site/Index.html" ] && [ ! -f "_site/index.html" ]; then
+            mv _site/Index.html _site/index.html
+          fi
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 
