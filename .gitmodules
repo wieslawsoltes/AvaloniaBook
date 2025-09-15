@@ -1,0 +1,6 @@
+[submodule "external/Avalonia"]
+	path = external/Avalonia
+	url = https://github.com/wieslawsoltes/Avalonia.git
+[submodule "external/avalonia-docs"]
+	path = external/avalonia-docs
+	url = https://github.com/wieslawsoltes/avalonia-docs.git
