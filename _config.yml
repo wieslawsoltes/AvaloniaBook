@@ -1,0 +1,25 @@
+# Site metadata
+name: Avalonia Book
+markdown: GFM
+
+# Enable plugins supplied by GitHub Pages so Markdown pages work without explicit front matter
+plugins:
+  - jekyll-relative-links
+  - jekyll-optional-front-matter
+
+# Rewrite .md links to the generated HTML files
+relative_links:
+  enabled: true
+  collections: true
+
+# Ensure the capitalised Index.md becomes /index.html so the home page loads
+defaults:
+  - scope:
+      path: "Index.md"
+    values:
+      permalink: /
+
+exclude:
+  - dist
+  - external
+  - scripts
