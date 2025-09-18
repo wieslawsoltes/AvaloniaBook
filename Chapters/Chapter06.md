@@ -29,19 +29,22 @@ Quick tour by example
 2) Buttons and toggles
 
 ```xml
-<StackPanel Orientation="Horizontal" Spacing="8">
-  <Button Content="Primary"/>
-  <ToggleButton Content="Toggle me"/>
-  <CheckBox Content="I agree"/>
-  <StackPanel DataContext="{x:Static Enum:MyEnum}">
-    <!-- RadioButtons are typically grouped by container and bound to a value -->
+<StackPanel Spacing="8">
+  <StackPanel Orientation="Horizontal" Spacing="8">
+    <Button Content="Primary"/>
+    <ToggleButton Content="Toggle me"/>
+    <CheckBox Content="I agree"/>
+  </StackPanel>
+
+  <!-- RadioButtons become mutually exclusive when they share the same GroupName -->
+  <StackPanel Orientation="Horizontal" Spacing="8">
     <RadioButton Content="Option A" GroupName="Choice"/>
     <RadioButton Content="Option B" GroupName="Choice"/>
   </StackPanel>
 </StackPanel>
 ```
 
-- ToggleButton stays pressed when toggled. CheckBox is on/off. RadioButtons are mutually exclusive per GroupName.
+- ToggleButton stays pressed when toggled. CheckBox is on/off. RadioButtons are mutually exclusive when they share a GroupName.
 
 3) Choices and lists
 

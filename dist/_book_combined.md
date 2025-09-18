@@ -628,19 +628,22 @@ Quick tour by example
 2) Buttons and toggles
 
 ```xml
-<StackPanel Orientation="Horizontal" Spacing="8">
-  <Button Content="Primary"/>
-  <ToggleButton Content="Toggle me"/>
-  <CheckBox Content="I agree"/>
-  <StackPanel DataContext="{x:Static Enum:MyEnum}">
-    <!-- RadioButtons are typically grouped by container and bound to a value -->
+<StackPanel Spacing="8">
+  <StackPanel Orientation="Horizontal" Spacing="8">
+    <Button Content="Primary"/>
+    <ToggleButton Content="Toggle me"/>
+    <CheckBox Content="I agree"/>
+  </StackPanel>
+
+  <!-- RadioButtons become mutually exclusive when they share the same GroupName -->
+  <StackPanel Orientation="Horizontal" Spacing="8">
     <RadioButton Content="Option A" GroupName="Choice"/>
     <RadioButton Content="Option B" GroupName="Choice"/>
   </StackPanel>
 </StackPanel>
 ```
 
-- ToggleButton stays pressed when toggled. CheckBox is on/off. RadioButtons are mutually exclusive per GroupName.
+- ToggleButton stays pressed when toggled. CheckBox is on/off. RadioButtons are mutually exclusive when they share a GroupName.
 
 3) Choices and lists
 
@@ -2138,16 +2141,31 @@ public class NameDialog : Window
     {
         Title = "Enter name";
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Content = new StackPanel { Margin = new Thickness(16), Children =
+        var okButton = new Button { Content = "OK", IsDefault = true };
+        okButton.Click += (_, __) =>
         {
-            new TextBlock { Text = "Name:" },
-            _name,
-            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children =
+            EnteredName = _name.Text;
+            Close(true);
+        };
+
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true };
+        cancelButton.Click += (_, __) => Close(false);
+
+        Content = new StackPanel
+        {
+            Margin = new Thickness(16),
+            Children =
             {
-                new Button { Content = "OK", IsDefault = true, Command = ReactiveCommand.Create(() => { EnteredName = _name.Text; Close(true); }) },
-                new Button { Content = "Cancel", IsCancel = true, Command = ReactiveCommand.Create(() => Close(false)) }
-            }}
-        }};
+                new TextBlock { Text = "Name:" },
+                _name,
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children = { okButton, cancelButton }
+                }
+            }
+        };
     }
 }
 
@@ -2450,11 +2468,18 @@ public class AboutWindow : Window
         Title = "About";
         Width = 360; Height = 220;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Content = new StackPanel { Margin = new Thickness(16), Children =
+        var okButton = new Button { Content = "OK", IsDefault = true };
+        okButton.Click += (_, __) => Close(true);
+
+        Content = new StackPanel
         {
-            new TextBlock { Text = "My App v1.0" },
-            new Button { Content = "OK", IsDefault = true, Command = ReactiveCommand.Create(() => Close(true)) }
-        }};
+            Margin = new Thickness(16),
+            Children =
+            {
+                new TextBlock { Text = "My App v1.0" },
+                okButton
+            }
+        };
     }
 }
 ```
@@ -2519,17 +2544,19 @@ Notes
 // In App.OnFrameworkInitializationCompleted (desktop lifetime)
 if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
 {
+    var showItem = new NativeMenuItem("Show");
+    showItem.Click += (_, __) => desktop.MainWindow?.Show();
+
+    var exitItem = new NativeMenuItem("Exit");
+    exitItem.Click += (_, __) => desktop.Shutdown();
+
     var tray = new TrayIcon
     {
         ToolTipText = "My App",
         Icon = new WindowIcon("avares://MyApp/Assets/AppIcon.ico"),
         Menu = new NativeMenu
         {
-            Items =
-            {
-                new NativeMenuItem("Show") { Command = ReactiveCommand.Create(() => desktop.MainWindow?.Show()) },
-                new NativeMenuItem("Exit") { Command = ReactiveCommand.Create(() => desktop.Shutdown()) }
-            }
+            Items = { showItem, exitItem }
         }
     };
     tray.Show();
@@ -2661,33 +2688,17 @@ Simple pattern using a sentinel “Load more” item
 
 ```xml
 <ListBox Items="{Binding PagedItems}">
-  <ListBox.ItemTemplate>
-    <DataTemplate x:DataType="vm:ItemOrCommand">
-      <ContentControl>
-        <ContentControl.Styles>
-          <Style Selector="ContentControl:has(^vm|LoadMore)">
-            <Setter Property="ContentTemplate">
-              <Setter.Value>
-                <DataTemplate>
-                  <Button Command="{Binding DataContext.LoadMoreCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                          Content="Load more…"/>
-                </DataTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-          <Style Selector="ContentControl:has(^vm|Item)">
-            <Setter Property="ContentTemplate">
-              <Setter.Value>
-                <DataTemplate>
-                  <TextBlock Text="{Binding Title}"/>
-                </DataTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </ContentControl.Styles>
-      </ContentControl>
+  <ListBox.Resources>
+    <DataTemplate DataType="vm:Item">
+      <TextBlock Text="{Binding Title}"/>
     </DataTemplate>
-  </ListBox.ItemTemplate>
+
+    <DataTemplate DataType="vm:LoadMore">
+      <Button Content="Load more…"
+              HorizontalAlignment="Left"
+              Command="{Binding DataContext.LoadMoreCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+    </DataTemplate>
+  </ListBox.Resources>
 </ListBox>
 ```
 
@@ -4222,33 +4233,43 @@ Quick start (xUnit): [Avalonia.Headless.XUnit]
    - Avalonia.Headless
    - Avalonia.Headless.XUnit
    - Optionally Avalonia.Skia for Skia rendering when you need screenshots
-2) Use the [AvaloniaFact] attribute to run a test on the Avalonia UI thread with a headless platform.
+2) Configure the headless app once per test assembly. Create (or update) `AssemblyInfo.cs` and register the builder the attribute will use:
+
+```csharp
+using Avalonia;
+using Avalonia.Headless;
+using Avalonia.Headless.XUnit;
+
+[assembly: AvaloniaTestApplication(typeof(TestApp))]
+
+public class TestApp : Application
+{
+    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<TestApp>()
+        .UseHeadless(new AvaloniaHeadlessPlatformOptions
+        {
+            // Flip this to false and call .UseSkia() when you need rendered frames.
+            UseHeadlessDrawing = true
+        });
+}
+```
+
+3) Use the [AvaloniaFact] attribute to run a test on the Avalonia UI thread with the headless platform.
 
 Example: a minimal UI interaction test
 
 ```csharp
 using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless; // Headless helpers + [AvaloniaFact]
+using Avalonia.Input;
 using Avalonia.Threading;
 using Xunit;
 
 public class TextBoxTests
 {
-    private static AppBuilder BuildApp() => AppBuilder.Configure<App>()
-        .UseHeadless(new Avalonia.Headless.AvaloniaHeadlessPlatformOptions
-        {
-            // For logic-only tests, keep this true (fast, no Skia); for screenshot tests set to false and also call UseSkia.
-            UseHeadlessDrawing = true
-        })
-        .AfterSetup(_ => { /* put global test services if needed */ });
-
     [AvaloniaFact]
     public async Task TextBox_Receives_Typed_Text()
     {
-        BuildApp();
-
         var textBox = new TextBox { Width = 200, Height = 30 };
         var window = new Window { Content = textBox };
         window.Show();
@@ -4256,10 +4277,10 @@ public class TextBoxTests
         // Focus and type via headless helpers
         await Dispatcher.UIThread.InvokeAsync(() => textBox.Focus());
         window.KeyPress(Key.A, RawInputModifiers.Control, PhysicalKey.A, ""); // Ctrl+A (select all)
-        window.TextInput("Hello");
+        window.KeyTextInput("Hello");
 
         // Let layout/rendering advance one tick
-        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
 
         Assert.Equal("Hello", textBox.Text);
     }
@@ -4267,8 +4288,8 @@ public class TextBoxTests
 ```
 
 Notes
-- BuildApp(): In test assemblies, the Headless runner auto-starts a session; you can configure extra services via AppBuilder as needed.
-- Input helpers: After `using Avalonia.Headless;`, extension methods like `KeyPress`, `KeyRelease`, `TextInput`, `MouseDown`, `MouseMove`, `MouseUp`, `MouseWheel`, and `DragDrop` are available on TopLevel/Window.
+- The `[assembly: AvaloniaTestApplication]` attribute wires up the headless session before any `[AvaloniaFact]` runs, so individual tests can create windows and controls immediately.
+- Input helpers: After `using Avalonia.Headless;`, extension methods like `KeyPress`, `KeyRelease`, `KeyTextInput`, `MouseDown`, `MouseMove`, `MouseUp`, `MouseWheel`, and `DragDrop` are available on `TopLevel`/`Window`.
 - Rendering tick: Use `AvaloniaHeadlessPlatform.ForceRenderTimerTick()` to advance timers and trigger layout/render when needed.
 
 Capturing rendered frames (visual regression)
@@ -4280,21 +4301,16 @@ To capture frames you must render with Skia and disable headless drawing:
 Example: capture a frame and assert size
 
 ```csharp
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Xunit;
 
 public class SnapshotTests
 {
-    private static AppBuilder BuildApp() => AppBuilder.Configure<App>()
-        .UseSkia() // enable Skia
-        .UseHeadless(new Avalonia.Headless.AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
-
     [AvaloniaFact]
     public void Window_Renders_Frame()
     {
-        BuildApp();
+        // Ensure your test app builder (see AssemblyInfo.cs) calls .UseSkia() and sets UseHeadlessDrawing = false.
         var window = new Window { Width = 300, Height = 200, Content = new Button { Content = "Click" } };
         window.Show();
 
@@ -4317,7 +4333,7 @@ NUnit option
 
 Driving complex interactions
 - Pointer/mouse: `MouseDown(point, button, modifiers)`, `MouseMove(point, modifiers)`, `MouseUp(point, modifiers)`
-- Keyboard: `KeyPress`, `KeyRelease`, `TextInput`
+- Keyboard: `KeyPress`, `KeyRelease`, `KeyTextInput`
 - Drag and drop: `DragDrop(point, type, data, effects, modifiers)`
 - Always focus the control first, and advance one tick afterward to flush input effects: `Focus()`, then `ForceRenderTimerTick()`
 
@@ -4342,7 +4358,7 @@ Troubleshooting
 - Hanging tests: Never block the UI thread; prefer InvokeAsync + short waits and ticks.
 
 Exercise
-1) Write a test that types “Avalonia” into a TextBox via `TextInput` and asserts the text.
+1) Write a test that types “Avalonia” into a TextBox via `KeyTextInput` and asserts the text.
 2) Add a Button with a command bound to a ViewModel; simulate a `MouseDown`/`MouseUp` to click it and assert the command executed.
 3) Create a snapshot test that captures the frame of a 200×100 Border with a red background; assert the bitmap size and optionally compare with a baseline image.
 
@@ -4352,6 +4368,7 @@ Look under the hood
 - Simulated input and frame capture: [HeadlessWindowExtensions](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs)
 - xUnit integration: [Avalonia.Headless.XUnit](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.XUnit)
 - NUnit integration: [Avalonia.Headless.NUnit](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.NUnit)
+- Working samples: [tests/Avalonia.Headless.UnitTests](https://github.com/AvaloniaUI/Avalonia/tree/master/tests/Avalonia.Headless.UnitTests)
 - ControlCatalog example switches (VNC/headless): [ControlCatalog.NetCore/Program.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/samples/ControlCatalog.NetCore/Program.cs)
 
 What’s next
@@ -5073,7 +5090,7 @@ Contribute high‑quality pull requests
 - Keep scope focused and change sets small. Smaller PRs review faster and are easier to merge.
 - Add tests in [tests](https://github.com/AvaloniaUI/Avalonia/tree/master/tests) that cover the fix or feature. Tests protect your change and prevent regressions.
 - Follow project guidance:
-  - <mcfile name="CONTRIBUTING.md" path="/Users/wieslawsoltes/GitHub/AvaloniaBook/external/Avalonia/CONTRIBUTING.md"></mcfile>
+- [CONTRIBUTING.md](https://github.com/AvaloniaUI/Avalonia/blob/master/CONTRIBUTING.md)
   - Match coding style and file organization used in neighboring files.
 - Explain your approach in the PR description, reference related issues, and call out trade‑offs or follow‑ups.
 - Be responsive to review feedback; maintainers and contributors are collaborators.

@@ -120,11 +120,18 @@ public class AboutWindow : Window
         Title = "About";
         Width = 360; Height = 220;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Content = new StackPanel { Margin = new Thickness(16), Children =
+        var okButton = new Button { Content = "OK", IsDefault = true };
+        okButton.Click += (_, __) => Close(true);
+
+        Content = new StackPanel
         {
-            new TextBlock { Text = "My App v1.0" },
-            new Button { Content = "OK", IsDefault = true, Command = ReactiveCommand.Create(() => Close(true)) }
-        }};
+            Margin = new Thickness(16),
+            Children =
+            {
+                new TextBlock { Text = "My App v1.0" },
+                okButton
+            }
+        };
     }
 }
 ```
@@ -189,17 +196,19 @@ Notes
 // In App.OnFrameworkInitializationCompleted (desktop lifetime)
 if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
 {
+    var showItem = new NativeMenuItem("Show");
+    showItem.Click += (_, __) => desktop.MainWindow?.Show();
+
+    var exitItem = new NativeMenuItem("Exit");
+    exitItem.Click += (_, __) => desktop.Shutdown();
+
     var tray = new TrayIcon
     {
         ToolTipText = "My App",
         Icon = new WindowIcon("avares://MyApp/Assets/AppIcon.ico"),
         Menu = new NativeMenu
         {
-            Items =
-            {
-                new NativeMenuItem("Show") { Command = ReactiveCommand.Create(() => desktop.MainWindow?.Show()) },
-                new NativeMenuItem("Exit") { Command = ReactiveCommand.Create(() => desktop.Shutdown()) }
-            }
+            Items = { showItem, exitItem }
         }
     };
     tray.Show();

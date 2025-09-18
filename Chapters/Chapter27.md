@@ -70,7 +70,7 @@ Contribute high‑quality pull requests
 - Keep scope focused and change sets small. Smaller PRs review faster and are easier to merge.
 - Add tests in [tests](https://github.com/AvaloniaUI/Avalonia/tree/master/tests) that cover the fix or feature. Tests protect your change and prevent regressions.
 - Follow project guidance:
-  - <mcfile name="CONTRIBUTING.md" path="/Users/wieslawsoltes/GitHub/AvaloniaBook/external/Avalonia/CONTRIBUTING.md"></mcfile>
+- [CONTRIBUTING.md](https://github.com/AvaloniaUI/Avalonia/blob/master/CONTRIBUTING.md)
   - Match coding style and file organization used in neighboring files.
 - Explain your approach in the PR description, reference related issues, and call out trade‑offs or follow‑ups.
 - Be responsive to review feedback; maintainers and contributors are collaborators.

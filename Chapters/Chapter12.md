@@ -82,16 +82,31 @@ public class NameDialog : Window
     {
         Title = "Enter name";
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Content = new StackPanel { Margin = new Thickness(16), Children =
+        var okButton = new Button { Content = "OK", IsDefault = true };
+        okButton.Click += (_, __) =>
         {
-            new TextBlock { Text = "Name:" },
-            _name,
-            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children =
+            EnteredName = _name.Text;
+            Close(true);
+        };
+
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true };
+        cancelButton.Click += (_, __) => Close(false);
+
+        Content = new StackPanel
+        {
+            Margin = new Thickness(16),
+            Children =
             {
-                new Button { Content = "OK", IsDefault = true, Command = ReactiveCommand.Create(() => { EnteredName = _name.Text; Close(true); }) },
-                new Button { Content = "Cancel", IsCancel = true, Command = ReactiveCommand.Create(() => Close(false)) }
-            }}
-        }};
+                new TextBlock { Text = "Name:" },
+                _name,
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children = { okButton, cancelButton }
+                }
+            }
+        };
     }
 }
 

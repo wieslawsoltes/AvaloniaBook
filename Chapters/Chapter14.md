@@ -84,33 +84,17 @@ Simple pattern using a sentinel “Load more” item
 
 ```xml
 <ListBox Items="{Binding PagedItems}">
-  <ListBox.ItemTemplate>
-    <DataTemplate x:DataType="vm:ItemOrCommand">
-      <ContentControl>
-        <ContentControl.Styles>
-          <Style Selector="ContentControl:has(^vm|LoadMore)">
-            <Setter Property="ContentTemplate">
-              <Setter.Value>
-                <DataTemplate>
-                  <Button Command="{Binding DataContext.LoadMoreCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                          Content="Load more…"/>
-                </DataTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-          <Style Selector="ContentControl:has(^vm|Item)">
-            <Setter Property="ContentTemplate">
-              <Setter.Value>
-                <DataTemplate>
-                  <TextBlock Text="{Binding Title}"/>
-                </DataTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </ContentControl.Styles>
-      </ContentControl>
+  <ListBox.Resources>
+    <DataTemplate DataType="vm:Item">
+      <TextBlock Text="{Binding Title}"/>
     </DataTemplate>
-  </ListBox.ItemTemplate>
+
+    <DataTemplate DataType="vm:LoadMore">
+      <Button Content="Load more…"
+              HorizontalAlignment="Left"
+              Command="{Binding DataContext.LoadMoreCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+    </DataTemplate>
+  </ListBox.Resources>
 </ListBox>
 ```
 
