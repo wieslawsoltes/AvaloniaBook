@@ -1,283 +1,334 @@
 # 12. Navigation, windows, and lifetimes
 
 Goal
-- Learn how Avalonia apps start and keep running across platforms, how to create and manage windows on desktop, and simple navigation patterns that work for both desktop (multi-window) and mobile/web (single view) apps.
+- Understand how Avalonia lifetimes (desktop, single-view, browser) drive app startup and shutdown.
+- Manage windows: main, owned, modal, dialogs; persist placement; respect multiple screens.
+- Implement navigation patterns (content swapping, navigation services, transitions) that work across platforms.
+- Leverage `TopLevel` services (clipboard, storage, screens) from view models via abstractions.
 
 Why this matters
-- Understanding lifetimes ensures your app starts, navigates, and shuts down reliably on each platform.
-- Good windowing and navigation patterns reduce coupling and make features easier to test and evolve.
+- Predictable navigation and windowing keep apps maintainable on desktop, mobile, and web.
+- Lifetimes differ per platform; knowing them prevents "works on Windows, fails on Android" surprises.
+- Services like file pickers or clipboard should be accessible through MVVM-friendly patterns.
 
 Prerequisites
-- Chapters 4 (startup), 8 (bindings), and 11 (MVVM patterns)
+- Chapter 4 (AppBuilder and lifetimes), Chapter 11 (MVVM patterns), Chapter 16 (storage) is referenced later.
 
-What you’ll build
-- A desktop app with a main window, an About dialog (modal), and a basic page switcher.
-- A single-view setup (mobile/web) that hosts pages inside a single root view.
+## 1. Lifetimes recap
 
-1) App lifetimes at a glance
-- ClassicDesktopStyleApplicationLifetime (desktop):
-  - You set MainWindow, can open multiple windows, and control shutdown behavior.
-- SingleViewApplicationLifetime (mobile/web):
-  - You provide a single root view (MainView). No Window instances; navigation happens inside that view.
+| Lifetime | Use case | Entry method |
+| --- | --- | --- |
+| `ClassicDesktopStyleApplicationLifetime` | Windows/macOS/Linux windowed apps | `StartWithClassicDesktopLifetime(args)` |
+| `SingleViewApplicationLifetime` | Mobile (Android/iOS), embedded | `StartWithSingleViewLifetime(view)` |
+| `BrowserSingleViewLifetime` | WebAssembly | `BrowserAppBuilder` setup |
 
-Init both from App.OnFrameworkInitializationCompleted
+`App.OnFrameworkInitializationCompleted` should handle all lifetimes:
+
 ```csharp
 public override void OnFrameworkInitializationCompleted()
 {
+    var services = ConfigureServices();
+
     if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
     {
-        desktop.MainWindow = new MainWindow
-        {
-            DataContext = new ShellViewModel()
-        };
-        // Optional: choose how the app shuts down
-        desktop.ShutdownMode = ShutdownMode.OnLastWindowClose; // or OnMainWindowClose / OnExplicitShutdown
+        var shell = services.GetRequiredService<MainWindow>();
+        desktop.MainWindow = shell;
+
+        // optional: intercept shutdown
+        desktop.ShutdownMode = ShutdownMode.OnLastWindowClose;
     }
     else if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
     {
-        singleView.MainView = new ShellView // a UserControl
-        {
-            DataContext = new ShellViewModel()
-        };
+        singleView.MainView = services.GetRequiredService<ShellView>();
     }
 
     base.OnFrameworkInitializationCompleted();
 }
 ```
 
-2) Windows on desktop: main, owned, and modal
+When targeting browser, use `BrowserAppBuilder` with `SetupBrowserApp`.
 
-2.1 Creating another window
+## 2. Desktop windows in depth
+
+### 2.1 Creating a main window with MVVM
+
 ```csharp
-public class AboutWindow : Window
+public partial class MainWindow : Window
+{
+    public MainWindow()
+    {
+        InitializeComponent();
+        Opened += (_, _) => RestorePlacement();
+        Closing += (_, e) => SavePlacement();
+    }
+
+    private const string PlacementKey = "MainWindowPlacement";
+
+    private void RestorePlacement()
+    {
+        if (LocalSettings.TryReadWindowPlacement(PlacementKey, out var placement))
+        {
+            Position = placement.Position;
+            Width = placement.Size.Width;
+            Height = placement.Size.Height;
+        }
+    }
+
+    private void SavePlacement()
+    {
+        LocalSettings.WriteWindowPlacement(PlacementKey, new WindowPlacement
+        {
+            Position = Position,
+            Size = new Size(Width, Height)
+        });
+    }
+}
+```
+
+`LocalSettings` is a simple persistence helper (file or user settings). Persisting placement keeps UX consistent.
+
+### 2.2 Owned windows, modal vs modeless
+
+```csharp
+public sealed class AboutWindow : Window
 {
     public AboutWindow()
     {
         Title = "About";
-        Width = 400; Height = 220;
+        Width = 360;
+        Height = 200;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Content = new TextBlock { Text = "My App v1.0", Margin = new Thickness(16) };
+        Content = new TextBlock { Margin = new Thickness(16), Text = "My App v1.0" };
     }
+}
+
+// From main window or service
+public Task ShowAboutDialogAsync(Window owner)
+    => new AboutWindow { Owner = owner }.ShowDialog(owner);
+```
+
+Modeless window:
+
+```csharp
+var tool = new ToolWindow { Owner = this };
+tool.Show();
+```
+
+Always set `Owner` so modal blocks correctly and centering works.
+
+### 2.3 Multiple screens & placement
+
+Use `Screens` service from `TopLevel`:
+
+```csharp
+var topLevel = TopLevel.GetTopLevel(this);
+if (topLevel?.Screens is { } screens)
+{
+    var screen = screens.ScreenFromPoint(Position);
+    var workingArea = screen.WorkingArea;
+    Position = new PixelPoint(workingArea.X, workingArea.Y);
 }
 ```
 
-2.2 Showing non-modal vs modal
-```csharp
-// Non-modal (does not block owner)
-var about = new AboutWindow { Owner = this }; // 'this' is a Window
-about.Show();
+`Screens` live under [`Avalonia.Controls/Screens.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Screens.cs).
 
-// Modal (blocks owner, returns when closed)
-var resultTask = new AboutWindow { Owner = this }.ShowDialog(this);
-await resultTask; // continues after dialog closes
-```
+### 2.4 Prevent closing with unsaved changes
 
-2.3 Returning data from a dialog
 ```csharp
-public class NameDialog : Window
+Closing += async (sender, e) =>
 {
-    private readonly TextBox _name = new();
-    public string? EnteredName { get; private set; }
-    public NameDialog()
+    if (DataContext is ShellViewModel vm && vm.HasUnsavedChanges)
     {
-        Title = "Enter name";
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        var okButton = new Button { Content = "OK", IsDefault = true };
-        okButton.Click += (_, __) =>
-        {
-            EnteredName = _name.Text;
-            Close(true);
-        };
-
-        var cancelButton = new Button { Content = "Cancel", IsCancel = true };
-        cancelButton.Click += (_, __) => Close(false);
-
-        Content = new StackPanel
-        {
-            Margin = new Thickness(16),
-            Children =
-            {
-                new TextBlock { Text = "Name:" },
-                _name,
-                new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 8,
-                    Children = { okButton, cancelButton }
-                }
-            }
-        };
+        var confirm = await MessageBox.ShowAsync(this, "Unsaved changes", "Exit without saving?", MessageBoxButtons.YesNo);
+        if (!confirm)
+            e.Cancel = true;
     }
-}
+};
+```
 
-// Usage (in a Window)
-var dlg = new NameDialog { Owner = this };
-var ok = await dlg.ShowDialog<bool>(this);
-if (ok)
+Implement `MessageBox` yourself or using Avalonia.MessageBox community package.
+
+## 3. Navigation patterns
+
+### 3.1 Content control navigation (shared for desktop & mobile)
+
+```csharp
+public sealed class NavigationService : INavigationService
 {
-    var name = dlg.EnteredName;
-    // use name
+    private readonly IServiceProvider _services;
+    private object? _current;
+
+    public object? Current
+    {
+        get => _current;
+        private set => _current = value;
+    }
+
+    public NavigationService(IServiceProvider services)
+        => _services = services;
+
+    public void NavigateTo<TViewModel>() where TViewModel : class
+        => Current = _services.GetRequiredService<TViewModel>();
 }
 ```
 
-Tips
-- Always set Owner for child windows so modality/centering behave as expected.
-- Use ShowDialog for blocking flows (confirmations, wizards), Show for tool windows.
+`ShellViewModel` coordinates navigation:
 
-3) Simple navigation patterns that scale
-
-3.1 View-model–first shell (works for desktop and single-view)
 ```csharp
 public sealed class ShellViewModel : ObservableObject
 {
-    private object _current;
-    public object Current { get => _current; set => SetProperty(ref _current, value); }
+    private readonly INavigationService _navigationService;
+    public object? Current => _navigationService.Current;
 
     public RelayCommand GoHome { get; }
     public RelayCommand GoSettings { get; }
 
-    public ShellViewModel()
+    public ShellViewModel(INavigationService navigationService)
     {
-        var home = new HomeViewModel();
-        var settings = new SettingsViewModel();
-        _current = home;
-        GoHome = new RelayCommand(_ => Current = home);
-        GoSettings = new RelayCommand(_ => Current = settings);
+        _navigationService = navigationService;
+        GoHome = new RelayCommand(_ => _navigationService.NavigateTo<HomeViewModel>());
+        GoSettings = new RelayCommand(_ => _navigationService.NavigateTo<SettingsViewModel>());
+        _navigationService.NavigateTo<HomeViewModel>();
     }
 }
 ```
 
+Bind in view:
+
 ```xml
-<!-- ShellView.axaml (UserControl used for both desktop MainWindow content and single-view MainView) -->
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <DockPanel>
-    <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Top" Margin="8">
-      <Button Content="Home" Command="{Binding GoHome}"/>
-      <Button Content="Settings" Command="{Binding GoSettings}"/>
-    </StackPanel>
-    <ContentControl Content="{Binding Current}"/>
-  </DockPanel>
+<DockPanel>
+  <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8">
+    <Button Content="Home" Command="{Binding GoHome}"/>
+    <Button Content="Settings" Command="{Binding GoSettings}"/>
+  </StackPanel>
+  <TransitioningContentControl Content="{Binding Current}">
+    <TransitioningContentControl.Transitions>
+      <PageSlide Transition="{Transitions:Slide FromRight}" Duration="0:0:0.2"/>
+    </TransitioningContentControl.Transitions>
+  </TransitioningContentControl>
+</DockPanel>
+```
+
+`TransitioningContentControl` (from `Avalonia.Controls`) adds page transitions. Source: [`TransitioningContentControl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TransitioningContentControl.cs).
+
+### 3.2 View mapping via DataTemplates
+
+Register view-model-to-view templates (Chapter 11 showed details). Example snippet:
+
+```xml
+<Application.DataTemplates>
+  <DataTemplate DataType="{x:Type vm:HomeViewModel}">
+    <views:HomeView />
+  </DataTemplate>
+  <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+    <views:SettingsView />
+  </DataTemplate>
+</Application.DataTemplates>
+```
+
+### 3.3 Dialog service abstraction
+
+Expose a dialog API from view models without referencing `Window`:
+
+```csharp
+public interface IDialogService
+{
+    Task<bool> ShowConfirmationAsync(string title, string message);
+}
+
+public sealed class DialogService : IDialogService
+{
+    private readonly Window _owner;
+    public DialogService(Window owner) => _owner = owner;
+
+    public async Task<bool> ShowConfirmationAsync(string title, string message)
+    {
+        var dialog = new ConfirmationWindow(title, message) { Owner = _owner };
+        return await dialog.ShowDialog<bool>(_owner);
+    }
+}
+```
+
+Register a per-window dialog service in DI. For single-view scenarios, use `TopLevel.GetTopLevel(control)` to retrieve the root and use `StorageProvider` or custom dialogs.
+
+## 4. Single-view navigation (mobile/web)
+
+For `ISingleViewApplicationLifetime`, use a root `UserControl` (e.g., `ShellView`) with the same `TransitioningContentControl` pattern. Keep navigation inside that control.
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui" x:Class="MyApp.Views.ShellView">
+  <TransitioningContentControl Content="{Binding Current}"/>
 </UserControl>
 ```
 
-3.2 Mapping ViewModels to Views via DataTemplates
-```xml
-<!-- App.axaml -->
-<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Application.DataTemplates>
-    <DataTemplate DataType="{x:Type vm:HomeViewModel}" xmlns:vm="clr-namespace:MyApp.ViewModels" xmlns:v="clr-namespace:MyApp.Views">
-      <v:HomeView/>
-    </DataTemplate>
-    <DataTemplate DataType="{x:Type vm:SettingsViewModel}" xmlns:vm="clr-namespace:MyApp.ViewModels" xmlns:v="clr-namespace:MyApp.Views">
-      <v:SettingsView/>
-    </DataTemplate>
-  </Application.DataTemplates>
-</Application>
-```
+From view models, use `INavigationService` as before; the lifetime determines whether a window or root view hosts the content.
 
-Note: If you’re using ReactiveUI, you can also adopt its Router + RoutedViewHost (see Chapter 11).
+## 5. TopLevel services: clipboard, storage, screens
 
-4) Closing, shutdown, and lifetime APIs
+`TopLevel.GetTopLevel(control)` returns the hosting top-level (Window or root). Useful for services.
 
-4.1 Window closing and cancel
+### 5.1 Clipboard
+
 ```csharp
-// In a Window constructor
-this.Closing += (s, e) =>
+var topLevel = TopLevel.GetTopLevel(control);
+if (topLevel?.Clipboard is { } clipboard)
 {
-    if (HasUnsavedChanges)
-    {
-        // Ask the user and optionally cancel
-        // e.Cancel = true; // keep window open
-    }
-};
-```
-
-4.2 Controlling application shutdown (desktop)
-```csharp
-if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-{
-    desktop.ShutdownMode = ShutdownMode.OnMainWindowClose; // Or OnLastWindowClose / OnExplicitShutdown
-    // Later, when appropriate
-    // desktop.Shutdown();
+    await clipboard.SetTextAsync("Copied text");
 }
 ```
 
-Single-view apps don’t manage process shutdown directly—platforms (mobile/web) handle lifecycle; navigate back or update the root view instead of closing windows.
+Clipboard API defined in [`IClipboard`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/Platform/IClipboard.cs).
 
-5) File dialogs and pickers
+### 5.2 Storage provider
 
-5.1 Classic file dialogs (desktop)
-```csharp
-var ofd = new OpenFileDialog
-{
-    AllowMultiple = false,
-    Filters =
-    {
-        new FileDialogFilter { Name = "Text", Extensions = { "txt", "md" } },
-        new FileDialogFilter { Name = "All", Extensions = { "*" } }
-    }
-};
-var files = await ofd.ShowAsync(this); // 'this' is a Window
-if (files?.Length > 0)
-{
-    var path = files[0];
-    // open file
-}
-```
+Works in both desktop and single-view (browser has OS limitations):
 
 ```csharp
-var sfd = new SaveFileDialog
+var topLevel = TopLevel.GetTopLevel(control);
+if (topLevel?.StorageProvider is { } sp)
 {
-    InitialFileName = "document.txt",
-    Filters = { new FileDialogFilter { Name = "Text", Extensions = { "txt" } } }
-};
-var path = await sfd.ShowAsync(this);
-if (!string.IsNullOrEmpty(path))
-{
-    // save file
-}
-```
-
-5.2 Cross‑platform storage provider (works in single‑view)
-```csharp
-var top = TopLevel.GetTopLevel(this); // from a Control
-if (top?.StorageProvider is { } sp)
-{
-    var results = await sp.OpenFilePickerAsync(new FilePickerOpenOptions
+    var file = (await sp.OpenFilePickerAsync(new FilePickerOpenOptions
     {
         AllowMultiple = false,
         FileTypeFilter = new[] { FilePickerFileTypes.TextPlain }
-    });
-    var file = results.FirstOrDefault();
-    if (file is not null)
-    {
-        await using var stream = await file.OpenReadAsync();
-        // read stream
-    }
+    })).FirstOrDefault();
 }
 ```
 
-6) Cross‑platform guidelines
-- Desktop: prefer windows for tools and modal flows; keep ownership set and use CenterOwner.
-- Mobile/web (single‑view): keep everything in a single root view; navigate by swapping ViewModels in a ContentControl.
-- Shared code: keep services (dialogs, storage) behind interfaces so ViewModels don’t depend on Window.
+### 5.3 Screens info
 
-Look under the hood (source)
-- Window class: [Avalonia.Controls/Window.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Window.cs)
-- Classic desktop lifetime: [Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs)
-- Single‑view lifetime: [Avalonia.Controls/ApplicationLifetimes/SingleViewApplicationLifetime.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/SingleViewApplicationLifetime.cs)
-- Open/Save dialogs: [Avalonia.Controls](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls)
+`topLevel!.Screens` provides monitor layout. Use for placing dialogs on active monitor or respecting working area.
 
-Check yourself
-- What’s the difference between ClassicDesktopStyleApplicationLifetime and SingleViewApplicationLifetime?
-- When should you use Show vs ShowDialog?
-- How do DataTemplates enable view‑model–first navigation?
-- Where would you set ShutdownMode and why?
+## 6. Browser (WebAssembly) considerations
 
-Extra practice
-- Add a Settings dialog to your app that returns a result and updates the main view.
-- Implement a shell with three pages and keyboard shortcuts for navigation.
-- Replace OpenFileDialog with the StorageProvider API and make it work in a single‑view setup.
+Use `BrowserAppBuilder` and `BrowserSingleViewLifetime`:
 
-What’s next
+```csharp
+public static void Main(string[] args)
+    => BuildAvaloniaApp().SetupBrowserApp("app");
+```
+
+Use `TopLevel.StorageProvider` for limited file access (via JavaScript APIs). Use JS interop for features missing from storage provider.
+
+## 7. Practice exercises
+
+1. Persist window placement, including maximized state, and restore on startup.
+2. Implement a navigation history stack (back/forward) using a `Stack<object>` alongside `Current` binding.
+3. Create a dialog service that exposes file open dialogs via `StorageProvider` and unit test the abstraction.
+4. Detect the active screen and center modals on that screen, even when the main window spans monitors.
+5. Implement transitions that differ per platform (e.g., slide on mobile, fade on desktop) by injecting transition providers.
+
+## Look under the hood (source bookmarks)
+- Window management: [`Window.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Window.cs)
+- Lifetimes: [`ClassicDesktopStyleApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs), [`SingleViewApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/SingleViewApplicationLifetime.cs)
+- TopLevel services: [`TopLevel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TopLevel.cs)
+- Transitioning content: [`TransitioningContentControl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TransitioningContentControl.cs)
+
+## Check yourself
+- How does `ClassicDesktopStyleApplicationLifetime` differ from `SingleViewApplicationLifetime` when showing windows?
+- When should you use `Show` vs `ShowDialog`? Why set `Owner`?
+- How do `TransitioningContentControl` and DataTemplates enable platform-neutral navigation?
+- Which `TopLevel` service would you use to access the clipboard or file picker from a view model?
+
+What's next
 - Next: [Chapter 13](Chapter13.md)

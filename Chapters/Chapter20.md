@@ -1,23 +1,40 @@
 # 20. Browser (WebAssembly) target
 
 Goal
-- Build and run your Avalonia app in the browser using WebAssembly
-- Understand startup with StartBrowserAppAsync and the single-view lifetime
-- Choose rendering modes (WebGL2/WebGL1/Software2D) and know web-specific limits
+- Run your Avalonia app in the browser using WebAssembly (WASM) with minimal changes to shared code.
+- Understand browser-specific lifetimes, hosting options, rendering modes, and platform limitations (files, networking, threading).
+- Debug, package, and deploy a browser build with confidence.
 
 Why this matters
-Running in the browser lets you reuse your UI and logic without installing native apps. It’s perfect for demos, admin screens, and tools. The browser has different rules (security, file access, multi-window) and you’ll make better design choices if you know them.
+- Web delivery eliminates install friction for demos, tooling, and dashboards.
+- Browser rules (sandboxing, CORS, user gestures) require tweaks compared to desktop/mobile.
 
-Quick start: StartBrowserAppAsync
-In the browser, Avalonia runs with a single-view lifetime and renders into a specific HTML element by id. The simplest startup creates and attaches a view for you.
+Prerequisites
+- Chapter 19 (single-view navigation), Chapter 16 (storage provider), Chapter 17 (async/networking).
 
-Program.cs
+## 1. Project structure and setup
+
+Install `wasm-tools` workload:
+
+```bash
+sudo dotnet workload install wasm-tools
+```
+
+A multi-target solution has:
+- Shared project (`MyApp`): Avalonia code.
+- Browser head (`MyApp.Browser`): hosts the app (Program.cs, index.html, static assets).
+
+Avalonia template (`dotnet new avalonia.app --multiplatform`) can create the browser head for you.
+
+## 2. Start the browser app
+
+`StartBrowserAppAsync` attaches Avalonia to a DOM element by ID.
 
 ```csharp
 using Avalonia;
 using Avalonia.Browser;
 
-internal class Program
+internal sealed class Program
 {
     private static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
@@ -26,120 +43,158 @@ internal class Program
 
     public static Task Main(string[] args)
         => BuildAvaloniaApp()
-            .StartBrowserAppAsync("out"); // attaches to <div id="out"></div>
+            .StartBrowserAppAsync("out");
 }
 ```
 
-HTML host (conceptual)
+Ensure host HTML contains `<div id="out"></div>`.
 
-```html
-<body>
-  <div id="out"></div>
-</body>
+For advanced embedding, use `SetupBrowserAppAsync` to control when/where you attach views.
+
+## 3. Single view lifetime
+
+Browser uses `ISingleViewApplicationLifetime` (same as mobile). Configure in `App.OnFrameworkInitializationCompleted`:
+
+```csharp
+public override void OnFrameworkInitializationCompleted()
+{
+    if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
+        singleView.MainView = new ShellView { DataContext = new ShellViewModel() };
+    else if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        desktop.MainWindow = new MainWindow { DataContext = new ShellViewModel() };
+
+    base.OnFrameworkInitializationCompleted();
+}
 ```
 
-Note: In real projects the template sets up the host page and static assets for you. The important part is that an element with id="out" exists.
+Navigation patterns from Chapter 19 apply (content control with back stack).
 
-Rendering modes and options
-You can pick renderers and configure web-specific behaviors via BrowserPlatformOptions.
+## 4. Rendering options
+
+Configure `BrowserPlatformOptions` to choose rendering mode and polyfills.
 
 ```csharp
 await BuildAvaloniaApp().StartBrowserAppAsync(
     "out",
     new BrowserPlatformOptions
     {
-        // Try WebGL2, then WebGL1, then fallback to Software2D
         RenderingMode = new[]
         {
             BrowserRenderingMode.WebGL2,
             BrowserRenderingMode.WebGL1,
             BrowserRenderingMode.Software2D
         },
-
-        // Register a service worker used for save-file polyfill (optional)
         RegisterAvaloniaServiceWorker = true,
         AvaloniaServiceWorkerScope = "/",
-
-        // Force using the file dialog polyfill even if native is available
         PreferFileDialogPolyfill = false,
-
-        // Use a managed dispatcher on a worker thread when WASM threads are enabled
-        PreferManagedThreadDispatcher = true,
+        PreferManagedThreadDispatcher = true
     });
 ```
 
-- RenderingMode: a priority list, first supported value wins (best performance: WebGL2).
-- RegisterAvaloniaServiceWorker/AvaloniaServiceWorkerScope: enables a service worker used by the save file polyfill on browsers without a native File System Access API.
-- PreferFileDialogPolyfill: forces use of the “native-file-system-adapter” polyfill even if a native API is present.
-- PreferManagedThreadDispatcher: when WASM threads are enabled, run the dispatcher on a worker thread for responsiveness.
+- WebGL2: best performance (default when supported).
+- WebGL1: fallback for older browsers.
+- Software2D: ultimate fallback (slower).
+- Service worker: required for save-file polyfill; serve over HTTPS/localhost.
+- `PreferManagedThreadDispatcher`: run dispatcher on worker thread when WASM threading enabled (requires server sending COOP/COEP headers).
 
-Alternative: SetupBrowserAppAsync (advanced)
-SetupBrowserAppAsync loads the browser backend without creating a view. This is useful for custom embedding scenarios; most apps should use StartBrowserAppAsync.
+## 5. Storage and file dialogs
 
-Single view lifetime on the web
-Avalonia uses ISingleViewApplicationLifetime in the browser. In App.OnFrameworkInitializationCompleted, set MainView like you do for mobile:
+`IStorageProvider` uses the File System Access API when available; otherwise a polyfill (service worker + download anchor) handles saves.
+
+Limitations:
+- Browsers require user gestures (click) to open dialogs.
+- File handles may not persist between sessions; use IDs and re-request access if needed.
+- No direct file system access outside the user-chosen handles.
+
+Example save using polyfill-friendly code (Chapter 16 shows full pattern). Test with/without service worker to ensure both paths work.
+
+## 6. Clipboard & drag-drop
+
+Clipboard operations require user gestures and may only support text formats.
+- `Clipboard.SetTextAsync` works after user interaction (button click).
+- Advanced formats require clipboard permissions or aren't supported.
+
+Drag/drop from browser to app is supported, but dragging files out of the app is limited by browser APIs.
+
+## 7. Networking & CORS
+
+- HttpClient uses `fetch`. All requests obey CORS. Configure server with correct `Access-Control-Allow-*` headers.
+- WebSockets supported via `ClientWebSocket` if server enables them.
+- HTTPS recommended; some APIs (clipboard, file access) require secure context.
+
+## 8. JavaScript interop
+
+Call JS via `window.JSObject` or `JSRuntime` helpers (Avalonia.Browser exposes interop helpers). Example:
 
 ```csharp
-public override void OnFrameworkInitializationCompleted()
-{
-    if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
-    {
-        singleView.MainView = new MainView
-        {
-            DataContext = new MainViewModel()
-        };
-    }
+using Avalonia.Browser.Interop;
 
-    base.OnFrameworkInitializationCompleted();
-}
+await JSRuntime.InvokeVoidAsync("console.log", "Hello from Avalonia");
 ```
 
-Storage and file dialogs in the browser
-- Use IStorageProvider for open/save/folder pickers. On supported browsers Avalonia uses the File System Access API; otherwise it uses a polyfill with a service worker to enable saving.
-- Browsers require a secure context (HTTPS or localhost) for advanced file APIs. Expect different UX than desktop.
+Use interop to integrate with existing web components or to access Web APIs not wrapped by Avalonia.
 
-Networking and CORS
-- Browser networking follows CORS rules. If your API doesn’t set the right headers, requests can be blocked.
-- Use HTTPS and correct Access-Control-Allow-* headers on your server; the browser controls what’s allowed, not Avalonia.
+## 9. Hosting in Blazor (optional)
 
-Platform capabilities and limitations
-- Windows & menus: Browser runs with a single view; native menus/tray icons, system dialogs, and OS integrations are not available.
-- Input and focus: Works with keyboard, mouse, touch; clipboard access is gated by browser rules and user gestures.
-- Graphics: WebGL2 is fastest; WebGL1 is a fallback; Software2D is a last resort and is slower.
-- Local files: You don’t have broad file system access; always go through IStorageProvider.
-- Threads: WASM threads require explicit hosting support and appropriate headers; if unavailable the app runs single-threaded.
+`Avalonia.Browser.Blazor` lets you embed Avalonia controls in a Blazor app. Example sample: `ControlCatalog.Browser.Blazor`. Use when you need Blazor's routing/layout but Avalonia UI inside components.
 
-Blazor hosting option
-You can host Avalonia inside a Blazor app using Avalonia.Browser.Blazor. This is handy when you need existing Blazor routing/layout with embedded Avalonia UI. See the ControlCatalog.Browser.Blazor sample for a working project structure.
+## 10. Debugging
 
-Troubleshooting
-- Blank page: Verify the div id matches StartBrowserAppAsync("...") and that the static assets are served. Check the browser console for module load errors.
-- WebGL errors or poor performance: Ensure your GPU/browser supports WebGL2; try WebGL1 fallback or Software2D.
-- Save file doesn’t work: Enable the service worker option, serve over HTTPS/localhost, and verify the polyfill is allowed by the browser.
-- CORS failures: Fix server headers; the browser blocks disallowed cross-origin requests.
+- Inspector: use browser devtools (F12). Evaluate DOM, watch console logs.
+- Source maps: publish with `dotnet publish -c Debug` to get wasm debugging symbols for supported browsers.
+- Logging: `AppBuilder.LogToTrace()` outputs to console.
+- Performance: use Performance tab to profile frames, memory, CPU.
 
-Exercise
-1) Add a browser head to your app and wire StartBrowserAppAsync("out").
-2) Configure RenderingMode to try WebGL2→WebGL1→Software2D and verify the app runs on at least two different browsers.
-3) Implement an Export button using IStorageProvider to test the save polyfill with and without the service worker.
+## 11. Deployment
 
-Look under the hood
-- Browser startup and options: BrowserAppBuilder
-  [Avalonia.Browser/BrowserAppBuilder.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserAppBuilder.cs)
-- Single view lifetime (browser): BrowserSingleViewLifetime
-  [Avalonia.Browser/BrowserSingleViewLifetime.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserSingleViewLifetime.cs)
-- ControlCatalog browser sample (Program.cs)
-  [samples/ControlCatalog.Browser/Program.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/samples/ControlCatalog.Browser/Program.cs)
-- Input/keyboard pane for browser
-  [Avalonia.Browser/BrowserInputPane.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserInputPane.cs)
-- Insets/safe areas for browser
-  [Avalonia.Browser/BrowserInsetsManager.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserInsetsManager.cs)
-- Storage provider and polyfill
-  [Avalonia.Browser/Storage/BrowserStorageProvider.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/Storage/BrowserStorageProvider.cs)
-- Platform settings (browser)
-  [Avalonia.Browser/BrowserPlatformSettings.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserPlatformSettings.cs)
-- Blazor hosting
-  [Avalonia.Browser.Blazor](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Browser/Avalonia.Browser.Blazor)
+Publish the browser head:
 
-What’s next
+```bash
+cd MyApp.Browser
+# Debug
+dotnet run
+# Release bundle
+dotnet publish -c Release
+```
+
+Output under `bin/Release/net8.0/browser-wasm/AppBundle`. Serve via static web server (ASP.NET, Node, Nginx, GitHub Pages). Ensure service worker scope matches hosting path.
+
+Remember to enable compression (Brotli) for faster load times.
+
+## 12. Platform limitations
+
+| Feature | Browser behavior |
+| --- | --- |
+| Windows/Dialogs | Single view only; no OS windows, tray icons, native menus |
+| File system | User-selection only via pickers; no arbitrary file access |
+| Threading | Multi-threaded WASM requires server headers (COOP/COEP) and browser support |
+| Clipboard | Requires user gesture; limited formats |
+| Notifications | Use Web Notifications API via JS interop |
+| Storage | LocalStorage/IndexedDB via JS interop for persistence |
+
+Design for progressive enhancement: provide alternative flows if feature unsupported.
+
+## 13. Practice exercises
+
+1. Add a browser head and run the app in Chrome/Firefox, verifying rendering fallbacks.
+2. Implement file export via `IStorageProvider` and test save polyfill with service worker enabled/disabled.
+3. Add logging to report `BrowserPlatformOptions.RenderingMode` and `ActualTransparencyLevel` (should be `None`).
+4. Integrate a JavaScript API (e.g., Web Notifications) via interop and show a notification after user action.
+5. Publish a release build and deploy to a static host (GitHub Pages or local web server), verifying service worker scope.
+
+## Look under the hood (source bookmarks)
+- Browser app builder: [`BrowserAppBuilder.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserAppBuilder.cs)
+- Browser lifetime: [`BrowserSingleViewLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserSingleViewLifetime.cs)
+- Browser storage provider: [`BrowserStorageProvider.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/Storage/BrowserStorageProvider.cs)
+- Input pane & insets: [`BrowserInputPane.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserInputPane.cs), [`BrowserInsetsManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserInsetsManager.cs)
+- Blazor integration: [`Avalonia.Browser.Blazor`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Browser/Avalonia.Browser.Blazor)
+
+## Check yourself
+- How do you configure rendering fallbacks for the browser target?
+- What limitations exist for file access and how does the polyfill help?
+- Which headers or hosting requirements enable WASM multi-threading? Why might you set `PreferManagedThreadDispatcher`?
+- How do CORS rules affect HttpClient calls in the browser?
+- What deployment steps are required to serve a browser bundle with service worker support?
+
+What's next
 - Next: [Chapter 21](Chapter21.md)

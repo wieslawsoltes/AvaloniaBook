@@ -1,103 +1,141 @@
 # 27. Read the source, contribute, and grow
 
-This final chapter is an invitation to go beyond this book. Reading real framework code deepens your understanding, contributing makes you a better engineer, and engaging with the community helps you stay current and grow.
+Goal
+- Navigate the Avalonia repo confidently, understand how to build/test locally, and contribute fixes, features, docs, or samples.
+- Step into framework sources while debugging your app, and know how to file issues or PRs effectively.
+- Stay engaged with the community to keep learning.
 
-What you’ll learn in this chapter
-- How to navigate the Avalonia source tree and build it locally
-- Where to look in the code when you want to understand a feature
-- Practical tips for stepping into framework sources while debugging your app
-- How to file great issues and contribute high‑quality pull requests
-- How to contribute to documentation and samples
-- Ways to stay involved and keep learning
+Why this matters
+- Framework knowledge deepens your debugging skills and shapes better app architecture.
+- Contributions improve the ecosystem and strengthen your expertise.
 
-Why read the source
-- Solidify mental models: reading implementation details clarifies how layout, input, rendering, and styling actually work in practice.
-- Improve debugging: once you know where code lives, you can step into it confidently and diagnose tricky problems.
-- Contribute fixes and features: you’ll be able to propose targeted improvements with realistic scope.
+Prerequisites
+- Familiarity with Git, .NET tooling (`dotnet build/publish/test`).
 
-Tour the repository (what to look for)
-- Core sources and platform code
-  - [src](https://github.com/AvaloniaUI/Avalonia/tree/master/src)
-  - You’ll find core assemblies (e.g., Base, Controls, Diagnostics, Skia, etc.) here. Browse folders to see how subsystems are organized.
-- Tests
-  - [tests](https://github.com/AvaloniaUI/Avalonia/tree/master/tests)
-  - Tests are a goldmine for learning: they capture expected behaviors and edge cases. When adding features or fixing bugs, add or update tests here.
-- Samples
-  - [samples](https://github.com/AvaloniaUI/Avalonia/tree/master/samples)
-  - Run and read samples (like the Control Catalog) to see idiomatic patterns and verify changes.
-- Project guidance
-  - [CONTRIBUTING.md](https://github.com/AvaloniaUI/Avalonia/blob/master/CONTRIBUTING.md)
-  - [CODE_OF_CONDUCT.md](https://github.com/AvaloniaUI/Avalonia/blob/master/CODE_OF_CONDUCT.md)
-  - [readme.md](https://github.com/AvaloniaUI/Avalonia/blob/master/readme.md)
-- Documentation site (source)
-  - [avalonia-docs/docs](https://github.com/AvaloniaUI/avalonia-docs/tree/master/docs)
-  - If you enjoy writing, this is where you can improve official docs, tutorials, and guides.
+## 1. Repository tour
 
-Build the framework locally
-- Scripts for building on your OS are in the repo root:
-  - [build.ps1](https://github.com/AvaloniaUI/Avalonia/blob/master/build.ps1)
-  - [build.sh](https://github.com/AvaloniaUI/Avalonia/blob/master/build.sh)
-  - [build.cmd](https://github.com/AvaloniaUI/Avalonia/blob/master/build.cmd)
-- You can also open the solution to explore and build individual projects:
-  - [Avalonia.sln](https://github.com/AvaloniaUI/Avalonia/blob/master/Avalonia.sln)
-- Run a sample to verify your environment:
-  - Control Catalog: [samples/ControlCatalog](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog)
+Avalonia repo:
+- Core source: [`src/`](https://github.com/AvaloniaUI/Avalonia/tree/master/src)
+  - `Avalonia.Base`, `Avalonia.Controls`, `Avalonia.Markup.Xaml`, `Avalonia.Diagnostics`, platform folders (`Android`, `iOS`, `Browser`, `Skia`).
+- Tests: [`tests/`](https://github.com/AvaloniaUI/Avalonia/tree/master/tests)
+  - Unit/integration/headless tests. Read tests to understand expected behavior and edge cases.
+- Samples: [`samples/`](https://github.com/AvaloniaUI/Avalonia/tree/master/samples)
+  - ControlCatalog, BindingDemo, ReactiveUIDemo, etc. Useful for debugging/regressions.
+- Docs: [`docs/`](https://github.com/AvaloniaUI/Avalonia/tree/master/docs) coupled with the [avalonia-docs](https://github.com/AvaloniaUI/avalonia-docs) site.
+- Contribution guidelines: [`CONTRIBUTING.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/CODE_OF_CONDUCT.md).
 
-Read with purpose: where to look for…
-- Logging and diagnostics
-  - [LoggingExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Logging/LoggingExtensions.cs)
-  - [DevToolsExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/DevTools/DevToolsExtensions.cs)
-  - [RendererDebugOverlays.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)
-- Design mode and previewing
-  - [Design.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Design/Design.cs)
-- Rendering and options
-  - Skia options and rendering backends live under Skia/ and platform rendering folders in [src](https://github.com/AvaloniaUI/Avalonia/tree/master/src).
-- Controls and styling
-  - Controls and styles are under Controls/ with templates/resources organized alongside. Tests illustrate expected styling behaviors in the tests tree.
+## 2. Building the framework locally
 
-Step into sources while debugging your app
-- Enable stepping into external code and include debug symbols for framework assemblies when possible. This lets you follow execution into Avalonia internals.
-- Start from your call site (e.g., a control event handler) and step forward to see how data flows through layout, rendering, or input.
-- Keep the DevTools open during debugging to correlate what you see in the tree/overlays with the code paths you step through.
+Scripts in repo root:
+- `build.ps1` (Windows), `build.sh` (Unix), `build.cmd`.
+- These restore NuGet packages, compile, run tests (optionally), and produce packages.
 
-File great issues (and get faster resolutions)
-- Always include a minimal repro: the smallest sample that demonstrates the bug. Link to a repository or attach a tiny project.
-- Specify platform(s), .NET version, Avalonia version, and whether the problem reproduces in Release.
-- Add screenshots or screen recordings when visual behavior is involved, and note any debug overlays or DevTools findings.
-- Be precise about expected vs. actual behavior and list steps to reproduce.
+Manual build:
 
-Contribute high‑quality pull requests
-- Keep scope focused and change sets small. Smaller PRs review faster and are easier to merge.
-- Add tests in [tests](https://github.com/AvaloniaUI/Avalonia/tree/master/tests) that cover the fix or feature. Tests protect your change and prevent regressions.
-- Follow project guidance:
-- [CONTRIBUTING.md](https://github.com/AvaloniaUI/Avalonia/blob/master/CONTRIBUTING.md)
-  - Match coding style and file organization used in neighboring files.
-- Explain your approach in the PR description, reference related issues, and call out trade‑offs or follow‑ups.
-- Be responsive to review feedback; maintainers and contributors are collaborators.
+```bash
+# Restore dependencies
+dotnet restore Avalonia.sln
 
-Contribute to documentation and samples
-- Docs live in [avalonia-docs/docs](https://github.com/AvaloniaUI/avalonia-docs/tree/master/docs). Improvements to conceptual docs, guides, and API explanations are always valuable.
-- Samples live in [samples](https://github.com/AvaloniaUI/Avalonia/tree/master/samples). New focused samples that illustrate tricky scenarios are welcomed.
-- When you fix a bug or add a feature, consider also updating docs and adding a small sample demonstrating it.
+# Build core
+cd src/Avalonia.Controls
+dotnet build -c Debug
 
-Grow with the community
-- Start by reading the project [readme.md](https://github.com/AvaloniaUI/Avalonia/blob/master/readme.md) and contribution docs to learn how the community organizes work.
-- Look for labels like “good first issue” to find beginner‑friendly tasks. If you’re unsure, ask in the issue before starting.
-- Share knowledge: blog, speak, or help answer questions in community channels listed in the repository’s README.
+# Run tests
+cd tests/Avalonia.Headless.UnitTests
+dotnet test -c Release
 
-Checklist for sustainable contributions
-- Can you reproduce the issue consistently with a minimal sample?
-- Do tests cover your change, including edge cases?
-- Did you benchmark or measure performance when relevant?
-- Did you run samples across platforms that your change touches?
-- Did you update docs and samples where appropriate?
+# Run sample
+cd samples/ControlCatalog
+ dotnet run
+```
 
-Exercise: Follow a feature from UI to rendering
-- Pick a simple visual element (e.g., Border, TextBlock) in the Control Catalog sample.
-- Set a breakpoint in your app code where you configure it.
-- Step into the framework source and trace how it measures, arranges, and renders.
-- Locate associated tests and read their assertions.
-- Make a tiny change locally (e.g., add a comment or an extra test) to practice the contribution workflow.
+Follow `docs/build.md` for environment requirements.
 
-What’s next
-- Back to [Table of Contents](../Index.md)
+## 3. Reading source with purpose
+
+Common entry points:
+- Controls/styling: `src/Avalonia.Controls/` (Control classes, templates, themes).
+- Layout: `src/Avalonia.Base/Layout/` (Measurement/arrange logic).
+- Rendering: `src/Avalonia.Base/Rendering/`, `src/Skia/Avalonia.Skia/`.
+- Input: `src/Avalonia.Base/Input/` (Pointer, keyboard, gesture recognizers).
+
+Use IDE features (Go to Definition, Find Usages) to jump between user code and framework internals.
+
+## 4. Debugging into Avalonia
+
+- Enable symbol loading for Avalonia assemblies (packaged symbols or local build).
+- In Visual Studio/Rider: enable "Allow step into external code". Add `src` folder as source path.
+- Set breakpoints in your app, step into framework code to inspect layout/renderer behavior.
+- Combine with DevTools overlays to correlate visual state with code paths.
+
+## 5. Filing issues
+
+Best practice checklist:
+- Minimal reproducible sample (GitHub repo, .zip, or steps to recreate with ControlCatalog).
+- Include platform(s), .NET version, Avalonia version, self-contained vs framework-dependent.
+- Summarize expected vs actual behavior. Provide logs (Binding/Layout/Render) or screenshot/video when relevant.
+- Tag regression vs new bug; mention if release-only or debug-only.
+
+## 6. Contributing pull requests
+
+Steps:
+1. Check CONTRIBUTING.md for branching/style.
+2. Fork repo, create feature branch.
+3. Implement change (small, focused scope).
+4. Add/update tests under `tests/` (headless tests for controls, unit tests for logic).
+5. Run `dotnet build` and `dotnet test` (possibly `build.ps1 -Target Test`).
+6. Update docs/samples if behavior changed.
+7. Submit PR with clear description, referencing issue IDs/sites.
+8. Respond to feedback promptly.
+
+### Writing tests
+- Use headless tests for visual/interaction behavior (Chapter 21 covers pattern).
+- Add regression tests for fixed bugs to prevent future breakage.
+- Consider measuring performance (BenchmarkDotNet) if change affects rendering/layout.
+
+## 7. Docs & sample contributions
+
+- Docs source: [avalonia-docs repository](https://github.com/AvaloniaUI/avalonia-docs).
+  - Submit PRs with improved content/instructions/examples.
+- Samples: add new sample to `samples/` illustrating advanced patterns or new controls.
+- Keep docs in sync with code changes for features/bug fixes.
+
+## 8. Community & learning
+
+- GitHub discussions: [AvaloniaUI discussions](https://github.com/AvaloniaUI/Avalonia/discussions).
+- Discord community: link in README.
+- Follow release notes and blog posts for new features (subscribe to repo releases).
+- Speak at meetups, write blog posts, or answer questions to grow visibility and knowledge.
+
+## 9. Sustainable contribution workflow
+
+Checklist before submitting work:
+- [ ] Reproduced issue with minimal sample.
+- [ ] Wrote or updated tests covering change.
+- [ ] Verified on all affected platforms (Windows/macOS/Linux/Mobile/Browser where applicable).
+- [ ] Performance measured if relevant.
+- [ ] Docs/samples updated.
+
+## 10. Practice exercises
+
+1. Clone Avalonia repo, run `build.ps1` (or `build.sh`), and launch ControlCatalog. Inspect the code for one control you use frequently.
+2. Set up symbol/source mapping in your IDE and step into `TextBlock` rendering while running ControlCatalog.
+3. File a sample issue in a sandbox repo (practice minimal repro). Outline expected vs actual behavior clearly.
+4. Write a headless unit test for a simple control (e.g., verifying a custom control draws expected output) and run it locally.
+5. Pick an area of docs that needs improvement (e.g., design-time tooling) and draft a doc update in the avalonia-docs repo.
+
+## Look under the hood (source bookmarks)
+- Repo root: [github.com/AvaloniaUI/Avalonia](https://github.com/AvaloniaUI/Avalonia)
+- Build scripts: [`build.ps1`](https://github.com/AvaloniaUI/Avalonia/blob/master/build.ps1), [`build.sh`](https://github.com/AvaloniaUI/Avalonia/blob/master/build.sh)
+- Issue templates: `.github/ISSUE_TEMPLATE` directory (bug/feature request).
+- PR template: `.github/pull_request_template.md`.
+
+## Check yourself
+- Where do you find tests or samples relevant to a control you're debugging?
+- How do you step into Avalonia sources from your app?
+- What makes a strong issue/PR description?
+- How can you contribute documentation or samples beyond code?
+- Which community channels help you stay informed about releases and roadmap?
+
+What's next
+- Return to [Index](../Index.md) or revisit topics as needed. Keep exploring and contributing!

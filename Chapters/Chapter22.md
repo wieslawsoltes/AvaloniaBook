@@ -1,120 +1,186 @@
 # 22. Rendering pipeline in plain words
 
 Goal
-- Understand how Avalonia turns your visual tree into pixels on screen
-- Know the core pieces: UI thread, render loop, renderer, compositor, Skia
-- Learn the few options you can safely tune (SkiaOptions, RenderOptions)
+- Understand how Avalonia turns your visual tree into frames on screen across platforms.
+- Know the responsibilities of the UI thread, render thread, compositor, renderer, and Skia.
+- Learn how to tune rendering with `SkiaOptions`, `RenderOptions`, and diagnostics tools.
 
 Why this matters
-- Performance and correctness: knowing what triggers redraws (and what doesn’t) helps you write smooth, battery‑friendly UI
-- Debugging: when frames don’t appear, knowing who is responsible saves hours
-- Confidence: you’ll recognize what is platform‑specific and what is cross‑platform by design
+- Smooth, power-efficient UI depends on understanding what triggers redraws and how Avalonia schedules work.
+- Debugging rendering glitches is easier when you know each component's role.
 
-A simple mental model
-- You manipulate a tree of Visuals (Controls are Visuals) on the UI thread
-- Changes mark parts of the scene as “dirty” and schedule work on the render loop
-- The renderer converts visuals to draw calls (Skia commands)
-- The compositor coordinates sending updates to the render thread and presents frames to a window/surface
-- Skia draws into GPU textures or CPU bitmaps; the platform presents them to the screen
+Prerequisites
+- Chapter 17 (async/background) for thread awareness, Chapter 18/19 (platform differences).
 
-What runs where (threads)
-- UI thread: you create/update controls, styles, bindings, animations, and handle input
-- Render thread: receives serialized batches of composition changes and performs GPU/Skia work, then presents
-- Separation keeps input/UI responsive even if a heavy frame is rendering
+## 1. Mental model
 
-Requesting and producing frames
-- Marking visuals dirty: controls call InvalidateVisual (protected) or update properties that affect rendering; the renderer’s queue is notified
-- The renderer implements lifecycle methods:
-  - AddDirty(Visual): a visual or region needs redraw
-  - Resized(Size): target size changed
-  - Paint(Rect): handle a paint request from the platform
-  - Start()/Stop(): hook the render loop
-- SceneInvalidated event signals that low‑level scene data changed (useful for input hit‑testing state)
+1. **UI thread** builds and updates the visual tree (`Visual`s/`Control`s). When properties change, visuals mark themselves dirty (e.g., via `InvalidateVisual`).
+2. **Compositor** batches dirty visuals, serializes changes, and schedules a render pass.
+3. **Renderer** walks the visual tree, issues drawing commands, and hands them to Skia.
+4. **Skia** rasterizes shapes/text/images into GPU textures (or CPU bitmaps).
+5. **Platform swapchain** presents the frame in a window or surface.
 
-Skia at the core
-- Avalonia uses Skia for cross‑platform drawing: shapes, text, images, effects
-- Skia can render using CPU or GPU; Avalonia prefers GPU when available
-- AppBuilder.UseSkia() enables the Skia backend; you can pass SkiaOptions for tuning
+Avalonia uses a multithreaded architecture: UI thread and render thread. Animation scheduling, input handling, and compositing rely on the UI thread staying responsive.
 
-GPU backends at a glance
-- Avalonia abstracts GPU access with IPlatformGraphics; platform heads bind an available backend (OpenGL/ANGLE, Metal, Vulkan, etc.)
-- On Windows, macOS, Linux, Android, iOS, and Browser, Skia draws into a surface backed by the platform’s GPU context or a software bitmap; the windowing system then presents the result
-- You don’t choose the low‑level API directly; you use UseSkia and optional platform options, and Avalonia picks the most appropriate graphics stack
+## 2. UI thread: creating and invalidating visuals
 
-Composition and presentation
-- The compositor coordinates updates between UI and render threads using batches; commits serialize object changes and send them to the render side
-- A render loop ticks at a platform‑determined cadence; when there are dirty visuals or animations, a new frame is rendered and presented
-- Effects like opacity, transforms, and clips are applied while traversing the visual tree; platform composition APIs may assist with efficient presentation on some systems
+- `Visual`s have properties (`Bounds`, `Opacity`, `Transform`, etc.) that trigger redraw when changed.
+- `InvalidateVisual()` marks a visual dirty. Most controls call this automatically when a property changes.
+- Layout changes may also mark visuals dirty (e.g., size change).
 
-Immediate vs. normal rendering
-- Normal application rendering uses the threaded compositor + Skia pipeline described above
-- ImmediateRenderer is a utility that walks a Visual subtree directly into a DrawingContext without the full presentation path (used by features like VisualBrush or RenderTargetBitmap)
-- Think of ImmediateRenderer as a synchronous “draw this once into a bitmap” tool, not the app’s live render loop
+## 3. Render thread and renderer pipeline
 
-Tuning Skia with UseSkia(SkiaOptions)
-- SkiaOptions.MaxGpuResourceSizeBytes (long?): caps Skia’s GPU resource cache (textures, glyph atlases)
-  - Defaults to a value suitable for typical apps; set null to let Skia decide; set lower to constrain memory, higher to reduce cache churn
-- SkiaOptions.UseOpacitySaveLayer (bool): forces use of Skia’s SaveLayer for opacity handling
-  - Can fix edge cases with nested opacity but may cost performance; leave off unless you need it
-- Example:
-  
-  AppBuilder.Configure<App>()
+- `IRenderer` (see [`IRenderer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/IRenderer.cs)) exposes methods:
+  - `AddDirty(Visual visual)` -- mark dirty region.
+  - `Paint` -- handle paint request (e.g., OS says "redraw now").
+  - `Resized` -- update when target size changes.
+  - `Start`/`Stop` -- hook into render loop lifetime.
+
+Avalonia includes `CompositingRenderer` (default) and `DeferredRenderer`. The renderer uses dirty rectangles to redraw minimal regions.
+
+### Immediate renderer
+
+`ImmediateRenderer` renders a visual subtree synchronously into a `DrawingContext`. Used for `RenderTargetBitmap`, `VisualBrush`, etc. Not used for normal window presentation.
+
+## 4. Compositor and render loop
+
+The compositor orchestrates UI -> render thread updates (see [`Compositor.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/Composition/Compositor.cs)).
+
+- Batches (serialized UI tree updates) are committed to render thread.
+- `RenderLoop` ticks at platform-defined cadence (vsync/animation timers). When there's dirty content or `CompositionTarget` animations, it schedules a frame.
+- Render loop ensures frames draw at stable cadence even if UI thread is busy momentarily.
+
+## 5. Skia backend
+
+Avalonia uses Skia for cross-platform drawing:
+- GPU or CPU rendering depending on platform capabilities.
+- GPU backend chosen automatically (OpenGL, ANGLE, Metal, Vulkan, WebGL, etc.).
+- `UseSkia(new SkiaOptions { ... })` in `AppBuilder` to tune.
+
+### SkiaOptions
+
+```csharp
+AppBuilder.Configure<App>()
     .UsePlatformDetect()
     .UseSkia(new SkiaOptions
     {
-        MaxGpuResourceSizeBytes = 64L * 1024 * 1024, // 64 MB
+        MaxGpuResourceSizeBytes = 64L * 1024 * 1024,
         UseOpacitySaveLayer = false
     })
+    .LogToTrace();
+```
+
+- `MaxGpuResourceSizeBytes`: limit Skia resource cache.
+- `UseOpacitySaveLayer`: forces Skia to use save layers for opacity stacking (accuracy vs performance).
+
+## 6. RenderOptions (per Visual)
+
+`RenderOptions` attached properties influence interpolation and text rendering:
+- `BitmapInterpolationMode`: Low/Medium/High quality vs default.
+- `BitmapBlendingMode`: blend mode for images.
+- `TextRenderingMode`: Default, Antialias, SubpixelAntialias, Aliased.
+- `EdgeMode`: Antialias vs Aliased for geometry edges.
+- `RequiresFullOpacityHandling`: handle complex opacity composition.
+
+Example:
+
+```csharp
+RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.HighQuality);
+RenderOptions.SetTextRenderingMode(smallText, TextRenderingMode.Aliased);
+```
+
+RenderOptions apply to a visual and flow down to children unless overridden.
+
+## 7. When does a frame render?
+
+- Property changes on visuals (brush, text, transform).
+- Layout updates affecting size/position.
+- Animations (composition or binding-driven) schedule continuous frames.
+- Input (pointer events) may cause immediate redraw (e.g., ripple effect).
+- External events: window resize, DPI change.
+
+Prevent unnecessary redraws:
+- Avoid toggling properties frequently without change.
+- Batch updates on UI thread; let binding/animation handle smooth changes.
+- Free large bitmaps once no longer needed.
+
+## 8. Profiling & diagnostics
+
+### DevTools
+
+- Press `F12` to open DevTools.
+- Use `Rendering` panel (if available) to inspect GPU usage, show dirty rectangles.
+- `Visual Tree` shows realized visuals; `Events` logs layout/render events.
+
+### Logging
+
+```csharp
+AppBuilder.Configure<App>()
+    .UsePlatformDetect()
+    .LogToTrace(LogEventLevel.Debug, new[] { LogArea.Rendering, LogArea.Layout })
     .StartWithClassicDesktopLifetime(args);
+```
 
-RenderOptions: per‑visual quality knobs
-- RenderOptions is a value applied per Visual and merged down the tree; it controls how bitmaps and text are sampled/blended
-- Properties you can set:
-  - BitmapInterpolationMode: Unspecified, LowQuality/MediumQuality/HighQuality
-  - BitmapBlendingMode: Unspecified or a blend mode for images
-  - EdgeMode: Antialias, Aliased, Unspecified (affects geometry edges and text defaults)
-  - TextRenderingMode: Default, Antialias, SubpixelAntialias, Aliased
-  - RequiresFullOpacityHandling: bool? (forces full opacity handling for complex compositions)
-- Use attached helpers:
-  
-  // Make images crisper when scaled down
-  RenderOptions.SetBitmapInterpolationMode(myImage, BitmapInterpolationMode.MediumQuality);
-  
-  // Force aliased text on a small LED‑style display
-  RenderOptions.SetTextRenderingMode(myTextBlock, TextRenderingMode.Aliased);
+### Render overlays
 
-What actually triggers redraws
-- Property changes that affect layout or appearance (e.g., Brush, Text, Bounds) mark visuals dirty
-- Animations and timers schedule continuous frames while active
-- Input and window resize generate paint/size events
-- Pure ViewModel changes trigger rendering only when they update bound UI properties
+`RendererDebugOverlays` (see [`RendererDebugOverlays.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)) enable overlays showing dirty rectangles, FPS, layout costs.
 
-Practical tips
-- Prefer vector drawing and let RenderOptions/Interpolation control quality on scaled assets
-- Avoid layout thrash: batch property changes; let animations drive smooth frames instead of manual timers
-- Do image decoding/resizing off the UI thread; then set the final Bitmap on UI thread
-- Profile on the slowest target first; GPU availability and drivers vary across platforms
+```csharp
+if (TopLevel is { Renderer: { } renderer })
+    renderer.DebugOverlays = RendererDebugOverlays.Fps | RendererDebugOverlays.LayoutTimeGraph;
+```
 
-Troubleshooting
-- “Nothing updates until I interact”: ensure the app is started with a lifetime that runs a message loop and that you haven’t stopped the renderer; long‑running work should be off the UI thread
-- “Blurry text or images”: adjust TextRenderingMode/EdgeMode and BitmapInterpolationMode as needed; check DPI settings
-- “High GPU memory”: tune MaxGpuResourceSizeBytes and use smaller images; free large bitmaps when not needed
-- “Opacity stacking looks wrong”: try SkiaOptions.UseOpacitySaveLayer = true for correctness, then measure
+### Tools
 
-Look under the hood (selected source)
-- Renderer interface: IRenderer.cs (methods like AddDirty, Paint, Start/Stop) — [Avalonia.Base/Rendering/IRenderer.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/IRenderer.cs)
-- Immediate renderer utility — [Avalonia.Base/Rendering/ImmediateRenderer.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/ImmediateRenderer.cs)
-- Compositor (UI↔render threads, commit batches) — [Avalonia.Base/Rendering/Composition/Compositor.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/Composition/Compositor.cs)
-- RenderOptions (bitmap/text/edge/blend/opacity) — [Avalonia.Base/Media/RenderOptions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/RenderOptions.cs)
-- Skia options (resource cache, opacity save layer) — [Skia/Avalonia.Skia/SkiaOptions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Skia/Avalonia.Skia/SkiaOptions.cs)
-- Skia render interface and GPU plumbing — [Skia/Avalonia.Skia/PlatformRenderInterface.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Skia/Avalonia.Skia/PlatformRenderInterface.cs)
-- Platform GPU abstraction (IPlatformGraphics) — [Avalonia.Base/Platform/IPlatformGpu.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/IPlatformGpu.cs)
+- Use .NET memory profiler or `dotnet-counters` to monitor GC while animating UI.
+- GPU profilers (RenderDoc) can capture Skia GPU commands (advanced scenario).
 
-Exercise
-- Create a small page with an Image and a TextBlock. Try these:
-  1) Set BitmapInterpolationMode to LowQuality, then HighQuality while scaling the image; observe differences
-  2) Toggle TextRenderingMode between Antialias and Aliased on small font sizes; note readability
-  3) Start the app with UseSkia(new SkiaOptions { UseOpacitySaveLayer = true }) and layer two semi‑transparent panels; compare visuals and measure frame time on an animated resize
+## 9. Immediate rendering utilities
 
-What’s next
+### RenderTargetBitmap
+
+```csharp
+var bitmap = new RenderTargetBitmap(new PixelSize(300, 200), new Vector(96, 96));
+await bitmap.RenderAsync(myControl);
+bitmap.Save("snapshot.png");
+```
+
+Uses `ImmediateRenderer` to render a control off-screen.
+
+### Drawing manually
+
+`DrawingContext` allows custom drawing via immediate renderer.
+
+## 10. Platform-specific notes
+
+- Windows: GPU backend typically ANGLE (OpenGL) or D3D via Skia; transparency support (Mica/Acrylic) may involve compositor-level effects.
+- macOS: uses Metal via Skia; retina scaling via `RenderScaling`.
+- Linux: OpenGL (or Vulkan) depending on driver; virtualization/backends vary.
+- Mobile: OpenGL ES on Android, Metal on iOS; consider battery impact when scheduling animations.
+- Browser: WebGL2/WebGL1/Software2D (Chapter 20); one-threaded unless WASM threading enabled.
+
+## 11. Practice exercises
+
+1. Enable `RendererDebugOverlays.Fps` and animate a control; observe frame rate.
+2. Switch `BitmapInterpolationMode` on an image while scaling up/down; compare results.
+3. Apply `UseOpacitySaveLayer = true` and stack semi-transparent panels; compare visual results to default.
+4. Render a control to `RenderTargetBitmap` using `RenderOptions` tweaks and inspect output.
+5. Log render/layout events at `Debug` level and analyze which updates cause frames using DevTools.
+
+## Look under the hood (source bookmarks)
+- Renderer interface: [`IRenderer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/IRenderer.cs)
+- Compositor: [`Compositor.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/Composition/Compositor.cs)
+- Immediate renderer: [`ImmediateRenderer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/ImmediateRenderer.cs)
+- Render loop: [`RenderLoop.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RenderLoop.cs)
+- Render options: [`RenderOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/RenderOptions.cs)
+- Skia options and platform interface: [`SkiaOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Skia/Avalonia.Skia/SkiaOptions.cs), [`PlatformRenderInterface.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Skia/Avalonia.Skia/PlatformRenderInterface.cs)
+- Debug overlays: [`RendererDebugOverlays.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)
+
+## Check yourself
+- What components run on the UI thread vs render thread?
+- How does `InvalidateVisual` lead to a new frame?
+- When would you adjust `SkiaOptions.MaxGpuResourceSizeBytes` vs `RenderOptions.BitmapInterpolationMode`?
+- What tools help you diagnose rendering bottlenecks?
+
+What's next
 - Next: [Chapter 23](Chapter23.md)

@@ -1,109 +1,87 @@
 # 1. Welcome to Avalonia and MVVM
 
 Goal
-- Understand what Avalonia is and why you might choose it.
-- Learn the simple meanings of C#, XAML, and MVVM.
-- Get a mental map of how an Avalonia app fits together.
-- Know where to find things in the source code and samples.
+- Understand what Avalonia is today, how it has grown, and where it is heading.
+- Learn the roles of C#, XAML, and MVVM (with their core building blocks) inside an Avalonia app.
+- Map Avalonia's layered architecture so you can navigate the source confidently.
+- Compare Avalonia with WPF, WinUI, .NET MAUI, and Uno to make an informed platform choice.
+- Follow the journey from `AppBuilder.Configure` to the first window, and know how to inspect it in the samples.
 
 Why this matters
-- UI development is easier when you understand the main pieces. Avalonia uses C# for logic and XAML for UI markup. MVVM is the pattern that keeps your code clean and testable. Once you know these pieces, the rest of the book will feel natural.
+- Picking a UI framework is a strategic decision. Knowing Avalonia's history, roadmap, and governance helps you judge its momentum.
+- Understanding the framework layers and MVVM primitives prevents "magic" and makes documentation, samples, and source code less intimidating.
+- Being able to contrast Avalonia with sibling frameworks keeps expectations realistic and helps you explain the choice to teammates.
 
-What is Avalonia (in simple words)
-- Avalonia is a cross‑platform UI framework. You write your app once, and run it on Windows, macOS, Linux, Android, iOS, and in the browser (WebAssembly).
-- It is open source. It looks and feels modern. It has a wide set of controls, a Fluent theme, strong data binding, and great tooling.
-- You use C# for code and XAML for the UI description. If you know WPF, you will feel at home. If you are new, you will learn with gentle steps.
+Avalonia in simple words
+- Avalonia is an open-source, cross-platform UI framework. One code base targets Windows, macOS, Linux, Android, iOS, and the browser (WebAssembly).
+- It brings a modern Fluent-inspired theme, a deep control set, rich data binding, and tooling such as DevTools and the XAML Previewer.
+- If you have WPF experience, Avalonia feels familiar; if you are new, you get gradual guidance with MVVM, XAML, and C#.
 
-Platforms you can target
-- Desktop: Windows, macOS, Linux
-- Mobile: Android, iOS
-- Browser: WebAssembly (WASM)
+A short history, governance, and roadmap
+- Origins (2013-2018): The project began as a community effort to bring a modern, cross-platform take on the WPF programming model.
+- Maturing releases (0.9-0.10): Stabilised control set, styling, and platform backends while adding mobile and browser support.
+- Avalonia 11 (2023): The 11.x line introduced the Fluent 2 theme refresh, compiled bindings, a new rendering backend, and long-term support. New minor updates land roughly every 2-3 months with patch releases in between.
+- Governance: AvaloniaUI is stewarded by a core team at Avalonia Solutions Ltd. with an active GitHub community. Development is fully open with public issue tracking and roadmap discussions.
+- Roadmap themes: continuing Fluent updates, performance and tooling investments, deeper designer integration, and steady platform parity across desktop, mobile, and web.
 
-What are C#, XAML, and MVVM
-- C# (say “see sharp”) is the programming language you use for logic: data, commands, navigation, services, tests.
-- XAML is a simple markup language for UI: you describe windows, pages, controls, layouts, and styles using readable tags.
-- MVVM is a way to organize code:
-  - Model: your data and core rules.
-  - ViewModel: the “middle” object that exposes properties and commands for the UI.
-  - View: the XAML that shows things on screen and binds to the ViewModel. The View contains no business rules.
+How Avalonia is layered
+- **Avalonia.Base**: foundational services--dependency properties (`AvaloniaProperty`), threading, layout primitives, and rendering contracts. Source: [src/Avalonia.Base](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base).
+- **Avalonia.Controls**: the control set, templated controls, panels, windowing, and lifetimes. Source: [src/Avalonia.Controls](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls) with the `Application` class in [Application.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Application.cs).
+- **Styling and themes**: styles, selectors, control themes, and Fluent resources. Source: [src/Avalonia.Base/Styling](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Styling) and [src/Avalonia.Themes.Fluent](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent).
+- **Markup**: XAML parsing, compiled XAML, and the runtime loader used at startup. Source: [src/Avalonia.Markup.Xaml](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Markup.Xaml) with [AvaloniaXamlLoader.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs).
+- **Platform backends**: per-OS integrations--for example [src/Windows/Avalonia.Win32](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Windows/Avalonia.Win32), [src/Avalonia.Native](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Native), [src/Android/Avalonia.Android](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Android/Avalonia.Android), [src/iOS/Avalonia.iOS](https://github.com/AvaloniaUI/Avalonia/tree/master/src/iOS/Avalonia.iOS), and [src/Browser/Avalonia.Browser](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Browser/Avalonia.Browser).
 
-How an Avalonia app is shaped
-- App: a class that sets up your application (themes, resources, startup window).
-- Views: XAML files that describe what users see (windows, pages, dialogs).
-- ViewModels: C# classes that provide data and commands to the Views.
-- Controls: ready‑made UI building blocks like Button, TextBox, DataGrid.
-- Styles and theme: define how the app looks (colors, spacing, typography).
-- Startup and lifetime: how the app starts and closes on each platform.
+C#, XAML, and MVVM--who does what
+- **C#**: application startup (`AppBuilder`), services, models, and view models. Logic lives in strongly typed classes.
+- **XAML**: declarative UI markup--controls, layout, styles, resources, and data templates.
+- **MVVM**: separates responsibilities. The View (XAML) binds to a ViewModel (C#) which exposes Models and services. Tests target ViewModels and models directly.
 
-A simple mental picture
-- App starts → sets up theme and services → opens a Window (View) → the View binds to a ViewModel → the ViewModel talks to Models/services → the UI updates automatically through bindings.
+MVVM building blocks you should recognise early
+- `INotifyPropertyChanged`: standard .NET interface. When a ViewModel property raises `PropertyChanged`, bound controls refresh.
+- `AvaloniaProperty`: Avalonia's dependency property system (see [AvaloniaProperty.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/AvaloniaProperty.cs)) powers styling, animation, and templated control state.
+- Binding expressions: XAML bindings are parsed and applied via the XAML loader. The runtime loader lives in [AvaloniaXamlLoader.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs).
+- Commands: typically `ICommand` implementations on the ViewModel (plain or via libraries such as CommunityToolkit.Mvvm or ReactiveUI) so buttons and menu items can invoke logic.
+- Data templates: define how ViewModels render in lists and navigation. We will use them extensively starting in Chapter 3.
 
-Repo and samples in this project
-- Framework source (read‑only for learning): [src](https://github.com/AvaloniaUI/Avalonia/tree/master/src)
-- Samples (you can run and explore): [samples](https://github.com/AvaloniaUI/Avalonia/tree/master/samples)
-- Docs (build and contributor notes): [docs](https://github.com/AvaloniaUI/Avalonia/tree/master/docs)
+From `AppBuilder.Configure` to the first window (annotated flow)
+1. **Program entry point** creates a builder: `BuildAvaloniaApp()` returns `AppBuilder.Configure<App>()`.
+2. **Platform detection** (`UsePlatformDetect`) selects the right backend (Win32, macOS, X11, Android, iOS, Browser).
+3. **Rendering setup** (`UseSkia`) chooses the rendering pipeline--Skia by default.
+4. **Logging and services** (`LogToTrace`, custom DI) configure diagnostics.
+5. **Start a lifetime**: `StartWithClassicDesktopLifetime(args)` (desktop) or `StartWithSingleViewLifetime` (mobile/browser). Lifetimes live under [ApplicationLifetimes](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls/ApplicationLifetimes).
+6. **`Application` initialises**: `App.OnFrameworkInitializationCompleted` is called; this is where you typically create and show the first `Window` or set `MainView`.
+7. **XAML loads**: `AvaloniaXamlLoader` reads `App.axaml` and your window/user control XAML.
+8. **Bindings connect**: when the window's data context is set to a ViewModel, bindings listen for `PropertyChanged` events and keep UI and data in sync.
 
-Look inside (optional, just to get familiar)
-- Controls live in: [src/Avalonia.Controls](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls)
-- Fluent theme: [src/Avalonia.Themes.Fluent](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent)
-- Rendering (Skia backend): [src/Skia/Avalonia.Skia](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Skia/Avalonia.Skia)
-- ReactiveUI integration: [src/Avalonia.ReactiveUI](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.ReactiveUI)
-- Browser target: [src/Browser](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Browser)
-- Desktop helpers: [src/Avalonia.Desktop](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Desktop)
+Tour the ControlCatalog (your guided sample)
+- Clone the repo (or open the [ControlCatalog sample](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog)).
+- `ControlCatalog.Desktop` demonstrates desktop controls, theming, and navigation. Inspect `App.axaml`, `MainWindow.axaml`, and their code-behind to see how `AppBuilder` and MVVM connect.
+- Use DevTools (press `F12` when running the sample) to inspect bindings, the visual tree, and live styles.
+- Explore the repository mapping: the `Button` page in the catalog points to code under [src/Avalonia.Controls/Button.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Button.cs); style resources originate from Fluent theme XAML under [src/Avalonia.Themes.Fluent/Controls](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent/Controls).
 
-Your first “tour” (no coding yet)
-1) Open the samples folder at [samples](https://github.com/AvaloniaUI/Avalonia/tree/master/samples).
-2) Skim ControlCatalog projects (Desktop, Android, Browser, iOS) — see [samples/ControlCatalog](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog). These show most controls and styles. You don’t need to understand the code yet. Just remember: if you wonder “How does Button work?”, the Control Catalog shows it in action.
-3) Skim [samples/BindingDemo](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/BindingDemo) and [samples/ReactiveUIDemo](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ReactiveUIDemo). These show how data binding and MVVM feel.
+Why Avalonia instead of...
+- **WPF** (Windows only): mature desktop tooling and huge ecosystem, but no cross-platform story. Avalonia keeps the mental model while expanding to macOS, Linux, mobile, and web.
+- **WinUI 3** (Windows 10/11): modern Windows UI with native Win32 packaging. Great for Windows-only solutions; Avalonia wins when you must ship beyond Windows.
+- **.NET MAUI**: Microsoft's cross-platform evolution of Xamarin.Forms focused on mobile-first UI. Avalonia emphasises desktop parity, theming flexibility, and XAML consistency across platforms.
+- **Uno Platform**: reuses WinUI XAML across platforms via WebAssembly and native controls. Avalonia offers a single rendering pipeline (Skia) for consistent visuals when you prefer pixel-perfect fidelity over native look-and-feel.
 
-MVVM in plain English
-- MVVM is about separation. The View is just visuals. The ViewModel exposes data (properties) and actions (commands). The Model holds your real data and rules. This separation makes testing easier and code easier to change.
-- Example idea: A Counter app
-  - ViewModel has a property Count and a command Increment.
-  - View shows Count in a TextBlock and binds a Button to Increment.
-  - When you click the Button, the ViewModel changes Count and the UI updates automatically.
-
-About XAML (don’t worry, it’s friendly)
-- XAML uses angle‑bracket tags like HTML, but it describes native controls, layout, and styles.
-- You can nest panels and controls, and use attributes to set properties (like Width, Margin, Text, Items, etc.).
-- With data binding, you connect XAML properties to ViewModel properties by name.
-
-About data binding (a tiny preview)
-- Binding is a link between a View property and a ViewModel property.
-- If the ViewModel changes, the UI updates. If the user changes a control (like typing in a TextBox), the ViewModel can update too (depending on the binding mode).
-- We will cover binding fully in Chapter 8.
-
-Design and theming
-- Avalonia ships with a Fluent theme that looks modern.
-- You can tweak colors, spacing, corner radius, and styles.
-- You can define reusable resources (colors, brushes, styles) and use them across the app.
-
-Where “startup” happens (a gentle hint only)
-- An Avalonia app configures itself in a builder (AppBuilder) and chooses a lifetime (desktop with windows, or single‑view for mobile).
-- You’ll meet AppBuilder and lifetimes in Chapter 4. For now, just remember: that’s where the app decides what it runs on and how it opens windows.
-
-Tooling you’ll meet later
-- DevTools: inspect the visual tree and properties at runtime.
-- XAML Previewer: see your UI as you type (in supported IDEs).
-- Headless: run UI logic without a window for special testing scenarios.
+Repository landmarks (bookmark these)
+- Framework source: [src](https://github.com/AvaloniaUI/Avalonia/tree/master/src)
+- Samples: [samples](https://github.com/AvaloniaUI/Avalonia/tree/master/samples)
+- Docs: [docs](https://github.com/AvaloniaUI/Avalonia/tree/master/docs)
+- ControlCatalog entry point: [ControlCatalog.csproj](https://github.com/AvaloniaUI/Avalonia/blob/master/samples/ControlCatalog/ControlCatalog.csproj)
 
 Check yourself
-- Can you explain in one sentence what Avalonia is?
-- Can you name the three MVVM parts and what each one does?
-- Do you know the difference between C# and XAML in an Avalonia app?
-- Can you point to where controls and themes live in the repo?
+- Can you describe how Avalonia evolved to its current release cadence and governance model?
+- Can you name the key Avalonia layers (Base, Controls, Markup, Themes, Platforms) and what each provides?
+- Can you explain the MVVM building blocks (`INotifyPropertyChanged`, `AvaloniaProperty`, bindings, commands) in your own words?
+- Can you sketch the `AppBuilder` startup steps that end with a `Window` or `MainView` being shown?
+- Can you list one reason you might choose Avalonia over WPF, WinUI, .NET MAUI, or Uno?
 
-Quick glossary
-- App: the application entry point that configures theme, resources, and startup.
-- View: the UI (XAML) that users see, such as a Window or a Page.
-- ViewModel: the C# class the View binds to (data + commands, no UI code).
-- Model: your domain data and rules.
-- Binding: the connection between a View property and a ViewModel property.
-- Command: an action you call from UI (e.g., when a Button is clicked).
+Practice and validation
+- Clone the Avalonia repository, build, and run the desktop ControlCatalog. Set a breakpoint in `Application.OnFrameworkInitializationCompleted` inside `App.axaml.cs` to watch the lifetime hand-off.
+- While ControlCatalog runs, open DevTools (F12) and track a ViewModel property change (for example, toggle a CheckBox) in the binding diagnostics panel to see `PropertyChanged` events flowing.
+- Inspect the source jump-offs for `Application` ([Application.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Application.cs)), `AvaloniaProperty` ([AvaloniaProperty.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/AvaloniaProperty.cs)), and the XAML loader ([AvaloniaXamlLoader.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs)). Note how the pieces you just read about appear in real code.
 
-Extra practice
-- Explore the ControlCatalog in [samples/ControlCatalog](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog) (pick the Desktop one if unsure). Open it in your IDE, build, and run. Click around to see many controls and styles.
-- Open [samples/BindingDemo](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/BindingDemo). Look for a binding in XAML and try to guess which ViewModel property it uses. You don’t need to change anything yet.
-
-What’s next
+What's next
 - Next: [Chapter 2](Chapter02.md)

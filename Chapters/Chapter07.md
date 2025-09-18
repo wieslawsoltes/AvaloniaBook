@@ -1,168 +1,260 @@
 # 7. Fluent theming and styles made simple
 
 Goal
-- Understand Avalonia’s Fluent theme, light/dark variants, resources, and styles.
-- Learn how to create global and local styles, use StaticResource vs DynamicResource, and switch themes at runtime.
+- Understand Avalonia's Fluent theme architecture, theme variants, and how theme resources flow through your app.
+- Organise resources and styles with `ResourceInclude`, `StyleInclude`, `ThemeVariantScope`, and `ControlTheme` for clean reuse.
+- Override control templates, use pseudo-classes, and scope theme changes to specific regions.
+- Support runtime theme switching (light/dark/high contrast) and accessibility requirements.
+- Map the styles you edit to the Fluent source files so you can explore defaults and extend them safely.
 
-What you’ll build
-- A small app that:
-  - Uses Fluent theme.
-  - Defines shared colors/brushes in resources.
-  - Styles buttons globally and locally (implicit and keyed styles).
-  - Adds a simple theme switch (Light/Dark) at runtime.
+Why this matters
+- Styling controls consistently is the difference between a polished UI and visual chaos.
+- Avalonia's Fluent theme ships with rich resources; knowing how to extend them keeps your design system maintainable.
+- Accessibility requirements (contrast, theming per surface) are easier when you understand theme scoping and dynamic resources.
 
 Prerequisites
-- You can run a basic Avalonia app (Ch. 2–4).
-- You are comfortable editing App.axaml and a Window/UserControl (Ch. 3–6).
+- Comfort editing `App.axaml`, windows, and user controls (Chapters 3-6).
+- Basic understanding of data binding and commands (Chapters 3, 6).
 
-1) Meet FluentTheme and theme variants
-- Avalonia ships with FluentTheme. Add it to App.axaml if your template didn’t already:
+## 1. Fluent theme in a nutshell
+
+Avalonia ships with Fluent 2 based resources and templates. The theme lives under [`src/Avalonia.Themes.Fluent`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent). Templates reference resource keys (brushes, thicknesses, typography) that resolve per theme variant.
+
+`App.axaml` typically looks like this:
 
 ```xml
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="MyApp.App"
+             x:Class="ThemePlayground.App"
              RequestedThemeVariant="Light">
   <Application.Styles>
-    <FluentTheme />
+    <FluentTheme Mode="Light"/>
   </Application.Styles>
 </Application>
 ```
-- RequestedThemeVariant can be Light or Dark on Application, a Window, or any ThemeVariantScope. Start with Light.
-- FluentTheme picks resources (brushes, etc.) appropriate for the active theme variant.
 
-2) Resources: colors, brushes, and where to put them
-- Resources are key/value objects you can reference from XAML. Put app‑wide resources in App.axaml:
+- `RequestedThemeVariant` controls the global variant (`ThemeVariant.Light`, `ThemeVariant.Dark`, `ThemeVariant.HighContrast`).
+- `FluentTheme` can be configured with `Mode="Light"`, `Mode="Dark"`, or `Mode="Default"` (auto based on OS hints). Source: [`FluentTheme.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/FluentTheme.cs).
+
+## 2. Structure resources into dictionaries
+
+Split large resource sets into dedicated files. Create `Styles/Colors.axaml`:
+
+```xml
+<ResourceDictionary xmlns="https://github.com/avaloniaui">
+  <Color x:Key="BrandPrimaryColor">#2563EB</Color>
+  <Color x:Key="BrandPrimaryHover">#1D4ED8</Color>
+
+  <SolidColorBrush x:Key="BrandPrimaryBrush"
+                   Color="{DynamicResource BrandPrimaryColor}"/>
+  <SolidColorBrush x:Key="BrandPrimaryHoverBrush"
+                   Color="{DynamicResource BrandPrimaryHover}"/>
+</ResourceDictionary>
+```
+
+Then create `Styles/Controls.axaml`:
+
+```xml
+<Styles xmlns="https://github.com/avaloniaui">
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource BrandPrimaryBrush}"/>
+    <Setter Property="Foreground" Value="White"/>
+    <Setter Property="Padding" Value="14,10"/>
+    <Setter Property="CornerRadius" Value="6"/>
+  </Style>
+
+  <Style Selector="Button.primary:pointerover">
+    <Setter Property="Background" Value="{DynamicResource BrandPrimaryHoverBrush}"/>
+  </Style>
+</Styles>
+```
+
+Include them in `App.axaml`:
 
 ```xml
 <Application ...>
   <Application.Resources>
-    <SolidColorBrush x:Key="AccentBrush" Color="#2563EB"/>
-    <SolidColorBrush x:Key="AccentBrushHover" Color="#1D4ED8"/>
-    <Thickness x:Key="ControlCornerRadius">6</Thickness>
+    <ResourceInclude Source="avares://ThemePlayground/Styles/Colors.axaml"/>
   </Application.Resources>
   <Application.Styles>
-    <FluentTheme />
+    <FluentTheme Mode="Default"/>
+    <StyleInclude Source="avares://ThemePlayground/Styles/Controls.axaml"/>
   </Application.Styles>
 </Application>
 ```
-- Referencing resources:
-  - StaticResource resolves once at load time (faster): Background="{StaticResource AccentBrush}"
-  - DynamicResource updates if the resource changes at runtime: Background="{DynamicResource AccentBrush}"
-- Resource lookup walks upward: control → parent → Window → Application. App resources are global.
 
-3) Global styles (implicit) vs local styles (keyed)
-- A style sets properties for a target control. Put global styles in Application.Styles:
+- `ResourceInclude` expects a `ResourceDictionary` root.
+- `StyleInclude` expects `Styles` or a single `Style` root.
 
-```xml
-<Application.Styles>
-  <FluentTheme />
-  <!-- Implicit (applies to all Buttons) -->
-  <Style Selector="Button">
-    <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}"/>
-    <Setter Property="Padding" Value="12,8"/>
-  </Style>
+## 3. Static vs dynamic resources
 
-  <!-- Hover visual (pseudo-class) -->
-  <Style Selector="Button:pointerover">
-    <Setter Property="Background" Value="{DynamicResource AccentBrushHover}"/>
-  </Style>
-</Application.Styles>
-```
-- A local, keyed style only applies when you opt in:
+- `StaticResource` resolves once during load. Use it for values that never change (fonts, corner radius constants).
+- `DynamicResource` re-evaluates when the resource is replaced at runtime--essential for theme switching.
 
 ```xml
-<StackPanel>
-  <StackPanel.Resources>
-    <Style x:Key="PrimaryButtonStyle" Selector="Button">
-      <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-      <Setter Property="Foreground" Value="White"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-    </Style>
-  </StackPanel.Resources>
-
-  <Button Content="OK" Classes="primary" Style="{StaticResource PrimaryButtonStyle}"/>
-  <Button Content="Cancel"/>
-</StackPanel>
+<Border CornerRadius="{StaticResource CornerRadiusMedium}"
+        Background="{DynamicResource BrandPrimaryBrush}"/>
 ```
-- Tip: You can combine implicit styles (for consistent baselines) with keyed styles (for special cases).
 
-4) Selectors and pseudo-classes you’ll actually use
-- Selector="Button" targets all Buttons.
-- You can target by name (#[Name]), class (.danger), and state pseudo‑classes like :pointerover, :pressed, :disabled, :focus.
-- Example:
+Resource lookup order: control -> logical parents -> window -> application -> Fluent theme dictionaries. Source: [`ResourceDictionary.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Resources/ResourceDictionary.cs).
+
+## 4. Theme variant scope (local theming)
+
+`ThemeVariantScope` lets you apply a specific theme to part of the UI. Implementation: [`ThemeVariantScope.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ThemeVariantScope.cs).
 
 ```xml
-<Application.Styles>
-  <Style Selector="Button.danger">
-    <Setter Property="Background" Value="#B91C1C"/>
-  </Style>
-  <Style Selector="Button.danger:pointerover">
-    <Setter Property="Background" Value="#991B1B"/>
-  </Style>
-</Application.Styles>
+<ThemeVariantScope RequestedThemeVariant="Dark">
+  <Border Padding="16">
+    <StackPanel>
+      <TextBlock Classes="h2" Text="Dark section"/>
+      <Button Content="Dark themed button" Classes="primary"/>
+    </StackPanel>
+  </Border>
+</ThemeVariantScope>
 ```
 
-5) Switching Light/Dark at runtime
-- You can switch theme variants in code behind. For example, add a ToggleSwitch to your MainView and handle its change:
+Everything inside the scope resolves resources as if the app were using `ThemeVariant.Dark`. Useful for popovers or modal sheets.
+
+## 5. Runtime theme switching
+
+Add a toggle to your main view:
 
 ```xml
-<ToggleSwitch x:Name="ThemeSwitch" Content="Dark mode"/>
+<ToggleSwitch Content="Dark mode" IsChecked="{Binding IsDark}"/>
 ```
+
+In the view model:
 
 ```csharp
 using Avalonia;
-using Avalonia.Styling; // ThemeVariant
+using Avalonia.Styling;
 
-private void ThemeSwitch_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+public sealed class ShellViewModel : ObservableObject
 {
-    if (e.Property == ToggleSwitch.IsCheckedProperty)
+    private bool _isDark;
+    public bool IsDark
     {
-        var dark = ThemeSwitch.IsChecked == true;
-        Application.Current!.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+        get => _isDark;
+        set
+        {
+            if (SetProperty(ref _isDark, value))
+            {
+                Application.Current!.RequestedThemeVariant = value ? ThemeVariant.Dark : ThemeVariant.Light;
+            }
+        }
     }
 }
 ```
-- Hook this handler once in your view’s constructor (after InitializeComponent) and subscribe to ThemeSwitch.PropertyChanged.
-- Because you used DynamicResource for color brushes, your UI reacts to theme‑driven resource changes automatically.
-- Scope theme changes: set RequestedThemeVariant on a specific Window or container (ThemeVariantScope) to localize the effect.
 
-6) Organizing styles and resources into files
-- Keep App.axaml readable by moving big sections into separate XAML files and merge them:
+Because button styles use `DynamicResource`, they respond immediately. For per-window overrides set `RequestedThemeVariant` on the window itself or wrap content in `ThemeVariantScope`.
+
+## 6. Customizing control templates with `ControlTheme`
+
+`ControlTheme` lets you replace a control's default template and resources without subclassing. Source: [`ControlTheme.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/ControlTheme.cs).
+
+Example: create a pill-shaped toggle button theme in `Styles/ToggleButton.axaml`:
 
 ```xml
-<Application ...>
-  <Application.Resources>
-    <ResourceInclude Source="avares://MyApp/Styles/Colors.axaml"/>
-  </Application.Resources>
-  <Application.Styles>
-    <FluentTheme />
-    <StyleInclude Source="avares://MyApp/Styles/Controls.axaml"/>
-  </Application.Styles>
-</Application>
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:themes="clr-namespace:Avalonia.Themes.Fluent;assembly=Avalonia.Themes.Fluent">
+  <ControlTheme x:Key="PillToggleTheme" TargetType="ToggleButton">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Root"
+                Background="{TemplateBinding Background}"
+                CornerRadius="20"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}"/>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>
 ```
-- Use ResourceInclude for resources and StyleInclude for styles. Each file should have a root ResourceDictionary or Styles element accordingly.
 
-7) StaticResource vs DynamicResource in practice
-- Use StaticResource for values that won’t change (e.g., Thickness, FontSize constants).
-- Use DynamicResource when the value should update at runtime (e.g., theme‑dependent brushes, app accent color).
+Apply it:
 
-Check yourself
-- Can you explain the difference between implicit and keyed styles?
-- Where does Avalonia look for resources when resolving a key?
-- Which binding updates at runtime: StaticResource or DynamicResource?
-- How do you switch theme variant from code?
+```xml
+<ToggleButton Content="Pill" Theme="{StaticResource PillToggleTheme}" padding="12,6"/>
+```
 
-Look under the hood (repo reading list)
-- Styles and selectors: src/Avalonia.Styling
-- FluentTheme implementation and resources: src/Avalonia.Themes.Fluent
-- ThemeVariant enum and theme scoping: src/Avalonia.Styling
+To inherit Fluent visual states, you can base your theme on existing resources by referencing `themes:ToggleButtonTheme`. Inspect templates in [`src/Avalonia.Themes.Fluent/Controls`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent/Controls) for structure and named parts.
 
-Extra practice
-- Create a secondary accent (e.g., SuccessBrush) and use it for positive actions.
-- Add a named class (e.g., .danger) and adjust background/foreground/hover/pressed styles.
-- Split your styles/resources into separate axaml files and include them from App.axaml.
-- Try setting RequestedThemeVariant on just one panel to create a light “sheet” in a dark window.
+## 7. Working with pseudo-classes and classes
 
-What’s next
+Use pseudo-classes to target interaction states. Example for `ToggleSwitch`:
+
+```xml
+<Style Selector="ToggleSwitch:checked">
+  <Setter Property="ThumbBrush" Value="{DynamicResource BrandPrimaryBrush}"/>
+</Style>
+
+<Style Selector="ToggleSwitch:checked:focus">
+  <Setter Property="BorderBrush" Value="{DynamicResource BrandPrimaryHoverBrush}"/>
+</Style>
+```
+
+Pseudo-class documentation lives in [`Selectors.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/docs/styles/selectors.md) and runtime code under [`Selector.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Styling/Selector.cs).
+
+## 8. Accessibility and high contrast themes
+
+Fluent ships high contrast resources. Switch by setting `RequestedThemeVariant="HighContrast"`.
+
+- Provide alternative color dictionaries with increased contrast ratios.
+- Use `DynamicResource` for all brushes so high contrast palettes propagate automatically.
+- Test with screen readers and OS high contrast modes; ensure custom colors respect `ThemeVariant.HighContrast`.
+
+Example dictionary addition:
+
+```xml
+<ResourceDictionary ThemeVariant="HighContrast"
+                    xmlns="https://github.com/avaloniaui">
+  <SolidColorBrush x:Key="BrandPrimaryBrush" Color="#00AACC"/>
+  <SolidColorBrush x:Key="BrandPrimaryHoverBrush" Color="#007C99"/>
+</ResourceDictionary>
+```
+
+`ThemeVariant`-specific dictionaries override defaults when the variant matches.
+
+## 9. Debugging styles with DevTools
+
+Press **F12** to open DevTools -> Styles panel:
+- Inspect applied styles, pseudo-classes, and resources.
+- Use the palette to modify brushes live and copy the generated XAML.
+- Toggle the `ThemeVariant` dropdown in DevTools (bottom) to preview Light/Dark/HighContrast variants.
+
+Enable style diagnostics via logging:
+
+```csharp
+AppBuilder.Configure<App>()
+    .UsePlatformDetect()
+    .LogToTrace(LogEventLevel.Debug, new[] { LogArea.Binding, LogArea.Styling })
+    .StartWithClassicDesktopLifetime(args);
+```
+
+## 10. Practice exercises
+
+1. **Create a brand palette**: define primary and secondary brushes with theme-specific overrides (light/dark/high contrast) and apply them to buttons and toggles.
+2. **Scope a sub-view**: wrap a settings pane in `ThemeVariantScope RequestedThemeVariant="Dark"` to preview dual-theme experiences.
+3. **Control template override**: create a `ControlTheme` for `Button` that changes the visual tree (e.g., adds an icon placeholder) and apply it selectively.
+4. **Runtime theme switching**: wire a `ToggleSwitch` or menu command to flip between Light/Dark; ensure all custom brushes use `DynamicResource`.
+5. **DevTools audit**: use DevTools to inspect pseudo-classes on a `ToggleSwitch` and verify your custom styles apply in `:checked` and `:focus` states.
+
+## Look under the hood (source bookmarks)
+- Theme variant scoping: [`ThemeVariantScope.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ThemeVariantScope.cs)
+- Control themes and styles: [`ControlTheme.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/ControlTheme.cs), [`Style.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/Style.cs)
+- Fluent resources and templates: [`src/Avalonia.Themes.Fluent/Controls`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent/Controls)
+- Theme variant definitions: [`ThemeVariant.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Styling/ThemeVariant.cs)
+
+## Check yourself
+- How do `ResourceInclude` and `StyleInclude` differ, and what root elements do they expect?
+- When should you use `ThemeVariantScope` versus changing `RequestedThemeVariant` on the application?
+- What advantages does `ControlTheme` give over subclassing a control?
+- Why do you prefer `DynamicResource` for brushes that change with theme switches?
+- Where would you inspect the default template for `ToggleSwitch` or `ComboBox`?
+
+What's next
 - Next: [Chapter 8](Chapter08.md)

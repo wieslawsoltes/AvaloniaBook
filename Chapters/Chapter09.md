@@ -1,247 +1,376 @@
 # 9. Commands, events, and user input
 
 Goal
-- Understand when to use events vs commands and how they relate to MVVM.
-- Implement and bind ICommand for Buttons and menu items.
-- Pass CommandParameter, wire up keyboard shortcuts with KeyBinding, and handle pointer/keyboard events.
-- Manage focus and common user input patterns.
+- Understand Avalonia's input system: routed events, commands, gesture recognizers, and keyboard navigation.
+- Choose between MVVM-friendly commands and low-level events effectively.
+- Wire keyboard shortcuts, pointer gestures, and access keys; capture pointer input for drag scenarios.
+- Implement asynchronous commands and recycle CanExecute logic with reactive or toolkit helpers.
+- Diagnose input issues with DevTools (Events view) and logging.
 
-What you’ll build
-- A small screen that:
-  - Uses commands for Save/Delete actions (with CanExecute logic).
-  - Binds a keyboard shortcut (Ctrl+S) to Save.
-  - Handles a double‑click and a pointer press event.
-  - Demonstrates focus and Enter‑to‑submit behavior.
+Why this matters
+- Robust input handling keeps UI responsive and testable.
+- Commands keep business logic in view models; events cover fine-grained gestures.
+- Knowing the pipeline (routed events -> gesture recognizers -> commands) helps debug "nothing happened" scenarios.
 
 Prerequisites
-- You can run an Avalonia app, edit XAML, and create a basic view model (Ch. 2–8).
+- Chapters 3-8 (layouts, controls, binding, theming).
+- Basic MVVM knowledge and an `INotifyPropertyChanged` view model.
 
-1) Events vs commands (and why MVVM favors commands)
-- Events call methods directly in code‑behind (imperative): great for low‑level input and one‑off UI behaviors.
-- Commands expose intent (Save, Delete) on your view model via the ICommand interface: great for testability and re‑use.
-- Rule of thumb:
-  - UI intent → Command (Button.Command, MenuItem.Command, KeyBinding → Command)
-  - Low‑level input or gestures → Event (PointerPressed, KeyDown, DoubleTapped)
+## 1. Input building blocks
 
-2) Create a simple ICommand implementation (RelayCommand)
-- Add a lightweight command class:
+Avalonia input pieces live under:
+- Routed events infrastructure: [`src/Avalonia.Interactivity`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Interactivity)
+- Input elements & devices: [`src/Avalonia.Base/Input`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Input)
+- Gesture recognizers (tap, pointer, scroll): [`src/Avalonia.Base/Input/GestureRecognizers`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Input/GestureRecognizers)
+
+Event flow:
+1. Input devices raise raw events (`PointerPressed`, `KeyDown`).
+2. Routed events bubble/tunnel through the visual tree.
+3. Gesture recognizers translate raw input into high-level events (TapGesture, DoubleTapped).
+4. Commands may execute via Buttons, KeyBindings, Access keys.
+
+## 2. Sample project setup
+
+```bash
+dotnet new avalonia.mvvm -o InputPlayground
+cd InputPlayground
+```
+
+`MainWindowViewModel` exposes commands and state. Add `CommunityToolkit.Mvvm` or implement your own `AsyncRelayCommand` to simplify asynchronous logic. Example below uses a simple `RelayCommand` and `AsyncRelayCommand`.
 
 ```csharp
 using System;
+using System.Threading.Tasks;
 using System.Windows.Input;
 
-public class RelayCommand : ICommand
-{
-    private readonly Action<object?> _execute;
-    private readonly Func<object?, bool>? _canExecute;
+namespace InputPlayground.ViewModels;
 
-    public RelayCommand(Action<object?> execute, Func<object?, bool>? canExecute = null)
+public sealed class MainWindowViewModel : ViewModelBase
+{
+    private string _status = "Ready";
+    public string Status
     {
-        _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+        get => _status;
+        private set => SetProperty(ref _status, value);
+    }
+
+    private bool _hasChanges;
+    public bool HasChanges
+    {
+        get => _hasChanges;
+        set
+        {
+            if (SetProperty(ref _hasChanges, value))
+            {
+                SaveCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public RelayCommand SaveCommand { get; }
+    public RelayCommand DeleteCommand { get; }
+    public AsyncRelayCommand RefreshCommand { get; }
+
+    public MainWindowViewModel()
+    {
+        SaveCommand = new RelayCommand(_ => Save(), _ => HasChanges);
+        DeleteCommand = new RelayCommand(item => Delete(item));
+        RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => !IsBusy);
+    }
+
+    private bool _isBusy;
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set
+        {
+            if (SetProperty(ref _isBusy, value))
+            {
+                RefreshCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    private void Save()
+    {
+        Status = "Saved";
+        HasChanges = false;
+    }
+
+    private void Delete(object? parameter)
+    {
+        Status = parameter is string name ? $"Deleted {name}" : "Deleted item";
+        HasChanges = true;
+    }
+
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            IsBusy = true;
+            Status = "Refreshing...";
+            await Task.Delay(1500);
+            Status = "Data refreshed";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+}
+```
+
+Supporting command classes (`RelayCommand`, `AsyncRelayCommand`) go in `Commands` folder. You may reuse the ones from CommunityToolkit.Mvvm or ReactiveUI.
+
+## 3. Commands vs events cheat sheet
+
+| Use command when... | Use event when... |
+| --- | --- |
+| You expose an action (Save/Delete) from view model | You need pointer coordinates, delta, or low-level control |
+| You want CanExecute/disable logic | You're implementing custom gestures/drag interactions |
+| The action runs from buttons, menus, shortcuts | Work is purely visual or specific to a view |
+| You plan to unit test the action | Data is transient or you need immediate UI feedback |
+
+Most real views mix both: commands for operations, events for gestures.
+
+## 4. Binding commands in XAML
+
+```xml
+<StackPanel Spacing="12">
+  <TextBox Watermark="Name" Text="{Binding SelectedName, Mode=TwoWay}"/>
+
+  <StackPanel Orientation="Horizontal" Spacing="12">
+    <Button Content="Save" Command="{Binding SaveCommand}"/>
+    <Button Content="Refresh" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}"/>
+    <Button Content="Delete" Command="{Binding DeleteCommand}"
+            CommandParameter="{Binding SelectedName}"/>
+  </StackPanel>
+
+  <TextBlock Text="{Binding Status}"/>
+</StackPanel>
+```
+
+Buttons disable automatically when `SaveCommand.CanExecute` returns false.
+
+## 5. Keyboard shortcuts and access keys
+
+### KeyBinding / KeyGesture
+
+```xml
+<Window ...>
+  <Window.InputBindings>
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}"/>
+    <KeyBinding Gesture="Ctrl+R" Command="{Binding RefreshCommand}"/>
+    <KeyBinding Gesture="Ctrl+Delete" Command="{Binding DeleteCommand}" CommandParameter="{Binding SelectedName}"/>
+  </Window.InputBindings>
+
+
+</Window>
+```
+
+`KeyGesture` parsing is handled by [`KeyGestureConverter`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyGestureConverter.cs). For multiple gestures, add more `KeyBinding` entries.
+
+### Access keys (mnemonics)
+
+Use `_` to define an access key in headers (e.g., `_Save`). Access keys work when Alt is pressed.
+
+```xml
+<Menu>
+  <MenuItem Header="_File">
+    <MenuItem Header="_Save" Command="{Binding SaveCommand}" InputGesture="Ctrl+S"/>
+  </MenuItem>
+</Menu>
+```
+
+Access keys are processed via `AccessKeyHandler` ([`AccessKeyHandler.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/AccessKeyHandler.cs)).
+
+## 6. Pointer gestures and recognizers
+
+Avalonia includes built-in gesture recognizers. You can attach them via `GestureRecognizers` collection:
+
+```xml
+<Border Background="#1e293b" Padding="16">
+  <Border.GestureRecognizers>
+    <TapGestureRecognizer NumberOfTapsRequired="2" Command="{Binding DoubleTapCommand}" CommandParameter="Canvas"/>
+    <ScrollGestureRecognizer CanHorizontallyScroll="True" CanVerticallyScroll="True"/>
+  </Border.GestureRecognizers>
+
+  <TextBlock Foreground="White" Text="Double-tap or scroll"/>
+</Border>
+```
+
+Implementation: [`TapGestureRecognizer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/GestureRecognizers/TapGestureRecognizer.cs).
+
+For custom gestures (drag to reorder), handle `PointerPressed`, call `e.Pointer.Capture(control)` to capture input, and release on `PointerReleased`. Pointer capture ensures subsequent move/press events go to the capture target even if the pointer leaves its bounds.
+
+```csharp
+private bool _isDragging;
+private Point _dragStart;
+
+private void Card_PointerPressed(object? sender, PointerPressedEventArgs e)
+{
+    _isDragging = true;
+    _dragStart = e.GetPosition((Control)sender!);
+    e.Pointer.Capture((IInputElement)sender!);
+}
+
+private void Card_PointerMoved(object? sender, PointerEventArgs e)
+{
+    if (_isDragging && sender is Control control)
+    {
+        var offset = e.GetPosition(control) - _dragStart;
+        Canvas.SetLeft(control, offset.X);
+        Canvas.SetTop(control, offset.Y);
+    }
+}
+
+private void Card_PointerReleased(object? sender, PointerReleasedEventArgs e)
+{
+    _isDragging = false;
+    e.Pointer.Capture(null);
+}
+```
+
+See [`PointerCapture`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/Pointer/PointerDevice.cs) for details.
+
+## 7. Text input pipeline (IME & composition)
+
+Text entry flows through `TextInput` events. For IME (Asian languages), Avalonia raises `TextInput` with composition events. To hook into the pipeline, subscribe to `TextInput` or implement `ITextInputMethodClient` in custom controls. Source: [`TextInputMethodClient.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputMethodClient.cs).
+
+```xml
+<TextBox TextInput="TextBox_TextInput"/>
+```
+
+```csharp
+private void TextBox_TextInput(object? sender, TextInputEventArgs e)
+{
+    Debug.WriteLine($"TextInput: {e.Text}");
+}
+```
+
+In most MVVM apps you rely on `TextBox` handling IME; implement this only when creating custom text editors.
+
+## 8. Focus management and keyboard navigation
+
+- Set `Focus()` to move focus programmatically.
+- Use `Focusable="False"` on non-interactive elements.
+- Control tab order with `TabIndex` (lower numbers focus first).
+- Create focus scopes with `FocusManager` when using popups or overlays.
+
+```xml
+<StackPanel>
+  <TextBox x:Name="First"/>
+  <TextBox x:Name="Second"/>
+  <Button Content="Focus second" Command="{Binding FocusSecondCommand}"/>
+</StackPanel>
+```
+
+In the view model, expose a command that raises an event or use a focus service. For small cases, code-behind calling `Second.Focus()` is sufficient.
+
+## 9. Routed commands and command routing
+
+Avalonia supports routed commands similar to WPF. Define a `RoutedCommand` (`RoutedCommandLibrary.Save`, etc.) and attach handlers via `CommandBinding`.
+
+```xml
+<Window.CommandBindings>
+  <CommandBinding Command="{x:Static commands:AppCommands.Save}" Executed="Save_Executed" CanExecute="Save_CanExecute"/>
+</Window.CommandBindings>
+```
+
+```csharp
+private void Save_Executed(object? sender, ExecutedRoutedEventArgs e)
+{
+    if (DataContext is MainWindowViewModel vm)
+        vm.SaveCommand.Execute(null);
+}
+
+private void Save_CanExecute(object? sender, CanExecuteRoutedEventArgs e)
+{
+    e.CanExecute = (DataContext as MainWindowViewModel)?.SaveCommand.CanExecute(null) == true;
+}
+```
+
+Routed commands bubble up the tree if not handled, allowing menu items and toolbars to share command logic.
+
+Source: [`RoutedCommand.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Interactivity/Input/RoutedCommand.cs).
+
+## 10. Asynchronous commands
+
+Avoid blocking the UI thread. Use `AsyncRelayCommand` or custom `ICommand` that runs `Task`.
+
+```csharp
+public sealed class AsyncRelayCommand : ICommand
+{
+    private readonly Func<Task> _execute;
+    private readonly Func<bool>? _canExecute;
+    private bool _isExecuting;
+
+    public AsyncRelayCommand(Func<Task> execute, Func<bool>? canExecute = null)
+    {
+        _execute = execute;
         _canExecute = canExecute;
     }
 
-    public bool CanExecute(object? parameter) => _canExecute?.Invoke(parameter) ?? true;
-    public void Execute(object? parameter) => _execute(parameter);
+    public bool CanExecute(object? parameter) => !_isExecuting && (_canExecute?.Invoke() ?? true);
+
+    public async void Execute(object? parameter)
+    {
+        if (!CanExecute(parameter))
+            return;
+
+        try
+        {
+            _isExecuting = true;
+            RaiseCanExecuteChanged();
+            await _execute();
+        }
+        finally
+        {
+            _isExecuting = false;
+            RaiseCanExecuteChanged();
+        }
+    }
 
     public event EventHandler? CanExecuteChanged;
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
 ```
 
-3) Expose commands in your view model
+## 11. Diagnostics: watch input live
+
+DevTools (F12) -> **Events** tab let you monitor events (PointerPressed, KeyDown). Select an element, toggle events to watch.
+
+Enable input logging:
 
 ```csharp
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Windows.Input;
-
-public class MainViewModel : INotifyPropertyChanged
-{
-    private bool _hasChanges;
-    public bool HasChanges
-    {
-        get => _hasChanges;
-        set { if (_hasChanges != value) { _hasChanges = value; OnPropertyChanged(); (SaveCommand as RelayCommand)?.RaiseCanExecuteChanged(); } }
-    }
-
-    public ICommand SaveCommand { get; }
-    public ICommand DeleteCommand { get; }
-
-    public MainViewModel()
-    {
-        SaveCommand = new RelayCommand(_ => Save(), _ => HasChanges);
-        DeleteCommand = new RelayCommand(p => Delete(p));
-    }
-
-    private void Save()
-    {
-        // Persist data...
-        HasChanges = false; // Re-evaluate CanExecute
-    }
-
-    private void Delete(object? parameter)
-    {
-        // Use parameter (e.g., currently selected item)
-        HasChanges = true;
-    }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    void OnPropertyChanged([CallerMemberName] string? n = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
-}
+AppBuilder.Configure<App>()
+    .UsePlatformDetect()
+    .LogToTrace(LogEventLevel.Debug, new[] { LogArea.Input })
+    .StartWithClassicDesktopLifetime(args);
 ```
 
-4) Bind Button.Command (and pass CommandParameter)
+`LogArea.Input` (source: [`LogArea.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Logging/LogArea.cs)) emits detailed input information.
 
-```xml
-<StackPanel Spacing="8">
-  <TextBox Watermark="Type something" Text="{Binding SomeText, Mode=TwoWay}"/>
+## 12. Practice exercises
 
-  <Button Content="Save"
-          Command="{Binding SaveCommand}"/>
+1. Add `Ctrl+Shift+S` for "Save As" (new command) and ensure it's disabled when nothing is selected.
+2. Implement a drag-to-reorder list using pointer capture. Use DevTools to verify pointer events.
+3. Add a `TapGestureRecognizer` to a card view that toggles selection; log the event using `LogArea.Input`.
+4. Implement asynchronous refresh with a cancellation token (Chapter 17) and tie the cancel command to the Esc key.
+5. Use access keys (`_File`, `_Save`) and verify they work on Windows, macOS, and Linux keyboard layouts.
 
-  <Button Content="Delete selected"
-          Command="{Binding DeleteCommand}"
-          CommandParameter="{Binding SelectedItem}"/>
-</StackPanel>
-```
+## Look under the hood (source bookmarks)
+- Commands: [`ButtonBase.Command`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Primitives/ButtonBase.cs), [`MenuItem.Command`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/MenuItem.cs), [`KeyBinding`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Input/KeyBinding.cs)
+- Input elements & events: [`InputElement.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/InputElement.cs), [`PointerGestureRecognizer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/GestureRecognizers/PointerGestureRecognizer.cs)
+- Access keys: [`AccessText`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/AccessText.cs), [`AccessKeyHandler`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/AccessKeyHandler.cs)
+- Text input pipeline: [`TextInputMethodClient.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputMethodClient.cs)
 
-- CommandParameter can pass a selected item, an ID, or any value the command needs.
-- Buttons automatically disable when CanExecute returns false.
+## Check yourself
+- What advantages do commands offer over events in MVVM architectures?
+- How do you wire Ctrl+S and Ctrl+Shift+S to different commands?
+- When do you need pointer capture?
+- What pieces are involved in handling a DoubleTap gesture?
+- Which tooling surfaces input events and binding? How would you enable verbose input logging?
 
-5) Add keyboard shortcuts with KeyBinding
-- Wire Ctrl+S to Save at your Window level so it works anywhere in the view:
-
-```xml
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="MyApp.MainWindow">
-  <Window.InputBindings>
-    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}"/>
-  </Window.InputBindings>
-
-  <!-- content -->
-</Window>
-```
-
-- You can also set CommandParameter on KeyBinding if your command expects one.
-
-6) Handle common events (low‑level input)
-- Use events when you need raw input or quick UI reactions.
-
-Double‑click on a list:
-```xml
-<ListBox x:Name="People" ItemsSource="{Binding People}" DoubleTapped="People_DoubleTapped"/>
-```
-
-```csharp
-using Avalonia.Interactivity;
-using Avalonia.Controls;
-
-private void People_DoubleTapped(object? sender, RoutedEventArgs e)
-{
-    if (sender is ListBox lb && lb.SelectedItem is not null)
-    {
-        // Open details, or execute a command with the selected item
-        if (DataContext is MainViewModel vm && vm.DeleteCommand.CanExecute(lb.SelectedItem))
-            vm.DeleteCommand.Execute(lb.SelectedItem);
-    }
-}
-```
-
-Pointer position inside a control:
-```xml
-<Border Background="#EEE" Padding="8" PointerPressed="Border_PointerPressed">
-  <TextBlock Text="Click in this area"/>
-</Border>
-```
-
-```csharp
-using Avalonia.Input;
-using Avalonia.VisualTree;
-
-private void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
-{
-    if (sender is IVisual v)
-    {
-        var p = e.GetPosition(v);
-        // Use p.X, p.Y as needed
-    }
-}
-```
-
-Handle Enter key in a TextBox to trigger Save:
-```xml
-<TextBox x:Name="Input" KeyDown="Input_KeyDown"/>
-```
-
-```csharp
-using Avalonia.Input;
-
-private void Input_KeyDown(object? sender, KeyEventArgs e)
-{
-    if (e.Key == Key.Enter && DataContext is MainViewModel vm)
-    {
-        if (vm.SaveCommand.CanExecute(null))
-            vm.SaveCommand.Execute(null);
-        e.Handled = true;
-    }
-}
-```
-
-7) Focus and tab navigation
-- Any control with Focusable="True" can receive focus. Call Focus() from code to move focus.
-
-```xml
-<TextBox x:Name="First"/>
-<TextBox x:Name="Second"/>
-<Button Content="Focus second" Click="FocusSecond_Click"/>
-```
-
-```csharp
-private void FocusSecond_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-{
-    Second.Focus();
-}
-```
-
-- Use TabIndex to control tab order. Disable focus for decorative elements with Focusable="False".
-
-8) CheckBox and RadioButton patterns
-- Toggle inputs still work great with commands:
-
-```xml
-<CheckBox Content="Enable advanced" IsChecked="{Binding IsAdvanced, Mode=TwoWay}"/>
-<StackPanel IsEnabled="{Binding IsAdvanced}">
-  <!-- advanced controls here -->
-</StackPanel>
-
-<StackPanel>
-  <RadioButton Content="Small" GroupName="Size" IsChecked="{Binding IsSmall, Mode=TwoWay}"/>
-  <RadioButton Content="Large" GroupName="Size" IsChecked="{Binding IsLarge, Mode=TwoWay}"/>
-</StackPanel>
-```
-
-9) Choosing between events and commands
-- Prefer Command for user intentions you might test, invoke from multiple places (button, menu, shortcut), or enable/disable.
-- Prefer Events for raw input data and gestures where parameters are positional or transient.
-- You can mix both: an event handler may delegate to a command in the view model.
-
-Check yourself
-- Why do commands fit MVVM better than handling all logic in code‑behind events?
-- What happens to a Button when its Command’s CanExecute returns false?
-- How do you attach Ctrl+S to a command?
-- When would you pass a CommandParameter?
-
-Look under the hood (repo reading list)
-- Input and routed events: src/Avalonia.Interactivity, src/Avalonia.Input
-- Command binding points: ButtonBase.Command, MenuItem.Command, KeyBinding/KeyGesture
-
-Extra practice
-- Add a CommandParameter to SaveCommand that includes the current text and a timestamp.
-- Add Ctrl+Delete to trigger DeleteCommand on the selected list item.
-- Disable Save when a required TextBox is empty (tie CanExecute to your validation).
-- Show a context menu with a command that acts on the right‑clicked item.
-
-What’s next
+What's next
 - Next: [Chapter 10](Chapter10.md)

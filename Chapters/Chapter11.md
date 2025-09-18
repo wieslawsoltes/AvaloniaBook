@@ -1,32 +1,33 @@
 # 11. MVVM in depth (with or without ReactiveUI)
 
 Goal
-- Go beyond the basics of MVVM and learn two practical ways to structure real apps in Avalonia: classic MVVM with INotifyPropertyChanged and commands, and MVVM powered by ReactiveUI with reactive properties, commands, and routing.
+- Build production-ready MVVM layers using classic `INotifyPropertyChanged`, CommunityToolkit.Mvvm helpers, or ReactiveUI.
+- Map view models to views with data templates, view locator patterns, and dependency injection.
+- Compose complex state using property change notifications, derived properties, async commands, and navigation stacks.
+- Test view models and reactive flows confidently.
 
 Why this matters
-- Clear separation of responsibilities keeps your app easy to reason about, test, and extend.
-- A consistent MVVM approach enables reuse across desktop, mobile, and the browser.
-- Reactive patterns make complex UI state and async flows easier to compose and test.
+- MVVM separates concerns so you can scale UI complexity, swap views, and run automated tests.
+- Avalonia supports multiple MVVM toolkits; understanding their trade-offs lets you choose the right fit per feature.
 
 Prerequisites
-- Basic C# classes and properties
-- Basic XAML and bindings (Chapter 8)
-- Commands and input (Chapter 9)
+- Binding basics (Chapter 8) and commands/input (Chapter 9).
+- Familiarity with resource organization (Chapter 7) for styles and data templates.
 
-What you’ll build
-- A tiny “People” example twice:
-  1) Classic MVVM: a PeopleViewModel exposes a list, selection, and commands.
-  2) ReactiveUI: the same features using ReactiveObject and ReactiveCommand.
-- You’ll also see two navigation approaches: a simple view-model-first pattern and ReactiveUI routing.
+## 1. MVVM recap
 
-1) MVVM responsibilities in plain words
-- Model: Your data shapes (e.g., Person), plus domain logic. No Avalonia types here.
-- ViewModel: UI-facing state and commands. Translates domain into bindable properties. No visual logic or control references.
-- View: XAML + code-behind for layout and visuals. No business logic; bindings connect to the ViewModel.
+| Layer | Role | Contains |
+| --- | --- | --- |
+| Model | Core data/domain logic | POCOs, validation, persistence models |
+| ViewModel | Bindable state, commands | `INotifyPropertyChanged`, `ICommand`, services |
+| View | XAML + minimal code-behind | DataTemplates, layout, visuals |
 
-2) Classic MVVM you can ship today
+Focus on keeping business logic in view models/models; views remain thin.
 
-2.1 A minimal base for property change notification
+## 2. Classic MVVM (manual or CommunityToolkit.Mvvm)
+
+### 2.1 Property change base class
+
 ```csharp
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -35,21 +36,23 @@ public abstract class ObservableObject : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
-        if (Equals(field, value)) return false;
+        if (Equals(field, value))
+            return false;
+
         field = value;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         return true;
     }
 }
 ```
 
-2.2 A simple ICommand implementation
-```csharp
-using System;
-using System.Windows.Input;
+CommunityToolkit.Mvvm offers `ObservableObject`, `ObservableProperty` attribute, and `RelayCommand` out of the box. If you prefer built-in solutions, install `CommunityToolkit.Mvvm` and inherit from `ObservableObject` there.
 
+### 2.2 Commands (`RelayCommand`)
+
+```csharp
 public sealed class RelayCommand : ICommand
 {
     private readonly Action<object?> _execute;
@@ -57,7 +60,7 @@ public sealed class RelayCommand : ICommand
 
     public RelayCommand(Action<object?> execute, Func<object?, bool>? canExecute = null)
     {
-        _execute = execute;
+        _execute = execute ?? throw new ArgumentNullException(nameof(execute));
         _canExecute = canExecute;
     }
 
@@ -69,28 +72,54 @@ public sealed class RelayCommand : ICommand
 }
 ```
 
-2.3 ViewModels for the People screen
+### 2.3 Sample: People view model
+
 ```csharp
 using System.Collections.ObjectModel;
 
-public sealed class Person
+public sealed class Person : ObservableObject
 {
-    public string FirstName { get; }
-    public string LastName { get; }
-    public Person(string first, string last) { FirstName = first; LastName = last; }
+    private string _firstName;
+    private string _lastName;
+
+    public Person(string first, string last)
+    {
+        _firstName = first;
+        _lastName = last;
+    }
+
+    public string FirstName
+    {
+        get => _firstName;
+        set => SetProperty(ref _firstName, value);
+    }
+
+    public string LastName
+    {
+        get => _lastName;
+        set => SetProperty(ref _lastName, value);
+    }
+
     public override string ToString() => $"{FirstName} {LastName}";
 }
 
 public sealed class PeopleViewModel : ObservableObject
 {
     private Person? _selected;
+    private readonly IPersonService _personService;
 
-    public ObservableCollection<Person> People { get; } = new()
+    public ObservableCollection<Person> People { get; } = new();
+    public RelayCommand AddCommand { get; }
+    public RelayCommand RemoveCommand { get; }
+
+    public PeopleViewModel(IPersonService personService)
     {
-        new("Ada", "Lovelace"),
-        new("Alan", "Turing"),
-        new("Grace", "Hopper")
-    };
+        _personService = personService;
+        AddCommand = new RelayCommand(_ => AddPerson());
+        RemoveCommand = new RelayCommand(_ => RemovePerson(), _ => Selected is not null);
+
+        LoadInitialPeople();
+    }
 
     public Person? Selected
     {
@@ -98,317 +127,383 @@ public sealed class PeopleViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _selected, value))
-                RemovePersonCommand.RaiseCanExecuteChanged();
+                RemoveCommand.RaiseCanExecuteChanged();
         }
     }
 
-    public RelayCommand AddPersonCommand { get; }
-    public RelayCommand RemovePersonCommand { get; }
-
-    public PeopleViewModel()
+    private void LoadInitialPeople()
     {
-        AddPersonCommand = new RelayCommand(_ => People.Add(new Person("New", "Person")));
-        RemovePersonCommand = new RelayCommand(_ =>
-        {
-            if (Selected is not null)
-                People.Remove(Selected);
-        }, _ => Selected is not null);
+        foreach (var person in _personService.GetInitialPeople())
+            People.Add(person);
+    }
+
+    private void AddPerson()
+    {
+        var newPerson = _personService.CreateNewPerson();
+        People.Add(newPerson);
+        Selected = newPerson;
+    }
+
+    private void RemovePerson()
+    {
+        if (Selected is null)
+            return;
+
+        _personService.DeletePerson(Selected);
+        People.Remove(Selected);
+        Selected = null;
     }
 }
 ```
 
-2.4 View and DataTemplates (ViewModel-first)
+`IPersonService` represents data access. Inject it via DI in `App.axaml.cs` (see Section 4).
+
+### 2.4 Mapping view models to views via DataTemplates
+
 ```xml
-<!-- App.axaml -->
+
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:MyApp.Views"
+             xmlns:viewmodels="clr-namespace:MyApp.ViewModels"
              x:Class="MyApp.App">
   <Application.DataTemplates>
-    <!-- Map a ViewModel type to a View -->
-    <DataTemplate DataType="{x:Type vm:PeopleViewModel}" xmlns:vm="clr-namespace:MyApp.ViewModels" xmlns:v="clr-namespace:MyApp.Views">
-      <v:PeopleView/>
+    <DataTemplate DataType="{x:Type viewmodels:PeopleViewModel}">
+      <views:PeopleView />
     </DataTemplate>
   </Application.DataTemplates>
 </Application>
 ```
 
+In `MainWindow.axaml`:
+
 ```xml
-<!-- PeopleView.axaml -->
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="MyApp.Views.PeopleView">
-  <DockPanel Margin="12">
-    <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Top">
-      <Button Content="Add" Command="{Binding AddPersonCommand}"/>
-      <Button Content="Remove" Command="{Binding RemovePersonCommand}"/>
-    </StackPanel>
-    <ListBox Items="{Binding People}" SelectedItem="{Binding Selected}"/>
-  </DockPanel>
-</UserControl>
+<ContentControl Content="{Binding CurrentViewModel}"/>
 ```
 
+`CurrentViewModel` property determines which view to display. This is the ViewModel-first approach: DataTemplates map VM types to Views automatically.
+
+### 2.5 Navigation service (classic MVVM)
+
 ```csharp
-// MainWindow.axaml.cs — set the DataContext to the top-level VM
-public partial class MainWindow : Window
+public interface INavigationService
 {
-    public MainWindow()
+    void NavigateTo<TViewModel>() where TViewModel : class;
+}
+
+public sealed class NavigationService : ObservableObject, INavigationService
+{
+    private readonly IServiceProvider _services;
+    private object? _currentViewModel;
+
+    public object? CurrentViewModel
     {
-        InitializeComponent();
-        DataContext = new PeopleViewModel();
+        get => _currentViewModel;
+        private set => SetProperty(ref _currentViewModel, value);
+    }
+
+    public NavigationService(IServiceProvider services)
+    {
+        _services = services;
+    }
+
+    public void NavigateTo<TViewModel>() where TViewModel : class
+    {
+        var vm = _services.GetRequiredService<TViewModel>();
+        CurrentViewModel = vm;
     }
 }
 ```
 
-2.5 Simple navigation without frameworks
-- Define a ShellViewModel that holds the current page ViewModel.
-- Expose commands to swap between page ViewModels.
-- Use a ContentControl bound to Current in the shell view.
+Register navigation service via dependency injection (next section). View models call `navigationService.NavigateTo<PeopleViewModel>()` to swap views.
+
+## 3. Dependency injection and composition
+
+Use your favorite DI container. Example with Microsoft.Extensions.DependencyInjection in `App.axaml.cs`:
 
 ```csharp
-public sealed class ShellViewModel : ObservableObject
+using Microsoft.Extensions.DependencyInjection;
+
+public partial class App : Application
 {
-    private object _current;
-    public object Current
+    private IServiceProvider? _services;
+
+    public override void OnFrameworkInitializationCompleted()
     {
-        get => _current;
-        set => SetProperty(ref _current, value);
+        _services = ConfigureServices();
+
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.MainWindow = _services.GetRequiredService<MainWindow>();
+        }
+
+        base.OnFrameworkInitializationCompleted();
     }
 
-    public RelayCommand GoPeople { get; }
-    public RelayCommand GoAbout { get; }
-
-    public ShellViewModel()
+    private static IServiceProvider ConfigureServices()
     {
-        var people = new PeopleViewModel();
-        var about = new AboutViewModel();
-        _current = people;
-        GoPeople = new RelayCommand(_ => Current = people);
-        GoAbout = new RelayCommand(_ => Current = about);
+        var services = new ServiceCollection();
+        services.AddSingleton<MainWindow>();
+        services.AddSingleton<INavigationService, NavigationService>();
+        services.AddTransient<PeopleViewModel>();
+        services.AddTransient<HomeViewModel>();
+        services.AddSingleton<IPersonService, PersonService>();
+        return services.BuildServiceProvider();
     }
 }
 ```
 
-```xml
-<!-- ShellView.axaml -->
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <DockPanel>
-    <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Top" Margin="8">
-      <Button Content="People" Command="{Binding GoPeople}"/>
-      <Button Content="About" Command="{Binding GoAbout}"/>
-    </StackPanel>
-    <ContentControl Content="{Binding Current}"/>
-  </DockPanel>
-</UserControl>
-```
+Inject `INavigationService` into view models to drive navigation.
 
-Notes and tips for classic MVVM
-- Keep ViewModels free of Avalonia controls. Prefer services for IO, dialogs, and persistence.
-- Raise CanExecuteChanged when state changes. Disable buttons by command state rather than manual IsEnabled.
-- Use DataTemplates to map ViewModels to Views; keep View constructors empty of business logic.
+## 4. Testing classic MVVM view models
 
-3) ReactiveUI in Avalonia
+A unit test using xUnit:
 
-When to consider ReactiveUI
-- You want observable properties and derived values without boilerplate.
-- You want commands that automatically manage async execution and can-execute.
-- You want a simple, testable navigation story (routing) and observable composition.
-
-3.1 Setup
-- Add the Avalonia.ReactiveUI package to your project.
-- In the app builder, enable ReactiveUI:
 ```csharp
-AppBuilder.Configure<App>()
-    .UsePlatformDetect()
-    .UseSkia()
-    .UseReactiveUI() // important
-    .StartWithClassicDesktopLifetime(args);
+[Fact]
+public void RemovePerson_Disables_When_No_Selection()
+{
+    var service = Substitute.For<IPersonService>();
+    var vm = new PeopleViewModel(service);
+
+    vm.Selected = vm.People.First();
+    Assert.True(vm.RemoveCommand.CanExecute(null));
+
+    vm.Selected = null;
+    Assert.False(vm.RemoveCommand.CanExecute(null));
+}
 ```
 
-3.2 ReactiveObject, [ObservableAsProperty] and WhenAnyValue
+Testing ensures command states and property changes behave correctly.
+
+## 5. ReactiveUI approach
+
+ReactiveUI provides `ReactiveObject`, `ReactiveCommand`, `WhenAnyValue`, and routing/interaction helpers. Source: [`Avalonia.ReactiveUI`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.ReactiveUI).
+
+### 5.1 Reactive object and derived state
+
 ```csharp
 using ReactiveUI;
+using System.Reactive.Linq;
+
+public sealed class PersonViewModelRx : ReactiveObject
+{
+    private string _firstName = "Ada";
+    private string _lastName = "Lovelace";
+
+    public string FirstName
+    {
+        get => _firstName;
+        set => this.RaiseAndSetIfChanged(ref _firstName, value);
+    }
+
+    public string LastName
+    {
+        get => _lastName;
+        set => this.RaiseAndSetIfChanged(ref _lastName, value);
+    }
+
+    public string FullName => $"{FirstName} {LastName}";
+
+    public PersonViewModelRx()
+    {
+        this.WhenAnyValue(x => x.FirstName, x => x.LastName)
+            .Select(_ => Unit.Default)
+            .Subscribe(_ => this.RaisePropertyChanged(nameof(FullName)));
+    }
+}
+```
+
+`WhenAnyValue` observes properties and recomputes derived values.
+
+### 5.2 ReactiveCommand and async workflows
+
+```csharp
 using System.Reactive;
 using System.Reactive.Linq;
 
-public sealed class PersonRx : ReactiveObject
-{
-    private string _first = string.Empty;
-    public string First
-    {
-        get => _first;
-        set => this.RaiseAndSetIfChanged(ref _first, value);
-    }
-
-    private string _last = string.Empty;
-    public string Last
-    {
-        get => _last;
-        set => this.RaiseAndSetIfChanged(ref _last, value);
-    }
-
-    public string FullName => $"{First} {Last}";
-}
-
 public sealed class PeopleViewModelRx : ReactiveObject
 {
-    private PersonRx? _selected;
-    public ObservableCollection<PersonRx> People { get; } = new();
+    private PersonViewModelRx? _selected;
 
-    public PersonRx? Selected
+    public ObservableCollection<PersonViewModelRx> People { get; } = new()
+    {
+        new PersonViewModelRx { FirstName = "Ada", LastName = "Lovelace" },
+        new PersonViewModelRx { FirstName = "Grace", LastName = "Hopper" }
+    };
+
+    public PersonViewModelRx? Selected
     {
         get => _selected;
         set => this.RaiseAndSetIfChanged(ref _selected, value);
     }
 
-    public ReactiveCommand<Unit, Unit> Add { get; }
-    public ReactiveCommand<Unit, Unit> Remove { get; }
+    public ReactiveCommand<Unit, Unit> AddCommand { get; }
+    public ReactiveCommand<PersonViewModelRx, Unit> RemoveCommand { get; }
+    public ReactiveCommand<Unit, IReadOnlyList<PersonViewModelRx>> LoadCommand { get; }
 
-    public PeopleViewModelRx()
+    public PeopleViewModelRx(IPersonService service)
     {
-        People.Add(new PersonRx { First = "Ada", Last = "Lovelace" });
-        People.Add(new PersonRx { First = "Alan", Last = "Turing" });
-        People.Add(new PersonRx { First = "Grace", Last = "Hopper" });
+        AddCommand = ReactiveCommand.Create(() =>
+        {
+            var vm = new PersonViewModelRx { FirstName = "New", LastName = "Person" };
+            People.Add(vm);
+            Selected = vm;
+        });
 
-        var canRemove = this.WhenAnyValue(vm => vm.Selected).Select(sel => sel is not null);
-        Add = ReactiveCommand.Create(() => People.Add(new PersonRx { First = "New", Last = "Person" }));
-        Remove = ReactiveCommand.Create(() => { if (Selected is not null) People.Remove(Selected); }, canRemove);
+        var canRemove = this.WhenAnyValue(x => x.Selected).Select(selected => selected is not null);
+        RemoveCommand = ReactiveCommand.Create<PersonViewModelRx>(person => People.Remove(person), canRemove);
+
+        LoadCommand = ReactiveCommand.CreateFromTask(async () =>
+        {
+            var people = await service.FetchPeopleAsync();
+            People.Clear();
+            foreach (var p in people)
+                People.Add(new PersonViewModelRx { FirstName = p.FirstName, LastName = p.LastName });
+            return People.ToList();
+        });
+
+        LoadCommand.ThrownExceptions.Subscribe(ex => {/* handle errors */});
     }
 }
 ```
 
-3.3 Binding in XAML is the same
-```xml
-<!-- PeopleViewRx.axaml -->
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <DockPanel Margin="12">
-    <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Top">
-      <Button Content="Add" Command="{Binding Add}"/>
-      <Button Content="Remove" Command="{Binding Remove}"/>
-    </StackPanel>
-    <ListBox Items="{Binding People}" SelectedItem="{Binding Selected}"/>
-  </DockPanel>
-</UserControl>
-```
+`ReactiveCommand` exposes `IsExecuting`, `ThrownExceptions`, and ensures asynchronous flows stay on the UI thread.
 
-3.4 ReactiveUI routing in one minute
-- Define a host screen that owns a RoutingState.
-- Expose commands that navigate by pushing new view models.
-- Views can derive from ReactiveUserControl<TViewModel> for WhenActivated hooks, but standard UserControl works too.
+### 5.3 `ReactiveUserControl` and activation
 
 ```csharp
 using ReactiveUI;
-using System.Reactive;
+using System.Reactive.Disposables;
 
-public interface IAppScreen : IScreen { }
-
-public sealed class ShellRxViewModel : ReactiveObject, IAppScreen
+public partial class PeopleViewRx : ReactiveUserControl<PeopleViewModelRx>
 {
-    public RoutingState Router { get; } = new();
-
-    public ReactiveCommand<Unit, IRoutableViewModel> GoPeople { get; }
-    public ReactiveCommand<Unit, IRoutableViewModel> GoAbout { get; }
-
-    public ShellRxViewModel()
+    public PeopleViewRx()
     {
-        GoPeople = ReactiveCommand.CreateFromObservable(() => Router.Navigate.Execute(new PeopleRoutedViewModel(this)));
-        GoAbout = ReactiveCommand.CreateFromObservable(() => Router.Navigate.Execute(new AboutRoutedViewModel(this)));
-    }
-}
+        InitializeComponent();
 
-public sealed class PeopleRoutedViewModel : ReactiveObject, IRoutableViewModel
-{
-    public string? UrlPathSegment => "people";
-    public IScreen HostScreen { get; }
-    public PeopleViewModelRx Inner { get; } = new();
-    public PeopleRoutedViewModel(IScreen host) => HostScreen = host;
-}
-
-public sealed class AboutRoutedViewModel : ReactiveObject, IRoutableViewModel
-{
-    public string? UrlPathSegment => "about";
-    public IScreen HostScreen { get; }
-    public AboutRoutedViewModel(IScreen host) => HostScreen = host;
-}
-```
-
-```xml
-<!-- ShellRxView.axaml -->
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <DockPanel>
-    <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Top" Margin="8">
-      <Button Content="People" Command="{Binding GoPeople}"/>
-      <Button Content="About" Command="{Binding GoAbout}"/>
-    </StackPanel>
-    <!-- RoutedViewHost displays the View for the current IRoutableViewModel -->
-    <rxui:RoutedViewHost Router="{Binding Router}" xmlns:rxui="clr-namespace:ReactiveUI;assembly=ReactiveUI"/>
-  </DockPanel>
-</UserControl>
-```
-
-3.5 Interactions (dialogs without coupling)
-- ReactiveUI’s Interaction<TIn, TOut> lets ViewModels request UI work (like a file dialog) while remaining testable.
-- Views subscribe to interactions and fulfill them at the edge.
-
-```csharp
-public sealed class SaveViewModel : ReactiveObject
-{
-    public Interaction<Unit, bool> ConfirmSave { get; } = new();
-    public ReactiveCommand<Unit, Unit> Save { get; }
-
-    public SaveViewModel()
-    {
-        Save = ReactiveCommand.CreateFromTask(async () =>
+        this.WhenActivated(disposables =>
         {
-            var ok = await ConfirmSave.Handle(Unit.Default);
-            if (ok)
-            {
-                // perform save
-            }
+            this.Bind(ViewModel, vm => vm.Selected, v => v.PersonList.SelectedItem)
+                .DisposeWith(disposables);
+            this.BindCommand(ViewModel, vm => vm.AddCommand, v => v.AddButton)
+                .DisposeWith(disposables);
         });
     }
 }
 ```
 
-In the View (code-behind), subscribe when activated:
+`WhenActivated` manages subscriptions. `Bind`/`BindCommand` reduce boilerplate. Source: [`ReactiveUserControl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.ReactiveUI/ReactiveUserControl.cs).
+
+### 5.4 View locator
+
+ReactiveUI auto resolves views via naming conventions. Register `IViewLocator` in DI or implement your own to map view models to views. Avalonia.ReactiveUI includes `ViewLocator` class you can override.
+
+```csharp
+public class AppViewLocator : IViewLocator
+{
+    public IViewFor? ResolveView<T>(T viewModel, string? contract = null) where T : class
+    {
+        var name = viewModel.GetType().FullName.Replace("ViewModel", "View");
+        var type = Type.GetType(name ?? string.Empty);
+        return type is null ? null : (IViewFor?)Activator.CreateInstance(type);
+    }
+}
+```
+
+Register it:
+
+```csharp
+services.AddSingleton<IViewLocator, AppViewLocator>();
+```
+
+### 5.5 Routing and navigation
+
+Routers manage stacks of `IRoutableViewModel` instances. Example shell view model shown earlier. Use `<rxui:RoutedViewHost Router="{Binding Router}"/>` to display the current view.
+
+ReactiveUI navigation supports back/forward, parameter passing, and async transitions.
+
+## 6. Interactions and dialogs
+
+Use `Interaction<TInput,TOutput>` to request UI interactions from view models.
+
+```csharp
+public Interaction<string, bool> ConfirmDelete { get; } = new();
+
+DeleteCommand = ReactiveCommand.CreateFromTask(async () =>
+{
+    if (Selected is null)
+        return;
+
+    var ok = await ConfirmDelete.Handle($"Delete {Selected.FullName}?");
+    if (ok)
+        People.Remove(Selected);
+});
+```
+
+In the view:
+
 ```csharp
 this.WhenActivated(d =>
 {
-    d(ViewModel!.ConfirmSave.RegisterHandler(async ctx =>
+    d(ViewModel!.ConfirmDelete.RegisterHandler(async ctx =>
     {
-        var result = await ShowDialogAsync("Save?", "Do you want to save?", "Yes", "No");
+        var dialog = new ConfirmDialog(ctx.Input);
+        var result = await dialog.ShowDialog<bool>(this);
         ctx.SetOutput(result);
     }));
 });
 ```
 
-4) Validation options that scale
-- Minimal: manual validation in commands (already shown earlier).
-- INotifyDataErrorInfo: push validation errors per property; Avalonia supports Validation styling and Adorners.
-- ReactiveUI.Validation (optional package) offers fluent rules bound to reactive properties.
+## 7. Testing ReactiveUI view models
 
-5) Testing your ViewModels
-- Classic MVVM: instantiate the VM and test property changes and command behavior.
-- ReactiveUI: use TestScheduler to verify reactive flows; test ReactiveCommand execution and can-execute.
+Use `TestScheduler` from `ReactiveUI.Testing` to control time:
 
-6) Choosing your path
-- Start with classic MVVM if you prefer straightforward classes and minimal dependencies.
-- Choose ReactiveUI when you need complex async workflows, derived state, or built-in routing/interaction patterns.
-- You can mix: classic VMs for simple pages; ReactiveUI for complex areas.
+```csharp
+[Test]
+public void LoadCommand_PopulatesPeople()
+{
+    var scheduler = new TestScheduler();
+    var service = Substitute.For<IPersonService>();
+    service.FetchPeopleAsync().Returns(Task.FromResult(new[] { new Person("Alan", "Turing") }));
 
-Look under the hood (source)
-- Avalonia + ReactiveUI integration: [Avalonia.ReactiveUI](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.ReactiveUI)
-- Validation styles: [Avalonia.Themes.Fluent](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent)
+    var vm = new PeopleViewModelRx(service);
+    vm.LoadCommand.Execute().Subscribe();
 
-Check yourself
-- What problems does MVVM solve in UI apps?
-- How do DataTemplates map ViewModels to Views?
-- When would you choose ReactiveCommand over a manual ICommand?
-- What does Router.Navigate.Execute do in ReactiveUI routing?
+    scheduler.Start();
 
-Extra practice
-- Convert the classic People example to ReactiveUI step by step. Keep behavior identical.
-- Add a Save dialog using ReactiveUI’s Interaction pattern, and stub it out in tests.
-- Add a third page and wire it into both the simple shell and the reactive router.
+    Assert.Single(vm.People);
+}
+```
 
-What’s next
+## 8. Choosing between toolkits
+
+| Toolkit | Pros | Cons |
+| --- | --- | --- |
+| Manual / CommunityToolkit.Mvvm | Minimal dependencies, familiar, great for straightforward forms | More boilerplate for async flows, manual derived state |
+| ReactiveUI | Powerful reactive composition, built-in routing/interaction, great for complex async state | Learning curve, more dependencies |
+
+Mixing is common: use classic MVVM for most pages; ReactiveUI for reactive-heavy screens.
+
+## 9. Practice exercises
+
+1. Convert the People example from classic to CommunityToolkit.Mvvm using `[ObservableProperty]` and `[RelayCommand]` attributes.
+2. Add async loading with cancellation (Chapter 17) and unit-test cancellation for both MVVM styles.
+3. Implement a view locator that resolves views via DI rather than naming convention.
+4. Extend ReactiveUI routing with a modal dialog page and test navigation using `TestScheduler`.
+5. Compare command implementations by profiling UI responsiveness when commands run long operations.
+
+## Look under the hood (source bookmarks)
+- Avalonia + ReactiveUI integration: [`Avalonia.ReactiveUI`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.ReactiveUI)
+- Data templates & view mapping: [`DataTemplate.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs)
+- Reactive command implementation: [`ReactiveCommand.cs`](https://github.com/reactiveui/ReactiveUI/blob/main/src/ReactiveUI/ReactiveCommand.cs)
+- Interaction pattern: [`Interaction.cs`](https://github.com/reactiveui/ReactiveUI/blob/main/src/ReactiveUI/Interaction.cs)
+
+## Check yourself
+- What benefits does a view locator provide compared to manual view creation?
+- How do `ReactiveCommand` and classic `RelayCommand` differ in async handling?
+- Why is DI helpful when constructing view models? How would you register services in Avalonia?
+- Which scenarios justify ReactiveUI's routing over simple `ContentControl` swaps?
+
+What's next
 - Next: [Chapter 12](Chapter12.md)

@@ -1,83 +1,176 @@
-# 25. Design‑time tooling and the XAML Previewer
+# 25. Design-time tooling and the XAML Previewer
 
-In this chapter you’ll make the Previewer work for you every day. You’ll learn how Avalonia’s design mode works, how to feed realistic sample data to your views, how to preview styles and resources, and how to avoid common previewer pitfalls that waste time.
+Goal
+- Use Avalonia's XAML Previewer (designer) effectively in VS, Rider, and VS Code.
+- Feed realistic sample data and preview styles/resources without running your full backend.
+- Understand design mode plumbing, avoid previewer crashes, and sharpen your design workflow.
 
-What you’ll learn
-- How the Previewer and design mode work at a high level
-- Design-time attached properties (Design.DataContext, Design.Width/Height, DesignStyle) and when to use them
-- Feeding sample data safely (without running production services)
-- Previewing resource dictionaries and styles with Design.PreviewWith
-- Practical IDE usage tips and common troubleshooting
+Why this matters
+- Fast iteration on UI keeps you productive. The previewer drastically reduces build/run cycles if you set it up correctly.
+- Design-time data prevents "black boxes" in the previewer and reveals layout problems early.
 
-Big picture: how the Previewer works
-- Your IDE opens a small “designer host” process that loads your view or resource XAML and sets the app into design mode. Internally, the host uses a special entry point and windowing platform to run your XAML under tighter control. Design mode signals are propagated so your code can opt out of expensive work.
-- Key signals and helpers:
-  - Design.IsDesignMode is true when running in a designer/previewer session. Your code can branch on this to skip real services, network calls, or timers. See Design.IsDesignMode in source.
-  - A XAML compiler transformer removes all Design.* attached properties in normal runtime so they don’t affect shipping builds, and applies them in design mode when loading XAML for preview.
-  - The preview host uses a dedicated window implementation and windowing platform shim to render your views without relying on a user’s desktop environment.
+Prerequisites
+- Familiarity with XAML bindings (Chapter 8) and templates (Chapter 23).
 
-Design-time attached properties you’ll actually use
-- Design.DataContext: Provide lightweight sample view models so bindings show meaningful data in the Previewer without constructing your real services.
-- Design.Width and Design.Height: Force a control’s size in the designer so you can style it comfortably without relying on outer layout.
-- Design.DesignStyle: Inject an extra style only in design mode to highlight bounds, show placeholder backgrounds, or adjust layout just for preview.
+## 1. How the previewer works
 
-Example: Design-time DataContext with a simple sample VM
-- Add a small sample type (keep it in your UI project for easy access):
-  - public class SamplePerson { public string Name { get; set; } = "Ada"; public int Age { get; set; } = 42; }
-- Use it in XAML (map the namespace and attach Design.DataContext). At runtime, the transformer strips this, so your real DataContext takes over.
+IDE hosts spawn a preview process that loads your view or resource dictionary. Avalonia signals design mode via `Design.IsDesignMode` and applies design-time properties (`Design.*`).
 
-Example: Sizing and design-only style
-- You can set Design.Width/Design.Height to get a consistent designer canvas size.
-- Use Design.DesignStyle to add a dashed outline, helpful for templated controls while iterating.
+Key components (see [`Design.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Design.cs)):
+- `Design.IsDesignMode`: true inside previewer; branch code to avoid real services.
+- `Design.DataContext`, `Design.Width/Height`, `Design.DesignStyle`, `Design.PreviewWith`: attached properties injected at design time and removed from runtime.
+- XAML transformer (`AvaloniaXamlIlDesignPropertiesTransformer`) strips `Design.*` in compiled output.
 
-Previewing styles and resources with Design.PreviewWith
-- You can preview a ResourceDictionary or style in isolation by providing a small host control with Design.PreviewWith. This renders your dictionary wrapped in the host, so you can iterate on colors/templates quickly.
-- Typical pattern in a ResourceDictionary:
-  - Add a simple host, such as a Border or Panel with a child that uses your styles.
-  - Set Design.PreviewWith to that host so the Previewer knows what to render for this dictionary.
+## 2. Design-time DataContext & sample data
 
-Safety first: what not to run in design mode
-- Never start network requests, database connections, background threads, or timers from view constructors if Design.IsDesignMode is true.
-- Avoid static initialization that reaches out to the environment (files, registry, user profile) in design mode.
-- If your ViewModel normally uses services, inject stub/fake implementations when Design.IsDesignMode is true, or use the simple POCO sample objects shown above.
+Provide lightweight POCOs or design view models for preview.
 
-Practical IDE tips
-- Keep your view constructors cheap and side-effect free. Heavy work belongs in async commands triggered by user actions, not in constructors or OnApplyTemplate.
-- Prefer simple sample models for preview data over spinning up your composition root.
-- If the previewer crashes on a view, open a smaller piece (e.g., a UserControl used inside that view) to narrow the issue.
-- If a style/resource dictionary doesn’t preview, add Design.PreviewWith with a minimal host and a representative control that consumes your style.
+Sample POCO:
 
-Troubleshooting checklist
-- Blank or flickering preview: remove animations/triggers, reduce effects, or temporarily comment expensive bindings. Heavy effects can overwhelm the design host.
-- Crashes on load: guard code with if (Design.IsDesignMode) return; in constructors/init paths that run in the designer.
-- Stale data: rebuild the project to flush caches. Some IDEs keep a warm previewer instance.
-- Missing resources: verify avares URIs and resource include scopes. In design mode, the designer may load only the UI assembly; ensure resources are in the correct project.
-- Platform assumptions: don’t assume a particular OS/GPU. The previewer may use a special windowing backend.
+```csharp
+namespace MyApp.Design;
 
-Look under the hood (source tour)
-- Design-time API surface (Design.*): Design.cs
-  - [Avalonia.Controls/Design.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Design.cs)
-- Designer XAML loader and property application:
-  - [Avalonia.DesignerSupport/DesignWindowLoader.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.DesignerSupport/DesignWindowLoader.cs)
-- Previewer entry point and design mode enablement:
-  - [Avalonia.DesignerSupport/Remote/RemoteDesignerEntryPoint.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.DesignerSupport/Remote/RemoteDesignerEntryPoint.cs)
-- XAML compiler transformer that strips Design.* at runtime:
-  - [Avalonia.Markup.Xaml.Loader/CompilerExtensions/Transformers/AvaloniaXamlIlDesignPropertiesTransformer.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml.Loader/CompilerExtensions/Transformers/AvaloniaXamlIlDesignPropertiesTransformer.cs)
-- Designer window/platform shim used by the preview host:
-  - [Avalonia.DesignerSupport/Remote/PreviewerWindowImpl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.DesignerSupport/Remote/PreviewerWindowImpl.cs)
-  - [Avalonia.DesignerSupport/Remote/PreviewerWindowingPlatform.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.DesignerSupport/Remote/PreviewerWindowingPlatform.cs)
-- PlatformManager helpers used in designer mode:
-  - [Avalonia.Controls/Platform/PlatformManager.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Platform/PlatformManager.cs)
-- XAML runtime loader with designMode parameter:
-  - [Avalonia.Markup.Xaml.Loader/AvaloniaRuntimeXamlLoader.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml.Loader/AvaloniaRuntimeXamlLoader.cs)
+public sealed class SamplePerson
+{
+    public string Name { get; set; } = "Ada Lovelace";
+    public string Email { get; set; } = "ada@example.com";
+    public int Age { get; set; } = 37;
+}
+```
 
-Exercise: Make a view designer-friendly
-1) Pick an existing UserControl in your app that currently shows poorly in the Previewer.
-2) Create a tiny sample POCO model with realistic values and attach it with Design.DataContext.
-3) Add Design.Width/Design.Height so you have a predictable canvas while styling.
-4) If the view relies on styles from a dictionary, add Design.PreviewWith to that dictionary with a host and a representative control to preview the style.
-5) Confirm the preview shows your sample data and styles. Remove any unnecessary design-only helpers once you’re done.
+Usage in XAML:
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:design="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls"
+             xmlns:samples="clr-namespace:MyApp.Design" x:Class="MyApp.Views.ProfileView">
+  <design:Design.DataContext>
+    <samples:SamplePerson/>
+  </design:Design.DataContext>
+
+  <StackPanel Spacing="12" Margin="16">
+    <TextBlock Classes="h1" Text="{Binding Name}"/>
+    <TextBlock Text="{Binding Email}"/>
+    <TextBlock Text="Age: {Binding Age}"/>
+  </StackPanel>
+</UserControl>
+```
+
+At runtime the transformer removes `Design.DataContext`; real view models take over. For complex forms, expose design view models with stub services but avoid heavy logic.
+
+### Design.IsDesignMode checks
+
+Guard expensive operations:
+
+```csharp
+if (Design.IsDesignMode)
+    return; // skip service setup, timers, network
+```
+
+Place guards in view constructors, `OnApplyTemplate`, or view model initialization.
+
+## 3. Design.Width/Height & DesignStyle
+
+Set design canvas size:
+
+```xml
+<StackPanel design:Design.Width="320"
+            design:Design.Height="480"
+            design:Design.DesignStyle="{StaticResource DesignOutlineStyle}">
+
+</StackPanel>
+```
+
+`DesignStyle` can add dashed borders or backgrounds for preview only (define style in resources).
+
+Example design style:
+
+```xml
+<Style x:Key="DesignOutlineStyle">
+  <Setter Property="Border.BorderThickness" Value="1"/>
+  <Setter Property="Border.BorderBrush" Value="#808080"/>
+</Style>
+```
+
+## 4. Preview resource dictionaries with Design.PreviewWith
+
+Previewing a dictionary or style requires a host control:
+
+```xml
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:design="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls"
+                    xmlns:views="clr-namespace:MyApp.Views">
+  <design:Design.PreviewWith>
+    <Border Padding="16" Background="#1f2937">
+      <StackPanel Spacing="8">
+        <views:Badge Content="1" Classes="success"/>
+        <views:Badge Content="Warning" Classes="warning"/>
+      </StackPanel>
+    </Border>
+  </design:Design.PreviewWith>
 
 
-What’s next
+</ResourceDictionary>
+```
+
+`PreviewWith` ensures the previewer renders the host when you open the dictionary alone.
+
+## 5. IDE-specific tips
+
+### Visual Studio
+- Ensure "Avalonia Previewer" extension is installed.
+- F12 toggles DevTools; `Alt+Space` opens previewer hotkeys.
+- If previewer doesn't refresh, rebuild project; VS sometimes caches the design assembly.
+
+### Rider
+- Avalonia plugin required; previewer window shows automatically when editing XAML.
+- Use the data context drop-down to quickly switch between sample contexts if multiple available.
+
+### VS Code
+- Avalonia `.vsix` extension supports previewer with dotnet CLI
+driven host. Ensure `dotnet workload install wasm-tools` (previewer uses WASM).
+
+General
+- Keep constructors light; heavy constructors crash previewer.
+- Use `Design.DataContext` to avoid hitting DI container or real services.
+- Split complex layouts into smaller user controls and preview them individually.
+
+## 6. Troubleshooting & best practices
+
+| Issue | Fix |
+| --- | --- |
+| Previewer blank/crashes | Guard code with `Design.IsDesignMode`; simplify layout; ensure no blocking calls in constructor |
+| Design-only styles appear at runtime | Remember `Design.*` stripped at runtime; if you see them, check build output or ensure property wired correctly |
+| Resource dictionary preview fails | Add `Design.PreviewWith`; ensure resources compiled (check `AvaloniaResource` includes) |
+| Sample data not showing | Confirm namespace mapping correct and sample object constructs without exceptions |
+| Slow preview | Remove animations/effects temporarily; large data sets or virtualization can slow preview host |
+
+## 7. Automation
+
+- Document designer defaults using `README` for your UI project. Include instructions for sample data.&
+- Use git hooks/CI to catch accidental runtime usages of `Design.*`. For instance, forbid `Design.IsDesignMode` checks in release-critical code by scanning for patterns if needed.
+
+## 8. Practice exercises
+
+1. Add `Design.DataContext` to a complex form, providing realistic sample data (names, email, totals). Ensure preview shows formatted values.
+2. Set `Design.Width/Height` to 360x720 for a mobile view; use `Design.DesignStyle` to highlight layout boundaries.
+3. Create a resource dictionary for badges; use `Design.PreviewWith` to render multiple badge variants side-by-side.
+4. Guard service initialization with `if (Design.IsDesignMode)` and confirm preview load improves.
+5. Bonus: create a `Design` namespace helper static class that exposes sample models for multiple views; reference it from XAML.
+
+## Look under the hood (source bookmarks)
+- Design property helpers: [`Design.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Design.cs)
+- Previewer bootstrapping: [`RemoteDesignerEntryPoint.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.DesignerSupport/Remote/RemoteDesignerEntryPoint.cs)
+- Design-time property transformer: [`AvaloniaXamlIlDesignPropertiesTransformer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml.Loader/CompilerExtensions/Transformers/AvaloniaXamlIlDesignPropertiesTransformer.cs)
+- Previewer window implementation: [`PreviewerWindowImpl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.DesignerSupport/Remote/PreviewerWindowImpl.cs)
+- Samples: ControlCatalog resources demonstrate `Design.PreviewWith` usage (`samples/ControlCatalog/Styles/...`)
+
+## Check yourself
+- How do you provide sample data without running production services?
+- How do you prevent design-only code from running in production?
+- When do you use `Design.PreviewWith`?
+- What are the most common previewer crashes and how do you avoid them?
+
+What's next
 - Next: [Chapter 26](Chapter26.md)

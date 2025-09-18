@@ -1,81 +1,206 @@
 # 26. Build, publish, and deploy
 
-In this chapter you’ll learn how to turn your Avalonia project into distributable builds for each platform. You’ll understand the difference between building and publishing, how to choose the right runtime identifier (RID), and how to ship self‑contained, single‑file, and trimmed builds responsibly.
+Goal
+- Produce distributable builds for every platform Avalonia supports (desktop, mobile, browser).
+- Understand .NET publish options (framework-dependent vs self-contained, single-file, ReadyToRun, trimming).
+- Package and ship your app (MSIX, DMG, AppImage, AAB/IPA, browser bundles) and automate via CI/CD.
 
-What you’ll learn
-- Build vs publish in .NET and why Release builds matter
-- Runtime identifiers (RID) and cross‑platform publishing
-- Framework‑dependent vs self‑contained builds
-- Single‑file, ReadyToRun, and trimming options (and their trade‑offs)
-- Where files land, how to run them, and what to test before shipping
+Why this matters
+- Reliable builds avoid "works on my machine" syndrome.
+- Choosing the right publish options balances size, startup time, and compatibility.
 
-Build vs publish (in plain words)
-- Build compiles your project into assemblies for running from your dev box. Publish creates a folder you can copy to a target machine and run there (optionally without installing .NET).
-- Always test performance and behavior with Release builds. Debug builds include extra checks and are slower.
+Prerequisites
+- Chapters 18-20 for platform nuances, Chapter 17 for async/networking (relevant to release builds).
 
-Runtime identifiers (RIDs) you’ll actually use
-- Windows: win‑x64, win‑arm64
-- macOS: osx‑x64 (Intel), osx‑arm64 (Apple Silicon)
-- Linux: linux‑x64, linux‑arm64
-- Pick the RID(s) your users need. You can publish multiple variants.
+## 1. Build vs publish
 
-Framework‑dependent vs self‑contained
-- Framework‑dependent: smaller download; requires the correct .NET runtime to be installed on the target machine.
-- Self‑contained: includes the .NET runtime; larger download; runs on machines without .NET installed. Recommended for consumer apps to reduce support friction.
+- `dotnet build`: compiles assemblies, typically run for local development.
+- `dotnet publish`: creates a self-contained folder/app ready to run on target machines (Optionally includes .NET runtime).
+- Always test in `Release` configuration: `dotnet publish -c Release`.
 
-Common publish layouts and options
-- Minimal framework‑dependent build:
-  - dotnet publish -c Release -r win-x64 --self-contained false
-- Self‑contained build:
-  - dotnet publish -c Release -r osx-arm64 --self-contained true
-- Single‑file (packs your app into one executable and a few support files as needed):
-  - dotnet publish -c Release -r linux-x64 /p:SelfContained=true /p:PublishSingleFile=true
-- ReadyToRun (improves startup by precompiling IL to native code; increases size):
-  - dotnet publish -c Release -r win-x64 /p:SelfContained=true /p:PublishReadyToRun=true
-- Trimming (reduces size by removing unused code; use with care due to reflection and data binding):
-  - dotnet publish -c Release -r osx-arm64 /p:SelfContained=true /p:PublishTrimmed=true
+## 2. Runtime identifiers (RIDs)
 
-Trade‑offs and cautions
-- Single‑file may still extract native libraries to a temp folder on first run; measure startup and disk impact.
-- ReadyToRun boosts cold start but can make binaries larger; verify for your app size/benefit.
-- Trimming can remove types used via reflection (including XAML/bindings). Test thoroughly; avoid trimming until you verify that everything works, or add preservation hints incrementally. Start without trimming, then iterate.
+Common RIDs:
+- Windows: `win-x64`, `win-arm64`.
+- macOS: `osx-x64` (Intel), `osx-arm64` (Apple Silicon), `osx.12-arm64` (specific OS version), etc.
+- Linux: `linux-x64`, `linux-arm64` (distribution-neutral), or distro-specific RIDs (`linux-musl-x64`).
+- Android: `android-arm64`, `android-x86`, etc. (handled in platform head).
+- iOS: `ios-arm64`, `iossimulator-x64`.
+- Browser (WASM): `browser-wasm` (handled by browser head).
 
-Where to find your output
-- After publishing, look under bin/Release/<targetframework>/<rid>/publish. For example:
-  - bin/Release/net8.0/win-x64/publish
-  - bin/Release/net8.0/osx-arm64/publish
-  - bin/Release/net8.0/linux-x64/publish
-- Run your app directly from that publish folder on a matching OS/CPU.
+## 3. Publish configurations
 
-Platform notes (high‑level)
-- Windows: a signed self‑contained single‑file EXE is a simple way to distribute. For enterprise or store delivery, consider installer packages (MSIX/MSI) and code signing.
-- macOS: you’ll likely want an app bundle (.app) and code signing/notarization for a smooth Gatekeeper experience. For development, you can run the published binary; for distribution, follow Apple’s signing guidance.
-- Linux: many users are comfortable with a tar.gz of your publish folder. For a desktop‑native feel, consider packaging systems like AppImage, Flatpak, or Snap used by various distros.
+### Framework-dependent (requires installed .NET runtime)
 
-Quality checklist before shipping
-- Publish in Release for each RID you plan to support.
-- Run the app on real target machines (or VMs) for each platform. Verify rendering, fonts, DPI, file dialogs, and hardware acceleration behave as expected.
-- Check that resources (images, styles, fonts) load correctly from the publish folder.
-- If you use single‑file or trimming, exercise all major screens and dynamic features (templates, reflection, localization).
-- If you ship self‑contained, verify size is acceptable and startup times are reasonable.
+```bash
+dotnet publish -c Release -r win-x64 --self-contained false
+```
 
-Troubleshooting
-- Missing dependencies on Linux: install common desktop libraries (font and ICU packages). If the app starts only from a terminal with errors, note missing libraries and install them via your distro’s package manager.
-- Crashes only in Release: ensure you aren’t relying on Debug‑only conditions, and remove dev‑only code paths. Enable logging to a file during testing to capture issues.
-- Graphics differences: different GPUs/drivers can affect performance. Test with integrated and discrete GPUs where possible.
-- File associations and icons: packaging systems (MSIX, app bundles, AppImage/Flatpak) handle these better than raw folders. Plan packaging early if you need OS integration.
+Smaller download; target machine must have matching .NET runtime. Good for enterprise scenarios.
 
-Look under the hood (docs and sources)
-- Build and guidance in the Avalonia repo docs:
-  - [docs/build.md](https://github.com/AvaloniaUI/Avalonia/blob/master/docs/build.md)
-- Samples you can build and publish for reference:
-   - [samples/ControlCatalog](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog)
-   - [samples](https://github.com/AvaloniaUI/Avalonia/tree/master/samples)
+### Self-contained (bundled runtime)
 
-Exercise: Publish and run your app
-1) Publish a self‑contained build for your current OS RID with single‑file enabled. Locate the publish folder and run the app directly from there.
-2) Repeat for a second RID (e.g., win‑x64 or linux‑x64). If you can’t run it locally, copy it to a matching machine/VM and test.
-3) Note the publish size and startup time with and without PublishSingleFile/ReadyToRun. Keep the variant that best balances size and speed for your audience.
+```bash
+dotnet publish -c Release -r osx-arm64 --self-contained true
+```
 
-What’s next
+Larger download; runs on machines without .NET. Standard for consumer apps.
+
+### Single-file
+
+```bash
+dotnet publish -c Release -r linux-x64 /p:SelfContained=true /p:PublishSingleFile=true
+```
+
+Creates one executable (plus a few native libraries depending on platform). Avalonia may extract resources native libs to temp; test startup.
+
+### ReadyToRun
+
+```bash
+dotnet publish -c Release -r win-x64 /p:SelfContained=true /p:PublishReadyToRun=true
+```
+
+Precompiles IL to native code; faster cold start at cost of larger size. Measure before deciding.
+
+### Trimming (advanced)
+
+```bash
+dotnet publish -c Release -r osx-arm64 /p:SelfContained=true /p:PublishTrimmed=true
+```
+
+Aggressive size reduction; risky because Avalonia/XAML relies on reflection. Requires careful annotation/preservation with `DynamicDependency` or `ILLinkTrim` files. Start without trimming; enable later with thorough testing.
+
+### Publish options matrix (example)
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Framework-dependent | Small | Requires runtime install |
+| Self-contained | Runs anywhere | Larger downloads |
+| Single-file | Simple distribution | Extracts natives; more memory | 
+| ReadyToRun | Faster cold start | Larger size | 
+| Trimmed | Smaller | Risk of missing types |
+
+## 4. Output directories
+
+Publish outputs to `bin/Release/<TFramework>/<RID>/publish`.
+
+Examples:
+- `bin/Release/net8.0/win-x64/publish`
+- `bin/Release/net8.0/linux-x64/publish`
+- `bin/Release/net8.0/osx-arm64/publish`
+
+Verify resources (images, fonts) present; confirm `AvaloniaResource` includes them (check `.csproj`).
+
+## 5. Platform packaging
+
+### Windows
+
+- Basic distribution: zip the publish folder or single-file EXE.
+- MSIX: use `dotnet publish /p:WindowsPackageType=msix` or MSIX packaging tool. Enables automatic updates, store distribution.
+- MSI/Wix: for enterprise installs.
+- Code signing recommended (Authenticode certificate) to avoid SmartScreen warnings.
+
+### macOS
+
+- Create `.app` bundle with `Avalonia.DesktopRuntime.MacOS` packaging scripts.
+- Code sign and notarize: use Apple Developer ID certificate, `codesign`, `xcrun altool`/`notarytool`.
+- Provide DMG for distribution.
+
+### Linux
+
+- Zip/tarball publish folder with run script.
+- AppImage: use `Avalonia.AppTemplate.AppImage` or AppImage tooling to bundle.
+- Flatpak: create manifest (flatpak-builder). Ensure dependencies included via `org.freedesktop.Platform` runtime.
+- Snap: use `snapcraft.yaml` to bundle.
+
+### Android
+
+- Platform head (`MyApp.Android`) builds APK/AAB using Android tooling.
+- Publish release AAB and sign with keystore (`./gradlew bundleRelease` or `dotnet publish` using .NET Android tooling).
+- Upload to Google Play or sideload.
+
+### iOS
+
+- Platform head (`MyApp.iOS`) builds .ipa using Xcode or `dotnet publish -f net8.0-ios -c Release` with workload.
+- Requires macOS, Xcode, signing certificates, provisioning profiles.
+- Deploy to App Store via Transporter/Xcode.
+
+### Browser (WASM)
+
+- `dotnet publish -c Release` in browser head (`MyApp.Browser`). Output in `bin/Release/net8.0/browser-wasm/AppBundle`.
+- Deploy to static host (GitHub Pages, S3, etc.). Use service worker for caching if desired.
+
+## 6. Automation (CI/CD)
+
+- Use GitHub Actions/Azure Pipelines/GitLab CI to run `dotnet publish` per target.
+- Example GitHub Actions matrix:
+
+```yaml
+jobs:
+  publish:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet publish src/MyApp/MyApp.csproj -c Release -r ${{ matrix.rid }} --self-contained true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: myapp-${{ matrix.rid }}
+          path: src/MyApp/bin/Release/net8.0/${{ matrix.rid }}/publish
+```
+
+- Add packaging steps (MSIX, DMG) via platform-specific actions/tools.
+- Sign artifacts in CI where possible (store certificates securely).
+
+## 7. Verification checklist
+
+- Run published app on real machines/VMs for each RID.
+- Check fonts, DPI, plugins, network resources.
+- Validate updates to config/resources; ensure relative paths work from publish folder.
+- If using trimming, run automated UITests (Chapter 21) and manual smoke tests.
+- Run `dotnet publish` with `--self-contained` false/true to compare sizes and startup times; pick best trade-off.
+
+## 8. Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| Missing native libs on Linux | Install required packages (`libicu`, `fontconfig`, `libx11`, etc.). Document dependencies. |
+| Startup crash only in Release | Enable logging to file; check for missing assets; ensure `AvaloniaResource` includes. |
+| High CPU at startup | Investigate ReadyToRun vs normal build; pre-load data asynchronously vs synchronously. |
+| Code signing errors (macOS/Windows) | Confirm certificates, entitlements, notarization steps. |
+| Publisher mismatch (store upload) | Align package IDs, manifest metadata with store requirements. |
+
+## 9. Practice exercises
+
+1. Publish self-contained builds for `win-x64`, `osx-arm64`, `linux-x64`. Run each and note size/performance differences.
+2. Enable `PublishSingleFile` and `PublishReadyToRun` for one target; compare startup time and size.
+3. Experiment with trimming on a small sample; add `ILLink` attributes to preserve necessary types; test thoroughly.
+4. Set up a GitHub Actions workflow to publish artifacts per RID and upload them as artifacts.
+5. Optional: create MSIX (Windows) or DMG (macOS) packages and run locally to test installation/updates.
+
+## Look under the hood (source & docs)
+- Avalonia build docs: [`docs/build.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/docs/build.md)
+- Samples for reference packaging: [`samples/ControlCatalog`](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog)
+- .NET publish docs: [dotnet publish reference](https://learn.microsoft.com/dotnet/core/tools/dotnet-publish)
+- App packaging: Microsoft MSIX docs, Apple code signing docs, AppImage/Flatpak/Snap guidelines.
+
+## Check yourself
+- What's the difference between framework-dependent and self-contained publishes? When do you choose each?
+- How do single-file, ReadyToRun, and trimming impact size/performance?
+- Which RIDs are needed for your user base?
+- What packaging format suits your distribution channel (installer, app store, raw executable)?
+- How can CI/CD automate builds and packaging per platform?
+
+What's next
 - Next: [Chapter 27](Chapter27.md)

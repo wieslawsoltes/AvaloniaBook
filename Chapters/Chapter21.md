@@ -1,24 +1,25 @@
 # 21. Headless and testing
 
 Goal
-- Write fast, reliable UI tests that run on CI with no display server
-- Simulate user input (keyboard/mouse) and verify UI behavior programmatically
-- Capture and assert rendered frames for visual regression tests (optional)
+- Test Avalonia UI components without a display server using the headless platform.
+- Simulate user input, capture rendered frames, and integrate UI tests into CI (xUnit, NUnit, other frameworks).
+- Organize your test strategy: view models, control-level tests, visual regression, fast feedback.
 
 Why this matters
-UI you can’t test will regress. Avalonia’s headless platform lets you run your app and controls without a window manager, so tests run anywhere (including CI) and stay deterministic.
+- UI you can't test will regress. Headless testing runs anywhere (CI, Docker) and stays deterministic.
+- Automated UI tests catch regressions in bindings, styles, commands, and layout quickly.
 
-What “headless” means in Avalonia
-- Headless is a special platform backend that implements windowing, input, and rendering without a real OS window.
-- You can drive your UI programmatically and even capture frames for pixel tests.
-- There are helpers for popular test frameworks (xUnit, NUnit) so you don’t write plumbing.
+Prerequisites
+- Chapter 11 (MVVM patterns), Chapter 17 (async patterns), Chapter 16 (storage) for file-based assertions.
 
-Quick start (xUnit): [Avalonia.Headless.XUnit]
-1) Add test packages to your test project:
-   - Avalonia.Headless
-   - Avalonia.Headless.XUnit
-   - Optionally Avalonia.Skia for Skia rendering when you need screenshots
-2) Configure the headless app once per test assembly. Create (or update) `AssemblyInfo.cs` and register the builder the attribute will use:
+## 1. Packages and setup
+
+Add packages to your test project:
+- `Avalonia.Headless`
+- `Avalonia.Headless.XUnit` or `Avalonia.Headless.NUnit`
+- `Avalonia.Skia` (only if you need rendered frames)
+
+### xUnit setup (`AssemblyInfo.cs`)
 
 ```csharp
 using Avalonia;
@@ -27,134 +28,197 @@ using Avalonia.Headless.XUnit;
 
 [assembly: AvaloniaTestApplication(typeof(TestApp))]
 
-public class TestApp : Application
+public sealed class TestApp : Application
 {
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<TestApp>()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions
         {
-            // Flip this to false and call .UseSkia() when you need rendered frames.
-            UseHeadlessDrawing = true
-        });
+            UseHeadlessDrawing = true, // set false + UseSkia for frame capture
+            UseCpuDisabledRenderLoop = true
+        })
+        .AfterSetup(_ => Dispatcher.UIThread.VerifyAccess());
 }
 ```
 
-3) Use the [AvaloniaFact] attribute to run a test on the Avalonia UI thread with the headless platform.
+`UseHeadlessDrawing = true` skips Skia (fast). For pixel tests, set false and call `.UseSkia()`.
 
-Example: a minimal UI interaction test
+### NUnit setup
+
+Use `[AvaloniaTestApp]` attribute (from `Avalonia.Headless.NUnit`) and the provided `AvaloniaTestFixture` base.
+
+## 2. Writing a simple headless test
 
 ```csharp
-using System.Threading.Tasks;
-using Avalonia.Controls;
-using Avalonia.Headless; // Headless helpers + [AvaloniaFact]
-using Avalonia.Input;
-using Avalonia.Threading;
-using Xunit;
-
 public class TextBoxTests
 {
     [AvaloniaFact]
     public async Task TextBox_Receives_Typed_Text()
     {
-        var textBox = new TextBox { Width = 200, Height = 30 };
+        var textBox = new TextBox { Width = 200, Height = 24 };
         var window = new Window { Content = textBox };
         window.Show();
 
-        // Focus and type via headless helpers
+        // Focus on UI thread
         await Dispatcher.UIThread.InvokeAsync(() => textBox.Focus());
-        window.KeyPress(Key.A, RawInputModifiers.Control, PhysicalKey.A, ""); // Ctrl+A (select all)
-        window.KeyTextInput("Hello");
 
-        // Let layout/rendering advance one tick
+        window.KeyTextInput("Avalonia");
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
 
-        Assert.Equal("Hello", textBox.Text);
+        Assert.Equal("Avalonia", textBox.Text);
     }
 }
 ```
 
-Notes
-- The `[assembly: AvaloniaTestApplication]` attribute wires up the headless session before any `[AvaloniaFact]` runs, so individual tests can create windows and controls immediately.
-- Input helpers: After `using Avalonia.Headless;`, extension methods like `KeyPress`, `KeyRelease`, `KeyTextInput`, `MouseDown`, `MouseMove`, `MouseUp`, `MouseWheel`, and `DragDrop` are available on `TopLevel`/`Window`.
-- Rendering tick: Use `AvaloniaHeadlessPlatform.ForceRenderTimerTick()` to advance timers and trigger layout/render when needed.
+Helpers from `Avalonia.Headless` add extension methods to `TopLevel`/`Window` (`KeyTextInput`, `KeyPress`, `MouseDown`, etc.). Always call `ForceRenderTimerTick()` after inputs to flush layout/bindings.
 
-Capturing rendered frames (visual regression)
-To capture frames you must render with Skia and disable headless drawing:
-- Call UseSkia() during setup
-- Pass UseHeadlessDrawing = false when using UseHeadless
-- Then use GetLastRenderedFrame() from HeadlessWindowExtensions
-
-Example: capture a frame and assert size
+## 3. Simulating pointer input
 
 ```csharp
-using Avalonia.Controls;
-using Avalonia.Headless;
-using Xunit;
-
-public class SnapshotTests
+[ AvaloniaFact ]
+public async Task Button_Click_Executes_Command()
 {
-    [AvaloniaFact]
-    public void Window_Renders_Frame()
+    var commandExecuted = false;
+    var button = new Button
     {
-        // Ensure your test app builder (see AssemblyInfo.cs) calls .UseSkia() and sets UseHeadlessDrawing = false.
-        var window = new Window { Width = 300, Height = 200, Content = new Button { Content = "Click" } };
-        window.Show();
+        Width = 100,
+        Height = 30,
+        Content = "Click me",
+        Command = ReactiveCommand.Create(() => commandExecuted = true)
+    };
 
-        // Make sure a render tick happens
+    var window = new Window { Content = button };
+    window.Show();
+
+    await Dispatcher.UIThread.InvokeAsync(() => button.Focus());
+    window.MouseDown(button.Bounds.Center, MouseButton.Left);
+    window.MouseUp(button.Bounds.Center, MouseButton.Left);
+    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+    Assert.True(commandExecuted);
+}
+```
+
+`Bounds.Center` obtains center point from `Control.Bounds`. For container-based coordinates, offset appropriately.
+
+## 4. Frame capture & visual regression
+
+Configure Skia rendering in test app builder:
+
+```csharp
+public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<TestApp>()
+    .UseSkia()
+    .UseHeadless(new AvaloniaHeadlessPlatformOptions
+    {
+        UseHeadlessDrawing = false,
+        UseCpuDisabledRenderLoop = true
+    });
+```
+
+Capture frames:
+
+```csharp
+[ AvaloniaFact ]
+public void Border_Renders_Correct_Size()
+{
+    var border = new Border
+    {
+        Width = 200,
+        Height = 100,
+        Background = Brushes.Red
+    };
+
+    var window = new Window { Content = border };
+    window.Show();
+    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+    using var frame = window.GetLastRenderedFrame();
+    Assert.Equal(200, frame.Size.Width);
+    Assert.Equal(100, frame.Size.Height);
+
+    // Optional: save to disk for debugging
+    // frame.Save("border.png");
+}
+```
+
+Compare pixels to baseline image using e.g., `ImageMagick` or custom diff with tolerance. Keep baselines per theme/resolution to avoid false positives.
+
+## 5. Organizing tests
+
+- **ViewModel tests**: no Avalonia dependencies; test commands and property changes (fastest).
+- **Control tests**: headless platform; simulate inputs to verify states.
+- **Visual regression**: limited number; capture frames and compare.
+- **Integration/E2E**: run full app with navigation; keep few due to complexity.
+
+## 6. Advanced headless scenarios
+
+### 6.1 VNC mode
+
+For debugging, you can run headless with a VNC server and observe the UI.
+
+```csharp
+AppBuilder.Configure<App>()
+    .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseVnc = true, UseSkia = true })
+    .StartWithClassicDesktopLifetime(args);
+```
+
+Connect with a VNC client to view frames and interact.
+
+### 6.2 Simulating time & timers
+
+Use `AvaloniaHeadlessPlatform.ForceRenderTimerTick()` to advance timers. For `DispatcherTimer` or animations, call it repeatedly.
+
+### 6.3 File system in tests
+
+For file-based assertions, use in-memory streams or temp directories. Avoid writing to the repo path; tests should be self-cleaning.
+
+## 7. Testing async flows
+
+- Use `Dispatcher.UIThread.InvokeAsync` for UI updates.
+- Await tasks; avoid `.Result` or `.Wait()`.
+- To wait for state changes, poll with timeout:
+
+```csharp
+async Task WaitForAsync(Func<bool> condition, TimeSpan timeout)
+{
+    var deadline = DateTime.UtcNow + timeout;
+    while (!condition())
+    {
+        if (DateTime.UtcNow > deadline)
+            throw new TimeoutException("Condition not met");
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-
-        using var frame = window.GetLastRenderedFrame();
-        Assert.NotNull(frame);
-        Assert.Equal(300, frame.Size.Width);
-        Assert.Equal(200, frame.Size.Height);
+        await Task.Delay(10);
     }
 }
 ```
 
-Tip: You can persist frames to disk for debugging when running locally; for CI, prefer comparing against a baseline image with a small tolerance. Keep baselines per theme/DPI if relevant.
+## 8. CI integration
 
-NUnit option
-- Use Avalonia.Headless.NUnit and the provided attributes/utilities (AvaloniaTheory, test wrappers) to initialize a HeadlessUnitTestSession for your assembly.
-- The patterns mirror xUnit; prefer your team’s test framework.
+- Headless tests run under `dotnet test` in GitHub Actions/Azure Pipelines/GitLab.
+- On Linux CI, no display server required (no `Xvfb`).
+- Provide environment variables or test-specific configuration as needed.
+- Collect snapshots as build artifacts when tests fail (optional).
 
-Driving complex interactions
-- Pointer/mouse: `MouseDown(point, button, modifiers)`, `MouseMove(point, modifiers)`, `MouseUp(point, modifiers)`
-- Keyboard: `KeyPress`, `KeyRelease`, `KeyTextInput`
-- Drag and drop: `DragDrop(point, type, data, effects, modifiers)`
-- Always focus the control first, and advance one tick afterward to flush input effects: `Focus()`, then `ForceRenderTimerTick()`
+## 9. Practice exercises
 
-Dispatcher and async work in tests
-- Use `Dispatcher.UIThread.InvokeAsync` to execute code on the UI thread.
-- Use `await Task.Yield()` and a render tick to allow bindings and layout to settle.
-- Avoid unbounded waits; if you poll for a condition, cap attempts and fail with a helpful message.
+1. Write a headless test that types into a TextBox, presses Enter, and asserts a command executed.
+2. Simulate a drag-and-drop using `DragDrop` helpers and confirm target list received data.
+3. Capture a frame of an entire form and compare to a baseline image stored under `tests/BaselineImages`.
+4. Create a test fixture that launches the app's main view, navigates to a secondary page, and verifies a label text.
+5. Add headless tests to CI and configure the pipeline to upload snapshot diffs for failing cases.
 
-Headless VNC (debug a headless app visually)
-- For app-level diagnostics (not typical for unit tests), you can run the Headless VNC platform and connect with a VNC client to see frames.
-- See ControlCatalog sample: it supports `--vnc`/`--full-headless` switches and uses `StartWithHeadlessVncPlatform(...)` to boot an app with a VNC framebuffer.
+## Look under the hood (source bookmarks)
+- Headless platform: [`AvaloniaHeadlessPlatform`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/AvaloniaHeadlessPlatform.cs)
+- Input extensions: [`HeadlessWindowExtensions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs)
+- xUnit integration: [`Avalonia.Headless.XUnit`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.XUnit)
+- NUnit integration: [`Avalonia.Headless.NUnit`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.NUnit)
+- Reference tests: [`tests/Avalonia.Headless.UnitTests`](https://github.com/AvaloniaUI/Avalonia/tree/master/tests/Avalonia.Headless.UnitTests)
 
-What to test where
-- ViewModels: test without any Avalonia dependency (fastest); verify commands, properties, validation.
-- Controls/Views: use headless tests to simulate input and verify behavior/visuals.
-- Integration flows: a few end-to-end headless tests are valuable; keep them focused to avoid flakiness.
+## Check yourself
+- How do you initialize the headless platform for xUnit? Which attribute is required?
+- How do you simulate keyboard and pointer input in headless tests?
+- What steps are needed to capture rendered frames? Why might you use them sparingly?
+- How can you run the headless platform visually (e.g., via VNC) for debugging?
+- How does your test strategy balance view model tests, control tests, and visual regression tests?
 
-Troubleshooting
-- “TopLevel must be a headless window.”: Ensure tests initialize the headless platform (UseHeadless) and that the TopLevel is created after setup.
-- “Frame is null” or empty: Call UseSkia + set UseHeadlessDrawing=false and ensure you tick the render timer.
-- Input does nothing: Ensure the control has focus and a render tick occurs after the simulated input.
-- Hanging tests: Never block the UI thread; prefer InvokeAsync + short waits and ticks.
-
-Exercise
-1) Write a test that types “Avalonia” into a TextBox via `KeyTextInput` and asserts the text.
-2) Add a Button with a command bound to a ViewModel; simulate a `MouseDown`/`MouseUp` to click it and assert the command executed.
-3) Create a snapshot test that captures the frame of a 200×100 Border with a red background; assert the bitmap size and optionally compare with a baseline image.
-
-Look under the hood
-- Headless platform entry: [AvaloniaHeadlessPlatform](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/AvaloniaHeadlessPlatform.cs)
-- Rendering interface (headless stubs): [HeadlessPlatformRenderInterface.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/HeadlessPlatformRenderInterface.cs)
-- Simulated input and frame capture: [HeadlessWindowExtensions](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs)
-- xUnit integration: [Avalonia.Headless.XUnit](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.XUnit)
-- NUnit integration: [Avalonia.Headless.NUnit](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.NUnit)
-- Working samples: [tests/Avalonia.Headless.UnitTests](https://github.com/AvaloniaUI/Avalonia/tree/master/tests/Avalonia.Headless.UnitTests)
-- ControlCatalog example switches (VNC/headless): [ControlCatalog.NetCore/Program.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/samples/ControlCatalog.NetCore/Program.cs)
-
-What’s next
+What's next
 - Next: [Chapter 22](Chapter22.md)

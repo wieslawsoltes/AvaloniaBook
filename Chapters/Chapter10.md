@@ -1,34 +1,23 @@
 # 10. Working with resources, images, and fonts
 
 Goal
-- Know how to package and reference app assets with avares URIs.
-- Display raster images (PNG/JPG) and prefer vector for icons where possible.
-- Bundle and use custom fonts; understand FontFamily and the “#FaceName” syntax.
-- Understand DPI scaling in Avalonia and how to keep images/text crisp.
+- Master `avares://` URIs, `AssetLoader`, and resource dictionaries so you can bundle assets cleanly.
+- Display raster and vector images, control caching/interpolation, and brush surfaces with images.
+- Load custom fonts, configure `FontManagerOptions`, and support fallbacks.
+- Understand DPI scaling, bitmap interpolation, and how RenderOptions affects quality.
+- Hook resources into theming (DynamicResource) and diagnose missing assets quickly.
 
-What you’ll build
-- A small gallery view that shows:
-  - A raster logo with Image.
-  - A circular avatar using ImageBrush.
-  - A vector icon drawn with Path.
-  - Headings styled with a bundled custom font.
+Why this matters
+- Assets and fonts give your app brand identity; doing it right avoids blurry visuals or missing resources.
+- Avalonia's resource system mirrors WPF/UWP but with cross-platform packaging; once you know the patterns, you can deploy confidently.
 
 Prerequisites
-- You can edit App.axaml and a Window/UserControl (Ch. 3–7).
-- Basic XAML and binding familiarity (Ch. 5–9).
+- You can edit `App.axaml`, views, and bind data (Ch. 3-9).
+- Familiarity with MVVM and theming (Ch. 7) helps when wiring assets dynamically.
 
-1) Project assets and avares URIs
-- Avalonia embeds UI assets as AvaloniaResource and addresses them using the avares:// URI scheme.
-- Start by organizing files under an Assets folder:
+## 1. `avares://` URIs and project structure
 
-Assets/
-- Images/
-  - logo.png
-  - avatar.png
-- Fonts/
-  - Inter.ttf
-
-- Ensure your project includes these as AvaloniaResource. Most templates already include a wildcard. If not, add:
+Assets live under your project (e.g., `Assets/Images`, `Assets/Fonts`). Include them as `AvaloniaResource` in the `.csproj`:
 
 ```xml
 <ItemGroup>
@@ -36,170 +25,244 @@ Assets/
 </ItemGroup>
 ```
 
-- Referencing an embedded asset uses the assembly name and path:
-  - avares://MyApp/Assets/Images/logo.png
-  - If you’re referencing within the same assembly, still include the assembly segment for clarity and portability.
+URI structure: `avares://<AssemblyName>/<RelativePath>`.
 
-2) Show an image in XAML (raster)
-- The Image control displays bitmaps. Use Stretch to control scaling.
+Example: `avares://InputPlayground/Assets/Images/logo.png`.
+
+`avares://` references the compiled resource stream (not the file system). Use it consistently even within the same assembly to avoid issues with resource lookups.
+
+## 2. Loading assets in XAML and code
+
+### XAML
 
 ```xml
-<Image Source="avares://MyApp/Assets/Images/logo.png"
+<Image Source="avares://AssetsDemo/Assets/Images/logo.png"
        Stretch="Uniform" Width="160"/>
 ```
 
-- In code-behind you can load from the same URI using AssetLoader:
+### Code using `AssetLoader`
 
 ```csharp
-using System;
+using Avalonia.Platform;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform; // AssetLoader
 
-var uri = new Uri("avares://MyApp/Assets/Images/logo.png");
-using var stream = AssetLoader.Open(uri);
+var uri = new Uri("avares://AssetsDemo/Assets/Images/logo.png");
+await using var stream = AssetLoader.Open(uri);
 LogoImage.Source = new Bitmap(stream);
 ```
 
-Tips
-- Prefer PNG for UI assets with transparency (icons, logos). JPG is fine for photos.
-- Keep the source image reasonably large so downscaling on high‑DPI looks sharp.
+`AssetLoader` lives in [`Avalonia.Platform`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/AssetLoader.cs).
 
-3) Use ImageBrush for backgrounds, shapes, and masks
-- ImageBrush paints with an image anywhere a Brush is expected. Common uses: avatar circles, card covers, tiled backgrounds.
+### Resource dictionaries
 
 ```xml
-<Ellipse Width="80" Height="80">
+<ResourceDictionary xmlns="https://github.com/avaloniaui">
+  <Bitmap x:Key="LogoBitmap">avares://AssetsDemo/Assets/Images/logo.png</Bitmap>
+</ResourceDictionary>
+```
+
+You can then `StaticResource` expose `LogoBitmap`. Bitmaps created this way are cached.
+
+## 3. Raster images and caching
+
+`Image` control displays bitmaps. Performance tips:
+- Set `Stretch` to avoid unexpected distortions (Uniform, UniformToFill, Fill, None).
+- Use `RenderOptions.BitmapInterpolationMode` for scaling quality:
+
+```xml
+<Image Source="avares://AssetsDemo/Assets/Images/photo.jpg"
+       Width="240" Height="160"
+       RenderOptions.BitmapInterpolationMode="HighQuality"/>
+```
+
+Interpolation modes defined in [`RenderOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/RenderOptions.cs).
+
+`Bitmap` supports caching and decoding. You can reuse preloaded bitmaps to avoid repeating disk IO.
+
+## 4. ImageBrush and tiled backgrounds
+
+`ImageBrush` paints surfaces:
+
+```xml
+<Ellipse Width="96" Height="96">
   <Ellipse.Fill>
-    <ImageBrush Source="avares://MyApp/Assets/Images/avatar.png"
+    <ImageBrush Source="avares://AssetsDemo/Assets/Images/avatar.png"
                 Stretch="UniformToFill" AlignmentX="Center" AlignmentY="Center"/>
   </Ellipse.Fill>
 </Ellipse>
 ```
 
-- Other knobs:
-  - TileMode="Tile" to repeat an image.
-  - SourceRect to select a sub‑region.
-  - Stretch determines how the image fits: None, Fill, Uniform, UniformToFill.
-
-4) Prefer vector icons when you can
-- Vector art scales perfectly at any DPI and is theme‑friendly (you can recolor it with brushes).
-- A simple way to draw a vector icon is with Path (Data is a geometry string):
+Tile backgrounds:
 
 ```xml
-<Path Data="M 10 2 L 20 22 L 0 22 Z"
-      Fill="#2563EB" Width="20" Height="20"/>
+<Border Width="200" Height="120">
+  <Border.Background>
+    <ImageBrush Source="avares://AssetsDemo/Assets/Images/pattern.png"
+                TileMode="Tile"
+                Stretch="None"
+                Transform="{ScaleTransform 0.5,0.5}"/>
+  </Border.Background>
+</Border>
 ```
 
-- You can also keep geometry in a resource:
+`ImageBrush` documentation: [`ImageBrush.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/ImageBrush.cs).
+
+## 5. Vector graphics
+
+Vector art scales with DPI, can adapt to theme colors, and stays crisp.
+
+### Inline geometry
 
 ```xml
-<Window.Resources>
-  <Geometry x:Key="IconCheck">M2 10 L8 16 L18 4</Geometry>
-</Window.Resources>
-<Canvas>
-  <Path Data="{StaticResource IconCheck}"
-        Stroke="#16A34A" StrokeThickness="2" StrokeLineCap="Round" StrokeLineJoin="Round"/>
-</Canvas>
+<Path Data="M2 12 L9 19 L22 4"
+      Stroke="{DynamicResource AccentBrush}"
+      StrokeThickness="3"
+      StrokeLineCap="Round" StrokeLineJoin="Round"/>
 ```
 
-Notes
-- Vector assets are often provided as SVG. You can either convert small SVG paths to Path Data, or use an SVG package if you need full SVG support.
-
-5) Bundle and use custom fonts
-- Put your TTF/OTF files under Assets/Fonts and include them as AvaloniaResource.
-- Use FontFamily with an avares URI plus the internal face name after #. The part after # must match the font’s family name (not the file name).
+Store geometry in resources for reuse:
 
 ```xml
-<Application xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="MyApp.App">
-  <Application.Styles>
-    <FluentTheme />
-    <!-- Heading style using embedded font -->
-    <Style Selector="TextBlock.h1">
-      <Setter Property="FontFamily" Value="avares://MyApp/Assets/Fonts/Inter.ttf#Inter"/>
-      <Setter Property="FontSize" Value="28"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-    </Style>
-  </Application.Styles>
-</Application>
+<ResourceDictionary xmlns="https://github.com/avaloniaui">
+  <Geometry x:Key="IconCheck">M2 12 L9 19 L22 4</Geometry>
+</ResourceDictionary>
 ```
 
-- Use it in your views:
+Vector classes live under [`Avalonia.Media`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Media).
+
+### SVG support
+
+Use the `Avalonia.Svg` community library or convert simple SVG paths manually. For production, bundling vector icons as XAML ensures theme compatibility.
+
+## 6. Fonts and typography
+
+Place fonts in `Assets/Fonts`. Register them in `App.axaml` via `Global::Avalonia` URI and specify the font face after `#`:
 
 ```xml
-<TextBlock Classes="h1" Text="Resources, images, and fonts"/>
+<Application.Resources>
+  <FontFamily x:Key="HeadingFont">avares://AssetsDemo/Assets/Fonts/Inter.ttf#Inter</FontFamily>
+</Application.Resources>
 ```
 
-Font tips
-- If the text doesn’t render with your font, check the family name embedded in the file (the # part).
-- You can specify fallbacks: FontFamily="avares://MyApp/Assets/Fonts/Inter.ttf#Inter, Segoe UI, Roboto, Arial".
-
-6) DPI scaling without mystery
-- Avalonia measures sizes in device‑independent units (DIPs), where 1 unit = 1/96 inch. Your UI scales with monitor DPI.
-- Bitmaps are scaled automatically by the composition system. To keep them crisp:
-  - Prefer vector for icons and line art.
-  - Use sufficiently large raster sources so downscaling looks good (avoid scaling up small images).
-  - Use Stretch="Uniform" or "UniformToFill" to avoid distortion.
-- Text is vector‑based and stays sharp; embedded fonts render through the GPU via the platform renderer.
-
-7) Common pitfalls and how to fix them
-- Wrong avares URI: include the correct assembly segment and exact path. Example: avares://MyApp/Assets/Images/logo.png
-- Not included as AvaloniaResource: confirm your csproj has <AvaloniaResource Include="Assets/**" /> and the file exists under that path.
-- Font family mismatch: the # part must match the font’s internal family name (use a font viewer to verify if needed).
-- Theme‑unaware icons: prefer vector icons and bind Fill/Foreground to theme brushes (DynamicResource) so they adapt to light/dark.
-
-8) A tiny “assets gallery” to try
+Use the font in styles:
 
 ```xml
-<Grid ColumnDefinitions="Auto,12,Auto" RowDefinitions="Auto,12,Auto">
-  <!-- Raster logo -->
-  <Image Grid.Row="0" Grid.Column="0"
-         Source="avares://MyApp/Assets/Images/logo.png"
-         Width="160" Height="80" Stretch="Uniform"/>
+<Application.Styles>
+  <Style Selector="TextBlock.h1">
+    <Setter Property="FontFamily" Value="{StaticResource HeadingFont}"/>
+    <Setter Property="FontSize" Value="28"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+</Application.Styles>
+```
 
-  <!-- Spacer -->
-  <Rectangle Grid.Row="0" Grid.Column="1" Width="12"/>
+### FontManager options
 
-  <!-- Avatar circle from ImageBrush -->
-  <Ellipse Grid.Row="0" Grid.Column="2" Width="80" Height="80">
+Configure global font settings in `AppBuilder`:
+
+```csharp
+AppBuilder.Configure<App>()
+    .UsePlatformDetect()
+    .With(new FontManagerOptions
+    {
+        DefaultFamilyName = "avares://AssetsDemo/Assets/Fonts/Inter.ttf#Inter",
+        FontFallbacks = new[] { new FontFallback { Family = "Segoe UI" }, new FontFallback { Family = "Roboto" } }
+    })
+    .StartWithClassicDesktopLifetime(args);
+```
+
+`FontManagerOptions` lives in [`FontManagerOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/FontManagerOptions.cs).
+
+### Multi-weight fonts
+
+If fonts include multiple weights, specify them with `FontWeight`. If you ship multiple font files (Regular, Bold), ensure the `#Family` name is consistent.
+
+## 7. DPI scaling, caching, and performance
+
+Avalonia measures layout in DIPs (1 DIP = 1/96 inch). High DPI monitors scale automatically.
+
+- Prefer vector assets or high-resolution bitmaps.
+- Use `RenderOptions.BitmapInterpolationMode="None"` for pixel art.
+- For expensive bitmaps (charts) consider caching via `RenderTargetBitmap` or `WriteableBitmap`.
+
+`RenderTargetBitmap` and `WriteableBitmap` under [`Avalonia.Media.Imaging`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Media/Imaging).
+
+## 8. Linking assets into themes
+
+Bind brushes via `DynamicResource` so assets respond to theme changes:
+
+```xml
+<Application.Resources>
+  <SolidColorBrush x:Key="AvatarFallbackBrush" Color="#1F2937"/>
+</Application.Resources>
+
+<Ellipse Fill="{DynamicResource AvatarFallbackBrush}"/>
+```
+
+Switch resources in theme dictionaries (Chapter 7). Example: lighten icons for Dark theme.
+
+## 9. Diagnostics
+
+- DevTools -> Resources shows resolved resources.
+- Missing asset? Check the output logs (`RenderOptions` area) for "not found" messages.
+- Use `AssetLoader.Exists(uri)` to verify at runtime:
+
+```csharp
+if (!AssetLoader.Exists(uri))
+    throw new FileNotFoundException($"Asset {uri} not found");
+```
+
+## 10. Sample "asset gallery"
+
+```xml
+<Grid ColumnDefinitions="Auto,24,Auto" RowDefinitions="Auto,12,Auto">
+
+  <Image Width="160" Height="80" Stretch="Uniform"
+         Source="avares://AssetsDemo/Assets/Images/logo.png"/>
+
+  <Rectangle Grid.Column="1" Grid.RowSpan="3" Width="24"/>
+
+
+  <Ellipse Grid.Column="2" Width="96" Height="96">
     <Ellipse.Fill>
-      <ImageBrush Source="avares://MyApp/Assets/Images/avatar.png"
-                  Stretch="UniformToFill"/>
+      <ImageBrush Source="avares://AssetsDemo/Assets/Images/avatar.png" Stretch="UniformToFill"/>
     </Ellipse.Fill>
   </Ellipse>
 
-  <!-- Spacer row -->
   <Rectangle Grid.Row="1" Grid.ColumnSpan="3" Height="12"/>
 
-  <!-- Vector icon (check mark) -->
-  <Canvas Grid.Row="2" Grid.Column="0" Width="24" Height="24">
-    <Path Data="M2 12 L9 19 L22 4"
-          Stroke="#16A34A" StrokeThickness="3" StrokeLineCap="Round" StrokeLineJoin="Round"/>
+
+  <Canvas Grid.Row="2" Grid.Column="0" Width="28" Height="28">
+    <Path Data="M2 14 L10 22 L26 6"
+          Stroke="{DynamicResource AccentBrush}"
+          StrokeThickness="3" StrokeLineCap="Round" StrokeLineJoin="Round"/>
   </Canvas>
 
-  <!-- Heading with embedded font -->
   <TextBlock Grid.Row="2" Grid.Column="2" Classes="h1" Text="Asset gallery"/>
 </Grid>
 ```
 
-Check yourself
-- What does the avares:// scheme point to, and why include the assembly segment?
-- When would you choose Image vs ImageBrush?
-- How do you reference a font file and its internal face name in FontFamily?
-- Why do vector icons look better on very high‑DPI screens?
+## 11. Practice exercises
 
-Look under the hood (repo reading list)
-- Images and imaging: src/Avalonia.Media.Imaging, src/Avalonia.Controls (Image)
-- Brushes and drawing primitives: src/Avalonia.Media
-- Fonts and text: src/Avalonia.Media.TextFormatting
-- Skia rendering backend: src/Skia/Avalonia.Skia
+1. Package a second font family (italic) and create a style for quotes.
+2. Load a user-selected image from disk using `OpenFileDialog` (Chapter 16) and display it via `Bitmap` and `ImageBrush`.
+3. Add a vector icon that swaps color based on `ThemeVariant` (use `DynamicResource` to map theme brushes).
+4. Experiment with `RenderOptions.BitmapInterpolationMode` to compare pixelated vs crisp scaling.
+5. Create a sprite sheet (single PNG) and display multiple sub-regions using `ImageBrush.SourceRect`.
 
-Extra practice
-- Add a dark/light adaptive icon by binding a Path Fill to a DynamicResource brush.
-- Create a tiled background with ImageBrush and TileMode="Tile".
-- Add another font weight (e.g., Inter Bold) and make a .h1Bold style.
-- Load a user‑picked image at runtime and display it with Image and ImageBrush variants.
+## Look under the hood (source bookmarks)
+- Asset loader and URIs: [`AssetLoader.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/AssetLoader.cs)
+- Bitmap and imaging: [`Bitmap.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/Imaging/Bitmap.cs)
+- Brushes: [`ImageBrush.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/ImageBrush.cs)
+- Fonts & text formatting: [`FontManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/FontManager.cs), [`TextLayout.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/TextFormatting/TextLayout.cs)
+- Render options and DPI: [`RenderOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/RenderOptions.cs)
 
-What’s next
+## Check yourself
+- How do you ensure assets are embedded and addressable with `avares://` URIs?
+- When would you use `Image` vs `ImageBrush` vs `Path`?
+- What steps configure a custom font and fallback chain across platforms?
+- How can `RenderOptions.BitmapInterpolationMode` improve image quality at different scales?
+- Which tools help verify resources (DevTools, AssetLoader.Exists)?
+
+What's next
 - Next: [Chapter 11](Chapter11.md)

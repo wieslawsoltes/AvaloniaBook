@@ -1,117 +1,268 @@
 # 3. Your first UI: layouts, controls, and XAML basics
 
 Goal
-- Build your first real window using common controls and two core layout panels.
-- Learn the XAML you’ll write most often (attributes, nesting, simple resources).
-- Run, resize, and understand how layout adapts.
+- Build your first meaningful window with StackPanel, Grid, and reusable user controls.
+- Learn how `ContentControl`, `UserControl`, and `NameScope` help you compose UIs cleanly.
+- See how logical and visual trees differ so you can find controls and debug bindings.
+- Use `ItemsControl` with `DataTemplate` and a simple value converter to repeat UI for collections.
+- Understand XAML namespaces (`xmlns:`) and how to reference custom classes or Avalonia namespaces.
 
-What you’ll build
-- A window with a title, some text, a button that updates text, and a simple form laid out with Grid.
-- You’ll see how StackPanel and Grid work together and how controls size themselves.
+Why this matters
+- Real apps are more than a single window--you compose views, reuse user controls, and bind lists of data.
+- Understanding the logical tree versus the visual tree makes tooling (DevTools, FindControl, bindings) predictable.
+- Data templates and converters are the backbone of MVVM-friendly UIs; learning them early prevents hacks later.
 
 Prerequisites
-- You’ve completed Chapter 2 and can create and run a new Avalonia app.
+- Chapter 2 completed. You can run `dotnet new`, `dotnet build`, and `dotnet run` on your machine.
 
-Step-by-step
-1) Create a new app
-- In a terminal: dotnet new avalonia.app -o HelloLayouts
-- Open the project in your IDE, then run it (dotnet run) to verify it starts.
+## 1. Scaffold the sample project
 
-2) Replace MainWindow content with basic UI
-- Open MainWindow.axaml and replace the inner content of <Window> with this:
+```bash
+# Create a new sample app for this chapter
+dotnet new avalonia.mvvm -o SampleUiBasics
+cd SampleUiBasics
+
+# Restore packages and run once to ensure the template works
+dotnet run
+```
+
+Open the project in your IDE before continuing.
+
+## 2. Quick primer on XAML namespaces
+
+The root `<Window>` tag declares namespaces so XAML can resolve types:
 
 ```xml
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="HelloLayouts.MainWindow"
-        Width="500" Height="360"
-        Title="Hello, Avalonia!">
-  <StackPanel Margin="16" Spacing="12">
-    <TextBlock Classes="h1" Text="Your first UI"/>
+        xmlns:ui="clr-namespace:SampleUiBasics.Views"
+        x:Class="SampleUiBasics.Views.MainWindow">
+```
 
-    <TextBlock x:Name="CounterText" Text="You clicked 0 times."/>
-    <Button x:Name="CounterButton"
-            Width="140"
-            Content="Click me"
-            Click="CounterButton_OnClick"/>
+- The default namespace maps to common Avalonia controls (Button, Grid, StackPanel).
+- `xmlns:x` exposes XAML keywords like `x:Name`, `x:Key`, and `x:DataType`.
+- Custom prefixes (e.g., `xmlns:ui`) point to CLR namespaces in your project or other assemblies so you can reference your own classes or controls (`ui:AddressCard`).
 
-    <Border Background="{DynamicResource ThemeAccentBrush}"
-            CornerRadius="6" Padding="12">
-      <TextBlock Foreground="White" Text="Inside a Border"/>
-    </Border>
+## 3. Build the main layout (StackPanel + Grid)
 
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,8,0,0">
-      <TextBlock Text="Name:" Margin="0,0,8,8"/>
-      <TextBox Grid.Column="1" Width="240"/>
+Open `Views/MainWindow.axaml` and replace the `<Window.Content>` with:
 
-      <TextBlock Grid.Row="1" Text="Email:" Margin="0,0,8,0"/>
-      <TextBox Grid.Row="1" Grid.Column="1" Width="240"/>
+```xml
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:SampleUiBasics.Views"
+        x:Class="SampleUiBasics.Views.MainWindow"
+        Width="540" Height="420"
+        Title="Customer overview">
+  <DockPanel LastChildFill="True" Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Classes="h1"
+               Text="Customer overview"
+               Margin="0,0,0,16"/>
+
+    <Grid ColumnDefinitions="2*,3*"
+          RowDefinitions="Auto,*"
+          ColumnSpacing="16"
+          RowSpacing="16">
+
+      <StackPanel Grid.Column="0" Spacing="8">
+        <TextBlock Classes="h2" Text="Details"/>
+
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+          <TextBlock Text="Name:"/>
+          <TextBox Grid.Column="1" Width="200" Text="{Binding Customer.Name}"/>
+
+          <TextBlock Grid.Row="1" Text="Email:"/>
+          <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Customer.Email}"/>
+
+          <TextBlock Grid.Row="2" Text="Status:"/>
+          <ComboBox Grid.Row="2" Grid.Column="1" SelectedIndex="0">
+            <ComboBoxItem>Prospect</ComboBoxItem>
+            <ComboBoxItem>Active</ComboBoxItem>
+            <ComboBoxItem>Dormant</ComboBoxItem>
+          </ComboBox>
+        </Grid>
+      </StackPanel>
+
+
+      <StackPanel Grid.Column="1" Spacing="8">
+        <TextBlock Classes="h2" Text="Recent orders"/>
+        <ItemsControl Items="{Binding RecentOrders}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <ui:OrderRow />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
     </Grid>
-  </StackPanel>
+  </DockPanel>
 </Window>
 ```
 
-- Save. Your previewer (if enabled in your IDE) should refresh. Otherwise, run the app to see the layout.
+What you just used:
+- `DockPanel` places a title bar on top and fills the rest.
+- `Grid` split into two columns for the form (left) and list (right).
+- `ItemsControl` repeats a data template for each item in `RecentOrders`.
 
-3) Wire up a simple event in code-behind
-- Open MainWindow.axaml.cs and add this method and field:
+## 4. Create a reusable user control (`OrderRow`)
+
+Add a new file `Views/OrderRow.axaml`:
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SampleUiBasics.Views.OrderRow"
+             Padding="8"
+             Classes="card">
+  <Border Background="{DynamicResource ThemeBackgroundBrush}"
+          CornerRadius="6"
+          Padding="12">
+    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12">
+      <TextBlock Classes="h3" Text="{Binding Title}"/>
+      <TextBlock Grid.Column="1"
+                 Foreground="{DynamicResource ThemeAccentBrush}"
+                 Text="{Binding Total, Converter={StaticResource CurrencyConverter}}"/>
+
+      <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding PlacedOn, StringFormat='Ordered on {0:d}'}"/>
+    </Grid>
+  </Border>
+</UserControl>
+```
+
+- `UserControl` encapsulates UI so you can reuse it via `<ui:OrderRow />`.
+- It relies on bindings (`Title`, `Total`, `PlacedOn`) which come from the current item in the data template.
+- Using a user control keeps the item template readable and testable.
+
+## 5. Add a value converter
+
+Converters adapt data for display. Create `Converters/CurrencyConverter.cs`:
 
 ```csharp
-using Avalonia.Controls;       // for TextBlock, Button
-using Avalonia.Interactivity;  // for RoutedEventArgs
+using System;
+using System.Globalization;
+using Avalonia.Data.Converters;
 
-private int _count;
-private TextBlock? _counterText;
+namespace SampleUiBasics.Converters;
 
-public MainWindow()
+public sealed class CurrencyConverter : IValueConverter
 {
-    InitializeComponent();
-    _counterText = this.FindControl<TextBlock>("CounterText");
-}
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is decimal amount)
+            return string.Format(culture, "{0:C}", amount);
 
-private void CounterButton_OnClick(object? sender, RoutedEventArgs e)
-{
-    _count++;
-    if (_counterText is not null)
-        _counterText.Text = $"You clicked {_count} times.";
+        return value;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => value;
 }
 ```
 
-- Build and run. Click the button—your text updates. This is a tiny taste of events; MVVM and bindings come later.
+Register the converter in `App.axaml` so XAML can reference it:
 
-4) XAML basics you just used
-- Nesting: Panels (like StackPanel and Grid) contain other controls.
-- Attributes: Properties like Margin, Spacing, Width are set as attributes.
-- Attached properties: Grid.Row and Grid.Column are attached properties that apply to children inside a Grid.
-- Resources: {DynamicResource ThemeAccentBrush} pulls a color from the current theme.
+```xml
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:SampleUiBasics.Converters"
+             x:Class="SampleUiBasics.App">
+  <Application.Resources>
+    <converters:CurrencyConverter x:Key="CurrencyConverter"/>
+  </Application.Resources>
 
-5) Layout in plain words
-- StackPanel lays out children in a single line (vertical by default) and gives each its desired size.
-- Grid gives you rows and columns. Use Auto for “size to content,” * for “take the rest,” and numbers like 2* for proportional sizing.
-- Most controls size to their content by default. Add Margin for space around, and Padding for space inside containers.
-
-6) Run and resize
-- Resize the window. Notice TextBox stretches in the Grid’s second column while labels stay Auto-sized in the first column.
-
-Check yourself
-- Can you add another row to the Grid for a “Phone” field?
-- Can you put the button above the Border by moving it earlier in the StackPanel?
-- Can you make the button stretch horizontally (set HorizontalAlignment="Stretch")?
-- Do Tab key presses move focus between fields in the expected order?
-
-Look under the hood (optional)
-- Controls live here: [Avalonia.Controls](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls)
-- Themes (Fluent): [Avalonia.Themes.Fluent](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent)
-- Explore the ControlCatalog sample: [samples/ControlCatalog](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog)
-
-Extra practice
-- Add a DockPanel with a top bar (a TextBlock) and the rest filled with your StackPanel using DockPanel.Dock.
-- Replace StackPanel with a Grid-only layout: two rows (title on top, content below), and columns inside the content row.
-- Try WrapPanel for a row of buttons that wrap on small widths.
-
-```tip
-If the Previewer isn’t available in your IDE, just build and run often. Fast feedback is what matters.
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+</Application>
 ```
 
-What’s next
+## 6. Populate the ViewModel with nested data
+
+Open `ViewModels/MainWindowViewModel.cs` and replace its contents with:
+
+```csharp
+using System;
+using System.Collections.ObjectModel;
+
+namespace SampleUiBasics.ViewModels;
+
+public sealed class MainWindowViewModel
+{
+    public CustomerViewModel Customer { get; } = new("Avery Diaz", "avery@example.com");
+
+    public ObservableCollection<OrderViewModel> RecentOrders { get; } = new()
+    {
+        new OrderViewModel("Starter subscription", 49.00m, DateTime.Today.AddDays(-2)),
+        new OrderViewModel("Design add-on", 129.00m, DateTime.Today.AddDays(-12)),
+        new OrderViewModel("Consulting", 900.00m, DateTime.Today.AddDays(-20))
+    };
+}
+
+public sealed record CustomerViewModel(string Name, string Email);
+
+public sealed record OrderViewModel(string Title, decimal Total, DateTime PlacedOn);
+```
+
+Now bindings like `{Binding Customer.Name}` and `{Binding RecentOrders}` have backing data.
+
+## 7. Understand `ContentControl`, `UserControl`, and `NameScope`
+
+- **`ContentControl`** (see [ContentControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ContentControl.cs)) holds a single content object. Windows, Buttons, and many controls inherit from it. Setting `Content` or placing child XAML elements populates that content.
+- **`UserControl`** (see [UserControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/UserControl.cs)) is a convenient way to package a small view with its own XAML and code-behind. Each `UserControl` has its own `NameScope`.
+- **`NameScope`** (see [NameScope.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/NameScope/NameScope.cs)) governs how `x:Name` lookups work. By default, names are scoped to the nearest `NameScope` provider (Window, UserControl). Use `this.FindControl<T>("CounterText")` or `NameScope.GetNameScope(this)` to resolve names inside the scope.
+
+When you nest user controls, remember: a name defined in `OrderRow` is not visible in `MainWindow` because each `UserControl` has its own scope. This avoids name collisions in templated scenarios.
+
+## 8. Logical tree vs visual tree (why it matters)
+
+- The **logical tree** tracks content relationships: windows -> user controls -> ItemsControl items. Bindings and resource lookups walk the logical tree. Inspect with `this.GetLogicalChildren()` or DevTools -> Logical tree.
+- The **visual tree** includes the actual visuals created by templates (Borders, TextBlocks, Panels). DevTools -> Visual tree shows the rendered hierarchy.
+- Some controls (e.g., `ContentPresenter`) exist in the visual tree but not in the logical tree. When `FindControl` fails, confirm whether the element is in the logical tree.
+- Reference implementation: [LogicalTreeExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/LogicalTree/LogicalTreeExtensions.cs) and [Visual.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Visual.cs).
+
+## 9. Data templates explained
+
+- `ItemsControl.ItemTemplate` applies a `DataTemplate` for each item. Inside a data template, the `DataContext` is the individual item (an `OrderViewModel`).
+- You can inline XAML or reference a key: `<DataTemplate x:Key="OrderTemplate"> ...` and then `ItemTemplate="{StaticResource OrderTemplate}"`.
+- Data templates can contain user controls, panels, or inline elements. They are the foundation for list virtualization later.
+- Template source: [DataTemplate.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs).
+
+## 10. Run, inspect, and iterate
+
+```bash
+dotnet run
+```
+
+While the app runs:
+- Press **F12** (DevTools). Explore both logical and visual trees for `OrderRow` entries.
+- Select an `OrderRow` TextBlock and confirm the binding path (`Total`) resolves to the right data.
+- Try editing `OrderViewModel` values in code and rerun to see updates.
+
+## Troubleshooting
+- **Binding path errors**: DevTools -> Diagnostics -> Binding Errors shows typos. Ensure properties exist or set `x:DataType="vm:OrderViewModel"` in templates for compile-time checks (once you add namespaces for view models).
+- **Converter not found**: ensure the namespace prefix in `App.axaml` matches the converter's CLR namespace and the key matches `StaticResource CurrencyConverter`.
+- **User control not rendering**: confirm the namespace prefix `xmlns:ui` matches the CLR namespace of `OrderRow` and that the class is `partial` with matching `x:Class`.
+- **FindControl returns null**: check `NameScope`. If the element is inside a data template, use `e.Source` from events or bind through the ViewModel instead of searching.
+
+## Practice and validation
+1. Add a `ui:AddressCard` user control showing billing address details. Bind it to `Customer` using `ContentControl.Content="{Binding Customer}"` and define a data template for `CustomerViewModel`.
+2. Add a `ValueConverter` that highlights orders above $500 by returning a different brush; apply it to the Border background via `{Binding Total, Converter=...}`.
+3. Add a `ListBox` instead of `ItemsControl` and observe how selection adds visual states in the visual tree.
+4. Use DevTools to inspect both logical and visual trees for the `AddressCard`. Note which elements appear in one tree but not the other.
+
+## Look under the hood (source bookmarks)
+- Content control composition: [src/Avalonia.Controls/ContentControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ContentControl.cs)
+- User controls and name scopes: [src/Avalonia.Controls/UserControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/UserControl.cs)
+- Logical tree helpers: [src/Avalonia.Base/LogicalTree/LogicalTreeExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/LogicalTree/LogicalTreeExtensions.cs)
+- Data template implementation: [src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs)
+- Value converters: [src/Avalonia.Base/Data/Converters](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Data/Converters)
+
+## Check yourself
+- How do XAML namespaces (`xmlns`) relate to CLR namespaces and assemblies?
+- What is the difference between the logical and visual tree, and why does it matter for bindings?
+- How do `ContentControl` and `UserControl` differ and when would you choose each?
+- Where do you register value converters so they can be referenced in XAML?
+- Inside a `DataTemplate`, what object provides the `DataContext`?
+
+What's next
 - Next: [Chapter 4](Chapter04.md)

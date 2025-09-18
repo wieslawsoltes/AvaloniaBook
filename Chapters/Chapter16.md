@@ -1,176 +1,180 @@
 # 16. Files, storage, drag/drop, and clipboard
 
 Goal
-- Learn how to open/save files and pick folders using the platform Storage Provider
-- Learn safe patterns for reading and writing files asynchronously
-- Add drag-and-drop support to accept files and text, and to start a drag from your app
-- Use the clipboard to copy, cut, and paste text and richer data
+- Use Avalonia's storage provider to open, save, and enumerate files/folders across desktop, mobile, and browser.
+- Abstract file dialogs behind services so MVVM view models remain testable.
+- Handle drag-and-drop data (files, text, custom formats) and initiate drags from your app.
+- Work with the clipboard safely, including multi-format payloads.
 
 Why this matters
-- Every real app moves data in and out: import/export, user selections, assets, logs
-- Users expect familiar OS-native pickers, drag-and-drop, and clipboard behavior
-- Avalonia provides a single API that works across Windows, macOS, Linux, Android, iOS, and the Browser
+- Users expect native pickers, drag/drop, and clipboard support. Implementing them well keeps experiences consistent across platforms.
+- Proper abstractions keep storage logic off the UI thread and ready for unit testing.
 
-Quick start: pick a file and read text
-1) Get the storage provider from a TopLevel (Window, control, etc.)
-2) Show the Open File Picker
-3) Read the selected file using a stream
+Prerequisites
+- Chapter 9 (commands/input), Chapter 11 (MVVM), Chapter 12 (TopLevel services).
 
-C#
+## 1. Storage provider fundamentals
+
+All pickers live on `TopLevel.StorageProvider` (Window, control, etc.). The storage provider is an abstraction over native dialogs and sandbox rules.
+
 ```csharp
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Platform.Storage;
-using System.IO;
-using System.Text;
-
-public partial class MainWindow : Window
+var topLevel = TopLevel.GetTopLevel(control);
+if (topLevel?.StorageProvider is { } storage)
 {
-    public MainWindow()
+    // storage.OpenFilePickerAsync(...)
+}
+```
+
+If `StorageProvider` is null, ensure the control is attached (e.g., call after `Loaded`/`Opened`).
+
+### 1.1 Service abstraction for MVVM
+
+```csharp
+public interface IFileDialogService
+{
+    Task<IReadOnlyList<IStorageFile>> OpenFilesAsync(FilePickerOpenOptions options);
+    Task<IStorageFile?> SaveFileAsync(FilePickerSaveOptions options);
+    Task<IStorageFolder?> PickFolderAsync(FolderPickerOpenOptions options);
+}
+
+public sealed class FileDialogService : IFileDialogService
+{
+    private readonly TopLevel _topLevel;
+    public FileDialogService(TopLevel topLevel) => _topLevel = topLevel;
+
+    public Task<IReadOnlyList<IStorageFile>> OpenFilesAsync(FilePickerOpenOptions options)
+        => _topLevel.StorageProvider?.OpenFilePickerAsync(options) ?? Task.FromResult<IReadOnlyList<IStorageFile>>(Array.Empty<IStorageFile>());
+
+    public Task<IStorageFile?> SaveFileAsync(FilePickerSaveOptions options)
+        => _topLevel.StorageProvider?.SaveFilePickerAsync(options) ?? Task.FromResult<IStorageFile?>(null);
+
+    public async Task<IStorageFolder?> PickFolderAsync(FolderPickerOpenOptions options)
     {
-        InitializeComponent();
-    }
-
-    private async void OnOpenTextFile(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        var sp = this.StorageProvider; // same as TopLevel.GetTopLevel(this)!.StorageProvider
-
-        var files = await sp.OpenFilePickerAsync(new FilePickerOpenOptions
-        {
-            Title = "Open a text file",
-            AllowMultiple = false,
-            FileTypeFilter = new[]
-            {
-                new FilePickerFileType("Text files") { Patterns = new [] { "*.txt", "*.log" } },
-                FilePickerFileTypes.All
-            }
-        });
-
-        var file = files?.Count > 0 ? files[0] : null;
-        if (file is null)
-            return;
-
-        // Safe async read
-        await using var stream = await file.OpenReadAsync();
-        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: false);
-        var text = await reader.ReadToEndAsync();
-        // TODO: show text in your UI
+        if (_topLevel.StorageProvider is null)
+            return null;
+        var folders = await _topLevel.StorageProvider.OpenFolderPickerAsync(options);
+        return folders.FirstOrDefault();
     }
 }
 ```
 
-Saving a file
-- Use SaveFilePickerAsync to ask for the target path and name
-- You can suggest a default file name and extension
+Register the service per window (in DI) so view models request dialogs via `IFileDialogService` without touching UI types.
+
+## 2. Opening files (async streams)
 
 ```csharp
-var sp = this.StorageProvider;
-var sf = await sp.SaveFilePickerAsync(new FilePickerSaveOptions
+public async Task<string?> ReadTextFileAsync(IStorageFile file, CancellationToken ct)
 {
-    Title = "Save report",
-    SuggestedFileName = "report.txt",
-    DefaultExtension = "txt",
-    FileTypeChoices = new[]
-    {
-        new FilePickerFileType("Text") { Patterns = new[] { "*.txt" } },
-        new FilePickerFileType("Markdown") { Patterns = new[] { "*.md" } }
-    }
-});
-if (sf is not null)
-{
-    await using var dst = await sf.OpenWriteAsync();
-    await using var writer = new StreamWriter(dst, Encoding.UTF8, leaveOpen: false);
-    await writer.WriteAsync("Hello from Avalonia!\n");
+    await using var stream = await file.OpenReadAsync();
+    using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+    return await reader.ReadToEndAsync(ct);
 }
 ```
 
-Pick multiple files
-- Set AllowMultiple = true
-- You’ll get IReadOnlyList<IStorageFile>
+- Always wrap streams in `using`/`await using`.
+- Pass `CancellationToken` to long operations.
+- For binary files, use `BinaryReader` or direct `Stream` APIs.
+
+### 2.1 Remote or sandboxed locations
+
+On Android/iOS/Browser the returned stream might be virtual (no direct file path). Always rely on stream APIs; avoid `LocalPath` if `Path` is null.
+
+### 2.2 File type filters
 
 ```csharp
-var files = await this.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+var options = new FilePickerOpenOptions
 {
-    Title = "Pick images",
+    Title = "Open images",
     AllowMultiple = true,
+    SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures),
     FileTypeFilter = new[]
     {
-        new FilePickerFileType("Images") { Patterns = new [] { "*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp" } }
+        new FilePickerFileType("Images")
+        {
+            Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp", "*.gif" }
+        }
     }
-});
+};
 ```
 
-Pick a folder and enumerate items
-- Use OpenFolderPickerAsync to choose one or more folders
-- Enumerate files/folders via IStorageFolder.GetItemsAsync
+`TryGetWellKnownFolderAsync` returns common directories when supported (desktop/mobile). Source: [`WellKnownFolder.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/WellKnownFolder.cs).
+
+## 3. Saving files
 
 ```csharp
-var folders = await this.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+var saveOptions = new FilePickerSaveOptions
 {
-    Title = "Pick a folder",
-    AllowMultiple = false
-});
-var folder = folders?.Count > 0 ? folders[0] : null;
+    Title = "Export report",
+    SuggestedFileName = $"report-{DateTime.UtcNow:yyyyMMdd}.csv",
+    DefaultExtension = "csv",
+    FileTypeChoices = new[]
+    {
+        new FilePickerFileType("CSV") { Patterns = new[] { "*.csv" } },
+        new FilePickerFileType("All files") { Patterns = new[] { "*" } }
+    }
+};
+
+var file = await _dialogService.SaveFileAsync(saveOptions);
+if (file is not null)
+{
+    await using var stream = await file.OpenWriteAsync();
+    await using var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: false);
+    await writer.WriteLineAsync("Id,Name,Email");
+    foreach (var row in rows)
+        await writer.WriteLineAsync($"{row.Id},{row.Name},{row.Email}");
+}
+```
+
+- `OpenWriteAsync` truncates the existing file. Use `OpenReadWriteAsync` for editing.
+- Some platforms prompt for confirmation when writing to previously granted locations.
+
+## 4. Enumerating folders
+
+```csharp
+var folder = await storage.TryGetFolderFromPathAsync(new Uri("file:///C:/Logs"));
 if (folder is not null)
 {
-    var items = await folder.GetItemsAsync(); // files and subfolders
-    foreach (var item in items)
+    await foreach (var item in folder.GetItemsAsync())
     {
-        // item is IStorageItem; you can check if it’s a file or folder
-        if (item is IStorageFile f)
+        switch (item)
         {
-            // use f.OpenReadAsync / OpenWriteAsync
-        }
-        else if (item is IStorageFolder d)
-        {
-            // recurse or display
+            case IStorageFile file:
+                // Process file
+                break;
+            case IStorageFolder subfolder:
+                // Recurse or display
+                break;
         }
     }
 }
 ```
 
-Access well-known folders
-- Some platforms expose Desktop, Documents, Downloads, Music, Pictures, Videos
-- Ask via TryGetWellKnownFolderAsync; it returns null if not available
+`GetItemsAsync()` returns an async sequence; iterate with `await foreach` on .NET 7+. Use `GetFilesAsync`/`GetFoldersAsync` to filter.
 
-```csharp
-var pictures = await this.StorageProvider.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
-if (pictures is not null)
-{
-    var items = await pictures.GetItemsAsync();
-    // …
-}
-```
+## 5. Platform notes
 
-Safe file IO patterns
-- Always use async APIs (OpenReadAsync/OpenWriteAsync) to avoid blocking the UI thread
-- Wrap streams in using/await using to ensure disposal
-- Prefer UTF-8 unless you must match a specific encoding
-- Consider cancellation (pass CancellationToken if available in your app flow)
+| Platform | Storage provider | Considerations |
+| --- | --- | --- |
+| Windows/macOS/Linux | Native dialogs; file system access | Standard read/write. Some Linux desktops require portals (Flatpak/Snap). |
+| Android/iOS | Native pickers; sandboxed URIs | Streams may be content URIs; persist permissions if needed. |
+| Browser (WASM) | File System Access API | Requires user gestures; may return handles that expire when page reloads. |
 
-Drag-and-drop: accept files and text
-1) Enable AllowDrop on the target control or container
-2) Handle DragOver to indicate allowed effects
-3) Handle Drop to read IDataObject content
+Wrap storage calls in try/catch to handle permission denials or canceled dialogs gracefully.
 
-XAML
+## 6. Drag-and-drop: receiving data
+
 ```xml
 <Border AllowDrop="True"
         DragOver="OnDragOver"
         Drop="OnDrop"
-        BorderThickness="2" BorderBrush="Gray" Padding="16">
-    <TextBlock Text="Drop files or text here"/>
+        Background="#111827" Padding="12">
+  <TextBlock Text="Drop files or text" Foreground="#CBD5F5"/>
 </Border>
 ```
 
-C#
 ```csharp
-using Avalonia.Input;
-using Avalonia.Platform.Storage;
-
 private void OnDragOver(object? sender, DragEventArgs e)
 {
-    // Advertise the effect based on available data
     if (e.Data.Contains(DataFormats.Files) || e.Data.Contains(DataFormats.Text))
         e.DragEffects = DragDropEffects.Copy;
     else
@@ -179,110 +183,124 @@ private void OnDragOver(object? sender, DragEventArgs e)
 
 private async void OnDrop(object? sender, DragEventArgs e)
 {
-    // Files (as IStorageItem list)
-    var storageItems = await e.Data.GetFilesAsync();
-    if (storageItems is not null)
+    var files = await e.Data.GetFilesAsync();
+    if (files is not null)
     {
-        foreach (var item in storageItems)
+        foreach (var item in files.OfType<IStorageFile>())
         {
-            if (item is IStorageFile file)
-            {
-                await using var s = await file.OpenReadAsync();
-                // read or import
-            }
+            await using var stream = await item.OpenReadAsync();
+            // import
         }
         return;
     }
 
-    // Or plain text
     if (e.Data.Contains(DataFormats.Text))
     {
         var text = await e.Data.GetTextAsync();
-        // use text
+        // handle text
     }
 }
 ```
 
-Start a drag from your app
-- Build an IDataObject and call DragDrop.DoDragDrop from a pointer event handler
-- Choose the allowed effects (Copy/Move/Link)
+- `GetFilesAsync()` returns storage items; check for `IStorageFile`.
+- Inspect `e.KeyModifiers` to adjust behavior (e.g., Ctrl for copy).
+
+### 6.1 Initiating drag-and-drop
 
 ```csharp
-using Avalonia.Input;
-using Avalonia;
-
-private async void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+private async void DragSource_PointerPressed(object? sender, PointerPressedEventArgs e)
 {
+    if (sender is not Control control)
+        return;
+
     var data = new DataObject();
-    data.Set(DataFormats.Text, "Dragged text from my app");
-    var result = await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Move);
-    // result tells you what happened
+    data.Set(DataFormats.Text, "Example text");
+
+    var effects = await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Move);
+    if (effects.HasFlag(DragDropEffects.Move))
+    {
+        // remove item
+    }
 }
 ```
 
-Notes on drag-and-drop
-- Use e.KeyModifiers in DragOver to adjust effects (e.g., Ctrl for copy)
-- IDataObject supports multiple formats; you can set text, files, custom types (within process)
-- For file drags, many platforms supply virtual files that you read via IStorageFile stream APIs
+`DataObject` supports multiple formats (text, files, custom types). For custom data, both source and target must agree on a format string.
 
-Clipboard basics
-- Access the clipboard via this.Clipboard or Application.Current.Clipboard from a TopLevel
-- Get/Set text and richer data via IDataObject
+## 7. Clipboard operations
 
 ```csharp
-var clipboard = this.Clipboard; // TopLevel clipboard
-await clipboard.SetTextAsync("Hello clipboard");
-var text = await clipboard.GetTextAsync();
+public interface IClipboardService
+{
+    Task SetTextAsync(string text);
+    Task<string?> GetTextAsync();
+    Task SetDataObjectAsync(IDataObject dataObject);
+    Task<IReadOnlyList<string>> GetFormatsAsync();
+}
+
+public sealed class ClipboardService : IClipboardService
+{
+    private readonly TopLevel _topLevel;
+    public ClipboardService(TopLevel topLevel) => _topLevel = topLevel;
+
+    public Task SetTextAsync(string text) => _topLevel.Clipboard?.SetTextAsync(text) ?? Task.CompletedTask;
+    public Task<string?> GetTextAsync() => _topLevel.Clipboard?.GetTextAsync() ?? Task.FromResult<string?>(null);
+    public Task SetDataObjectAsync(IDataObject dataObject) => _topLevel.Clipboard?.SetDataObjectAsync(dataObject) ?? Task.CompletedTask;
+    public Task<IReadOnlyList<string>> GetFormatsAsync() => _topLevel.Clipboard?.GetFormatsAsync() ?? Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+}
 ```
 
-Advanced clipboard
-- Set a full IDataObject (e.g., text + HTML + custom in-process data)
-- List available formats with GetFormatsAsync
-- Clear the clipboard with ClearAsync; use FlushAsync on platforms that support it to persist after exit
+### 7.1 Multi-format clipboard payload
 
 ```csharp
-var dobj = new DataObject();
+var dataObject = new DataObject();
+dataObject.Set(DataFormats.Text, "Plain text");
+dataObject.Set("text/html", "<strong>Bold</strong>");
+dataObject.Set("application/x-myapp-item", myItemId);
 
-dobj.Set(DataFormats.Text, "plain");
-dobj.Set("text/html", "<b>bold</b>");
-
-await this.Clipboard.SetDataObjectAsync(dobj);
-var formats = await this.Clipboard.GetFormatsAsync();
+await clipboardService.SetDataObjectAsync(dataObject);
+var formats = await clipboardService.GetFormatsAsync();
 ```
 
-Cross-platform notes and limitations
-- Desktop (Windows/macOS/Linux): Full-featured pickers, drag-and-drop, and clipboard
-- Mobile (Android/iOS): Pickers use native UI; file system sandboxes and permissions apply
-- Browser (WASM): Pickers and clipboard require user gestures; not all formats are available; drag-and-drop limited to browser capabilities
-- SystemDialog APIs are obsolete; use TopLevel.StorageProvider for dialogs
+Browser restrictions: clipboard APIs require user gesture and may only allow text formats.
 
-Troubleshooting
-- If StorageProvider is null, ensure you’re calling it from a control attached to the visual tree (after the Window is opened)
-- For drag-and-drop not firing, confirm AllowDrop=True and that handlers are attached on the element under the pointer
-- Clipboard failures on the browser usually mean missing user gesture or permissions
-- File filters are hints; some platforms may still let the user choose other files
+## 8. Error handling & async patterns
 
-Check yourself
-- Add a button that opens a text file and displays its contents in a TextBox
-- Add a Save button that writes the TextBox contents to a user-chosen file
-- Enable drag-and-drop of one or more files; count them and list their names
-- Add Copy/Paste buttons that use IClipboard to copy and paste TextBox text
+- Wrap storage operations in try/catch for `IOException`, `UnauthorizedAccessException`.
+- Offload heavy parsing to background threads with `Task.Run` (keep UI thread responsive).
+- Use `Progress<T>` to report progress to view models.
 
-Extra practice
-- Add a filter to allow only “.csv” and “.xlsx” files
-- Drag data from your app (text) into another app; observe the effect result
-- Copy HTML to the clipboard and verify how different platforms paste it
-- Use TryGetWellKnownFolderAsync to show user pictures and let them pick one
+```csharp
+var progress = new Progress<int>(value => ImportProgress = value);
+await _importService.ImportAsync(file, progress, cancellationToken);
+```
 
-Look under the hood
-- IStorageProvider interface (open/save/folder pickers): [Avalonia.Base/Platform/Storage/IStorageProvider.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/IStorageProvider.cs)
-- File/folder items: IStorageFile, IStorageFolder: [Avalonia.Base/Platform/Storage/FileIO/IStorageFile.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FileIO/IStorageFile.cs) and [Avalonia.Base/Platform/Storage/FileIO/IStorageFolder.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FileIO/IStorageFolder.cs)
-- Picker options and filters: FilePickerOpenOptions, FilePickerSaveOptions, FilePickerFileType, FilePickerFileTypes: [Avalonia.Base/Platform/Storage/FilePickerOpenOptions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FilePickerOpenOptions.cs) and [Avalonia.Base/Platform/Storage/FilePickerSaveOptions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FilePickerSaveOptions.cs) and [Avalonia.Base/Platform/Storage/FilePickerFileType.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FilePickerFileType.cs)
-- WellKnownFolder enum: [Avalonia.Base/Platform/Storage/WellKnownFolder.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/WellKnownFolder.cs)
-- DragDrop APIs and events: [Avalonia.Base/Input/DragDrop.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/DragDrop.cs)
-- IDataObject and formats: [Avalonia.Base/Input/IDataObject.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/IDataObject.cs) and [Avalonia.Base/Input/DataFormats.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/DataFormats.cs)
-- Clipboard interface: [Avalonia.Base/Platform/IClipboard.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/IClipboard.cs)
-- TextBox clipboard events (copy/cut/paste hooks): [Avalonia.Controls/TextBox.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TextBox.cs)
+## 9. Diagnostics
 
-What’s next
+- Log storage/drag errors with `LogArea.Platform` or custom logger.
+- DevTools -> Events tab shows drag/drop events.
+- On Linux portals (Flatpak/Snap), check console logs for portal errors.
+
+## 10. Practice exercises
+
+1. Implement `IFileDialogService` and expose commands for Open, Save, and Pick Folder; update the UI with results.
+2. Build a log viewer that watches a folder, importing new files via drag-and-drop or Open dialog.
+3. Create a clipboard history panel that stores the last N text snippets using the `IClipboard` service.
+4. Add drag support from a list to the OS shell (export files) and confirm the OS receives them.
+5. Implement cancellation for long-running file imports and confirm resources are disposed when canceled.
+
+## Look under the hood (source bookmarks)
+- Storage provider: [`IStorageProvider`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/IStorageProvider.cs)
+- File/folder abstractions: [`IStorageFile`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FileIO/IStorageFile.cs), [`IStorageFolder`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FileIO/IStorageFolder.cs)
+- Picker options: [`FilePickerOpenOptions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FilePickerOpenOptions.cs), [`FilePickerSaveOptions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FilePickerSaveOptions.cs)
+- Drag/drop: [`DragDrop.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/DragDrop.cs), [`DataObject.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/DataObject.cs)
+- Clipboard: [`IClipboard`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/IClipboard.cs)
+
+## Check yourself
+- How do you obtain an `IStorageProvider` when you only have a view model?
+- What are the advantages of using asynchronous streams (`await using`) when reading/writing files?
+- How can you detect which drag/drop formats are available during a drop event?
+- Which APIs let you enumerate well-known folders cross-platform?
+- What restrictions exist for clipboard and storage operations on browser/mobile?
+
+What's next
 - Next: [Chapter 17](Chapter17.md)

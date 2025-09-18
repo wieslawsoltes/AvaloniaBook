@@ -1,135 +1,160 @@
 # 24. Performance, diagnostics, and DevTools
 
-Goal: Give you a practical toolkit to find, understand, and fix performance issues in Avalonia apps — using logs, built‑in DevTools, and lightweight measurements.
+Goal
+- Diagnose and fix Avalonia performance issues using measurement, logging, DevTools, and overlays.
+- Focus on the usual suspects: non-virtualized lists, layout churn, binding storms, expensive rendering.
+- Build repeatable measurement habits (Release builds, small reproducible tests).
 
-Why it matters: Most “slow UI” reports aren’t about the renderer — they’re caused by excessive layout, re‑templating, heavy data binding, non‑virtualized lists, or expensive work on the UI thread. Measure first. Then change one thing at a time.
+Why this matters
+- "UI feels slow" is common feedback. Without data, fixes are guesswork.
+- Avalonia provides built-in diagnostics (DevTools, overlays) and logging hooks--learn to leverage them.
 
-What you’ll learn
-- When and how to measure (and why Release builds matter)
-- Enabling logs and choosing log areas
-- Attaching and using DevTools (F12)
-- Reading debug overlays (FPS, dirty rects, layout/render graphs)
-- A simple performance checklist and fixes
+Prerequisites
+- Chapter 22 (rendering pipeline), Chapter 17 (async patterns), Chapter 16 (custom controls and lists).
 
-1) Measure first (small, reliable checks)
-- Run your app in Release: JIT and inlining matter. A quick check is to run both Debug and Release and compare feel/fps.
-- Use a stopwatch for hot code paths: time just the suspected section. Don’t time entire startup at first — narrow it down.
-- Reproduce with small data: isolate the control or page that’s slow, then scale up data size gradually to see growth patterns.
-- Change one thing at a time: after each small change, re‑measure.
+## 1. Measure before changing anything
 
-2) Enable logs and tracing
-Avalonia has a flexible logging sink system. You can send logs to System.Diagnostics.Trace, a TextWriter, or a custom delegate via AppBuilder extension methods. See source: LoggingExtensions.cs
-- GitHub: [Avalonia.Controls/LoggingExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/LoggingExtensions.cs)
+- Run in Release (`dotnet run -c Release`). JIT optimizations affect responsiveness.
+- Use a small repro: isolate the view or control and reproduce with minimal data before optimizing.
+- Use high-resolution timers only around suspect code sections; avoid timing entire app startup on the first pass.
+- Change one variable at a time and re-measure to confirm impact.
 
-Common setup patterns
+## 2. Logging
 
-C#: enable logs to Trace
+Enable logging per area using `AppBuilder` extensions (see [`LoggingExtensions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/LoggingExtensions.cs)).
 
-AppBuilder ConfigureAppLogging(AppBuilder builder)
-{
-    // Log selected areas at Information or Warning to reduce noise.
-    return builder.LogToTrace(
-        Avalonia.Logging.LogEventLevel.Information,
-        "Binding", "Property", "Layout", "Render" // pick the areas you care about
-    );
-}
+```csharp
+AppBuilder.Configure<App>()
+    .UsePlatformDetect()
+    .LogToTrace(LogEventLevel.Information, new[] { LogArea.Binding, LogArea.Layout, LogArea.Render, LogArea.Property })
+    .StartWithClassicDesktopLifetime(args);
+```
 
-C#: log to a rolling file
+- Areas: see `Avalonia.Logging.LogArea` (`Binding`, `Layout`, `Render`, `Property`, `Control`, etc.).
+- Reduce noise by lowering level (`Warning`) or limiting areas once you identify culprit.
+- Optionally log to file via `LogToTextWriter`.
 
-using var writer = new StreamWriter("avalonia.log", append: true) { AutoFlush = true };
-BuildAvaloniaApp().LogToTextWriter(writer, Avalonia.Logging.LogEventLevel.Information, "Binding", "Property");
+## 3. DevTools (F12)
 
-Notes
-- Areas are strings (see Avalonia.Logging.LogArea constants in the source). Start with “Binding”, “Layout”, “Render”, “Property”.
-- Use Information while investigating, then raise to Warning or Error in production to keep output lean.
+Attach DevTools after app initialization:
 
-3) Attach DevTools (F12) and what it offers
-DevTools ships with Avalonia and can be attached to a TopLevel (Window) or to the Application. The default open gesture is F12. See DevToolsExtensions.cs
-- GitHub: [Avalonia.Diagnostics/DevToolsExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/DevToolsExtensions.cs)
-
-Attach to a window (typical desktop)
-
+```csharp
 public override void OnFrameworkInitializationCompleted()
 {
-    if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d)
-        d.MainWindow = new MainWindow();
-
+    // configure windows/root view
+    this.AttachDevTools();
     base.OnFrameworkInitializationCompleted();
-    this.AttachDevTools(); // F12 to open
 }
+```
 
-Attach with options (choose startup screen, etc.)
+Supports options: `AttachDevTools(new DevToolsOptions { StartupScreenIndex = 1 })` for multi-monitor setups.
 
-this.AttachDevTools(new Avalonia.Diagnostics.DevToolsOptions
+### DevTools tour
+
+- **Visual Tree**: inspect hierarchy, properties, pseudo-classes, and layout bounds.
+- **Logical Tree**: understand DataContext/template relationships.
+- **Layout Explorer**: measure/arrange info, constraints, actual sizes.
+- **Events**: view event flow; detect repeated pointer/keyboard events.
+- **Styles & Resources**: view applied styles/resources; test pseudo-class states.
+- **Hotkeys/Settings**: adjust F12 gesture.
+
+Use the target picker to select elements on screen and inspect descendants/ancestors.
+
+## 4. Debug overlays (`RendererDebugOverlays`)
+
+Access via DevTools "Diagnostics" pane or programmatically:
+
+```csharp
+if (this.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
 {
-    StartupScreenIndex = 1, // open on a specific monitor if you have multiple
-});
+    desktop.MainWindow.AttachedToVisualTree += (_, __) =>
+    {
+        if (desktop.MainWindow?.Renderer is { } renderer)
+            renderer.DebugOverlays = RendererDebugOverlays.Fps | RendererDebugOverlays.DirtyRects;
+    };
+}
+```
 
-Tip: Only enable DevTools in debug builds or behind a flag if you ship your app to end‑users.
+Overlays include:
+- `Fps` -- frames per second.
+- `DirtyRects` -- regions redrawn each frame.
+- `LayoutTimeGraph` -- layout duration per frame.
+- `RenderTimeGraph` -- render duration per frame.
 
-What’s inside DevTools (high‑level tour)
-- Visual Tree: inspect hierarchy, pick a control on screen, see its size, properties, and pseudo‑classes (:pointerover, :pressed, etc.).
-- Logical Tree: inspect content and data template relationships — useful for understanding DataContext and templated children.
-- Properties & Styles: live property viewer with resources and styles; toggle pseudo‑classes to see state‑based styles.
-- Layout Explorer: see measure/arrange sizes and constraints; helps pinpoint “why is this control so big/small?”.
-- Events: watch routed events fire as you interact (pointer, key, etc.).
-- Hotkeys page and settings: view/change the gesture to open DevTools.
-- Highlight adorners: enable highlighting to see layout bounds and hit test areas of the selected control.
+Interpretation:
+- Large dirty rects = huge redraw areas; find what invalidates entire window.
+- LayoutTime spikes = heavy measure/arrange; check Layout Explorer to spot bottleneck.
+- RenderTime spikes = expensive drawing (big bitmaps, custom rendering).
 
-Extra helpers in the repo
-- Visual tree printing helper: VisualTreeDebug.PrintVisualTree(visual) — useful for quick console diagnostics.
-  Source: [Avalonia.Diagnostics/Diagnostics/VisualTreeDebug.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/VisualTreeDebug.cs)
+## 5. Performance checklist
 
-4) Read the debug overlays (your real‑time dashboard)
-DevTools exposes toggles for debug overlays backed by the RendererDebugOverlays enum. Source files:
-- RendererDebugOverlays.cs: [Avalonia.Base/Rendering/RendererDebugOverlays.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)
-- Where DevTools toggles them: Diagnostics MainViewModel: [Avalonia.Diagnostics/Diagnostics/ViewModels/MainViewModel.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/ViewModels/MainViewModel.cs)
+Lists & templates
+- Use virtualization (`VirtualizingStackPanel`) for list controls.
+- Keep item templates light; avoid nested panels and convert heavy converters to cached data.
+- Pre-compute value strings/colors in view models to avoid per-frame conversion.
 
-Overlays you can enable
-- FPS: shows frames per second to gauge overall responsiveness.
-- DirtyRects: draws the areas that are actually repainted each frame — if the whole window repaints, you’ll see it.
-- LayoutTimeGraph: a rolling chart of layout time — spikes hint at measure/arrange cost or re‑layout storms.
-- RenderTimeGraph: a rolling chart of render time — spikes hint at custom drawing/bitmap work, or GPU uploads.
+Layout & binding
+- Minimize property changes that re-trigger layout of large trees.
+- Avoid swapping entire templates when simple property changes suffice.
+- Watch for binding storms (log `LogArea.Binding`). Debounce or use state flags.
 
-How to use overlays effectively
-- Turn on FPS + RenderTimeGraph. Interact with your slow view. Do spikes correlate with pointer moves, scrolling, or data updates?
-- If dirty rects cover the entire window on small changes, find what’s invalidating broadly (global properties, effects, or a single control that invalidates too aggressively).
-- Combine LayoutTimeGraph with DevTools Layout Explorer to find which subtree is causing repeated measures.
+Rendering
+- Use vector assets where possible; for bitmaps, match display resolution.
+- Set `RenderOptions.BitmapInterpolationMode` for scaling to avoid blurry or overly expensive scaling.
+- Cache expensive geometries (`StreamGeometry`), `FormattedText`, etc.
 
-5) Quick performance checklist (fix the common causes)
-- Virtualize long lists: use ItemsPanel with VirtualizingStackPanel when appropriate. Keep item templates simple and cheap.
-- Avoid re‑creating heavy visuals: prefer bindings/state changes over replacing entire controls or DataTemplates repeatedly.
-- Defer expensive work off the UI thread: use async/await and IProgress to report progress to the UI.
-- Use images wisely: prefer correct sizes to avoid runtime scaling; choose BitmapInterpolationMode carefully when scaling.
-  Per‑visual RenderOptions are available and can be pushed during drawing.
-  Source: RenderOptions.cs — [Avalonia.Base/Media/RenderOptions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/RenderOptions.cs)
-- Cache and reuse text/geometry where possible: freeze re‑usable geometries, keep FormattedText or GlyphRun if you render often.
-- Minimize layout churn: avoid frequently changing properties that trigger re‑measure/re‑arrange for large subtrees.
-- Measure and render in release: always verify improvements in Release builds.
+Async & threading
+- Move heavy work off UI thread (async/await, `Task.Run` for CPU-bound tasks).
+- Use `IProgress<T>` to report progress instead of manual UI thread dispatch.
 
-6) DevTools vs. logs — when to use which
-- Use DevTools first when the problem is “visual”: too many re‑layouts, big dirty rects, low FPS only when hovering/scrolling.
-- Use logs when the problem is “structural”: noisy bindings, property change storms, repeated template application, or unexpected errors.
-- Use both together: turn on overlays and collect minimal logs (Information) to correlate what happened and when.
+Profiling
+- Use `.NET` profilers (dotTrace, PerfView, dotnet-trace) to capture CPU/memory.
+- For GPU, use platform tools if necessary (RenderDoc for GL/DirectX when supported).
 
-7) Troubleshooting
-- DevTools doesn’t open: ensure AttachDevTools is called after App initialization (e.g., at the end of OnFrameworkInitializationCompleted). If you changed the hotkey, verify the gesture. See DevToolsExtensions remarks in source.
-- Overlays don’t show: make sure the DevTools debug overlay toggles are enabled in the DevTools UI; some overlays need a frame or two to appear.
-- Logs too noisy: reduce the level (Warning) or restrict areas to the ones you’re investigating.
-- Release is fast, Debug is slow: that’s expected — use Release for realistic performance checks.
+## 6. Considerations per platform
 
-Exercise
-- Add this.AttachDevTools() to your app and open DevTools with F12. Turn on FPS and RenderTimeGraph. Interact with your slowest view and note the pattern.
-- Enable logging to Trace at Information for areas: Binding, Property, Layout, Render. Reproduce the issue and look for bursts.
-- Apply one fix from the checklist (e.g., replace an ItemsPanel with VirtualizingStackPanel or simplify a DataTemplate). Re‑measure: did FPS improve or did render/layout spikes shrink?
+- Windows: ensure GPU acceleration enabled; check drivers. Acrylic/Mica can cost extra GPU time.
+- macOS: retina scaling multiplies pixel counts; ensure vector assets and efficient drawing.
+- Linux: varying window managers/compositors. If using software rendering, expect lower FPS--optimize accordingly.
+- Mobile & Browser: treat CPU/GPU resources as more limited; avoid constant redraw loops.
 
-Look under the hood (source links)
-- DevTools attach helpers: [Avalonia.Diagnostics/DevToolsExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/DevToolsExtensions.cs)
-- DevTools options and window plumbing: [Avalonia.Diagnostics/Diagnostics/DevToolsOptions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/DevToolsOptions.cs) and [Avalonia.Diagnostics/Diagnostics/DevTools.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/DevTools.cs)
-- Debug overlays enum: [Avalonia.Base/Rendering/RendererDebugOverlays.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)
-- Where DevTools toggles overlays: [Avalonia.Diagnostics/Diagnostics/ViewModels/MainViewModel.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/ViewModels/MainViewModel.cs)
-- Logging extensions: [Avalonia.Controls/LoggingExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/LoggingExtensions.cs)
-- Per‑visual render options: [Avalonia.Base/Media/RenderOptions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/RenderOptions.cs)
+## 7. Automation & CI
 
-What’s next
+- Combine unit tests with headless UI tests (Chapter 21).
+- Create regression tests for performance-critical features (measure time for known operations, fail if above threshold).
+- Capture baseline metrics (FPS, load time) and compare across commits; tools like BenchmarkDotNet can help (for logic-level measurements).
+
+## 8. Workflow summary
+
+1. Reproduce in Release with logging disabled -> measure baseline.
+2. Enable DevTools overlays (FPS, dirty rects, layout/render graphs) -> identify pattern.
+3. Enable targeted logging (Binding/Layout/Render) -> correlate with overlays.
+4. Apply fix (virtualization, caching, reducing layout churn)
+5. Re-measure with overlays/logs to confirm improvements.
+6. Capture notes and, if beneficial, automate tests for future regressions.
+
+## 9. Practice exercises
+
+1. Attach DevTools to your app, enable `RendererDebugOverlays.Fps`, and record FPS before/after virtualizing a long list.
+2. Log `Binding`/`Property` areas and identify recurring property changes; batch or throttle updates.
+3. Measure layout time via overlay before/after simplifying a nested panel layout; compare results.
+4. Add a unit/UITest that asserts a time-bound operation completes under a threshold (e.g., load 1,000 items). Use Release build to verify.
+5. Capture a profile with `dotnet-trace` or `dotnet-counters` during a slow interaction; interpret CPU/memory graphs.
+
+## Look under the hood (source bookmarks)
+- DevTools attach helpers: [`DevToolsExtensions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/DevToolsExtensions.cs)
+- DevTools view models (toggling overlays): [`MainViewModel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/ViewModels/MainViewModel.cs)
+- Renderer overlays: [`RendererDebugOverlays.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)
+- Logging infrastructure: [`LogArea`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Logging/LogArea.cs)
+- RenderOptions (quality settings): [`RenderOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/RenderOptions.cs)
+- Layout diagnostics: [`LayoutHelper`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/LayoutHelper.cs)
+
+## Check yourself
+- Why must performance measurements be done in Release builds?
+- Which overlay would you enable to track layout time spikes? What about render time spikes?
+- How do DevTools and logging complement each other?
+- List three common causes of UI lag and their fixes.
+- How would you automate detection of a performance regression?
+
+What's next
 - Next: [Chapter 25](Chapter25.md)

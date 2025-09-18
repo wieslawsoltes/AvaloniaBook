@@ -1,192 +1,280 @@
 # 14. Lists, virtualization, and performance
 
 Goal
-- Render thousands to millions of items smoothly by using the right control, lightweight templates, and UI virtualization.
+- Choose the right list control (ItemsControl, ListBox, DataGrid, TreeView, ItemsRepeater) for large data sets.
+- Understand virtualization internals (`VirtualizingStackPanel`, `ItemsPresenter`, recycling) and how to tune them.
+- Implement incremental loading, selection patterns, and grouped/hierarchical lists efficiently.
+- Diagnose list performance with DevTools, logging, and profiling.
 
 Why this matters
-- Lists are everywhere: mail, logs, search results, tables. Without virtualization, memory and CPU costs explode and scrolling stutters.
-- Avalonia gives you the tools to keep UIs fast if you pick the right patterns.
+- Lists power dashboards, log viewers, chat apps, tables, and trees. Poorly configured lists freeze apps.
+- Virtualization keeps memory and CPU usage manageable even with hundreds of thousands of rows.
 
-Pick the right control
-- ItemsControl: simplest items host; no selection or keyboard navigation built in. Good for read‑only, simple visuals.
-- ListBox: adds selection (single/multiple), keyboard navigation, and item container generation. Good default for list UIs.
-- DataGrid: tabular data with columns, sorting, editing, and virtualization; great for large datasets that fit a grid.
-- TreeView: hierarchical lists; consider flattening + grouping if deep trees hurt performance.
+Prerequisites
+- Binding/commands (Chapters 8-9), MVVM patterns (Chapter 11).
 
-Data and templates you’ll actually use
-- Back your list with ObservableCollection<T> so add/remove updates are cheap and incremental.
-- Provide ItemTemplate to render lightweight visuals:
-  - Prefer a single panel (e.g., Grid with defined columns/rows) over nested StackPanels.
-  - Minimize triggers/animations per item; avoid heavy effects and large images.
-  - Do work in view models (pre‑format strings, compute colors) instead of costly converters per item.
+## 1. Choosing the right control
 
-UI virtualization: the mental model
-- Only the items in (or near) the viewport have visual containers; off‑screen items are not realized.
-- Recycling reuses containers as you scroll so the app avoids allocating/destroying many controls.
-- Virtualization depends on the items panel and scroll host. Don’t accidentally disable it by changing panels.
+| Control | When to use | Notes |
+| --- | --- | --- |
+| `ItemsControl` | Simple, read-only lists with custom layout | No selection built in; good for dashboards/badges |
+| `ListBox` | Lists with selection, keyboard navigation | Virtualizes by default when using `VirtualizingStackPanel` |
+| `ItemsRepeater` | High-performance custom layouts, virtualization | Requires manual layout definition; power users only |
+| `DataGrid` | Tabular data with columns, sorting, editing | Virtualizes rows; define columns explicitly |
+| `TreeView` | Hierarchical data | Virtualizes expanded nodes; heavy trees need cautious design |
 
-Enable virtualization (ListBox and ItemsControl)
-- Use a virtualizing panel for the items host. The common choice is VirtualizingStackPanel.
+## 2. Virtualization internals
 
-Example: ListBox with virtualization and a lightweight template
+- `VirtualizingStackPanel` implements `ILogicalScrollable`. It creates visuals only for items near the viewport.
+- `ItemsPresenter` hosts the items panel (`ItemsPanelTemplate`). Changing the panel can enable/disable virtualization.
+- `ScrollViewer` orchestrates scroll offsets; virtualization works when `ScrollViewer` contains the items host directly.
+
+Ensure virtualization stays active:
+- Use `ItemsPanelTemplate` with `VirtualizingStackPanel` (or custom panel implementing `IVirtualizingPanel` soon).
+- Avoid wrapping the items panel in another scroll viewer.
+- Keep item visuals lightweight; container recycling reuses them to avoid allocations.
+
+## 3. ListBox with virtualization
 
 ```xml
-<ListBox Items="{Binding Items}" SelectedItem="{Binding Selected}">
+<ListBox Items="{Binding People}"
+         SelectedItem="{Binding Selected}" Height="360">
   <ListBox.ItemsPanel>
     <ItemsPanelTemplate>
-      <VirtualizingStackPanel/>
+      <VirtualizingStackPanel IsVirtualizing="True"
+                              Orientation="Vertical"
+                              AreHorizontalSnapPointsRegular="True"/>
     </ItemsPanelTemplate>
   </ListBox.ItemsPanel>
   <ListBox.ItemTemplate>
-    <DataTemplate>
-      <Grid ColumnDefinitions="Auto,*,Auto" Margin="4" Height="32">
-        <TextBlock Grid.Column="0" Text="{Binding Id}" Width="56" HorizontalAlignment="Right"/>
-        <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="8,0"/>
-        <TextBlock Grid.Column="2" Text="{Binding Status}" Foreground="{Binding StatusColor}"/>
+    <DataTemplate x:DataType="vm:PersonViewModel">
+      <Grid ColumnDefinitions="Auto,*,Auto" Height="40" Margin="2">
+        <TextBlock Grid.Column="0" Text="{CompiledBinding Id}" Width="48" HorizontalAlignment="Right"/>
+        <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="2" Margin="8,0">
+          <TextBlock Text="{CompiledBinding FullName}" FontWeight="SemiBold"/>
+          <TextBlock Text="{CompiledBinding Email}" FontSize="12" Foreground="#6B7280"/>
+        </StackPanel>
+        <Button Grid.Column="2"
+                Content="Open"
+                Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                CommandParameter="{Binding}"/>
       </Grid>
     </DataTemplate>
   </ListBox.ItemTemplate>
 </ListBox>
 ```
 
-Notes
-- Keep row Height fixed when possible for smoother virtualization.
-- Avoid placing a ScrollViewer inside each item; the ListBox already scrolls.
+Tips:
+- Fixed item height (40) helps virtualization predict layout quickly.
+- Use `CompiledBinding` to avoid runtime reflection overhead.
 
-ItemsControl with virtualization
+## 4. ItemsRepeater for custom layouts
+
+`ItemsRepeater` (namespace `Avalonia.Controls`) allows custom layout algorithms.
 
 ```xml
-<ItemsControl Items="{Binding Items}">
-  <ItemsControl.ItemsPanel>
-    <ItemsPanelTemplate>
-      <VirtualizingStackPanel/>
-    </ItemsPanelTemplate>
-  </ItemsControl.ItemsPanel>
-  <ItemsControl.ItemTemplate>
-    <DataTemplate>
-      <Border Margin="2" Padding="6">
-        <TextBlock Text="{Binding}"/>
+<ItemsRepeater Items="{Binding Photos}" xmlns:controls="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls">
+  <ItemsRepeater.Layout>
+    <controls:UniformGridLayout Orientation="Vertical" MinItemWidth="200"/>
+  </ItemsRepeater.Layout>
+  <ItemsRepeater.ItemTemplate>
+    <DataTemplate x:DataType="vm:PhotoViewModel">
+      <Border Margin="6" Padding="6" Background="#111827" CornerRadius="6">
+        <StackPanel>
+          <Image Source="{CompiledBinding ThumbnailSource}" Width="188" Height="120" Stretch="UniformToFill"/>
+          <TextBlock Text="{CompiledBinding Title}" Margin="0,6,0,0"/>
+        </StackPanel>
       </Border>
     </DataTemplate>
-  </ItemsControl.ItemTemplate>
-</ItemsControl>
+  </ItemsRepeater.ItemTemplate>
+</ItemsRepeater>
 ```
 
-Selection and commands without leaks
-- Bind SelectedItem (or SelectedItems for multi‑select) to your view model.
-- Prefer commands in the item view model (e.g., OpenCommand) instead of per‑item event handlers.
+`ItemsRepeater` virtualization is handled by the layout. Use `UniformGridLayout`, `StackLayout`, or custom layout.
 
-Incremental loading: load what you need when you need it
-- Pattern: begin with the first N items, then append more when the user scrolls near the bottom.
-- Keep an IsLoading flag and a cancellation token to avoid overlapping requests.
+## 5. SelectionModel for advanced scenarios
 
-Simple pattern using a sentinel “Load more” item
-
-```xml
-<ListBox Items="{Binding PagedItems}">
-  <ListBox.Resources>
-    <DataTemplate DataType="vm:Item">
-      <TextBlock Text="{Binding Title}"/>
-    </DataTemplate>
-
-    <DataTemplate DataType="vm:LoadMore">
-      <Button Content="Load more…"
-              HorizontalAlignment="Left"
-              Command="{Binding DataContext.LoadMoreCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"/>
-    </DataTemplate>
-  </ListBox.Resources>
-</ListBox>
-```
-
-View model sketch
+`SelectionModel<T>` enables multi-select, anchor selection, and virtualization-friendly selection.
 
 ```csharp
-public partial class ListPageViewModel
-{
-    public ObservableCollection<ItemOrCommand> PagedItems { get; } = new();
-    public ICommand LoadMoreCommand { get; }
-    private int _page = 0;
-    private const int PageSize = 200;
-    private bool _loading;
+public SelectionModel<PersonViewModel> PeopleSelection { get; } = new() { SelectionMode = SelectionMode.Multiple };
+```
 
-    public ListPageViewModel()
+Bind to `ListBox`:
+
+```xml
+<ListBox Items="{Binding People}" Selection="{Binding PeopleSelection}" Height="360"/>
+```
+
+`SelectionModel` lives in [`Avalonia.Controls/Selection/SelectionModel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Selection/SelectionModel.cs).
+
+## 6. Incremental loading pattern
+
+### View model
+
+```csharp
+public sealed class LogViewModel : ObservableObject
+{
+    private readonly ILogService _service;
+    private readonly ObservableCollection<LogEntryViewModel> _entries = new();
+    private bool _isLoading;
+
+    public ReadOnlyObservableCollection<LogEntryViewModel> Entries { get; }
+    public RelayCommand LoadMoreCommand { get; }
+
+    private int _pageIndex;
+    private const int PageSize = 500;
+
+    public LogViewModel(ILogService service)
     {
-        LoadMoreCommand = new RelayCommand(async () => await LoadPageAsync(), () => !_loading);
-        _ = LoadPageAsync();
+        _service = service;
+        Entries = new ReadOnlyObservableCollection<LogEntryViewModel>(_entries);
+        LoadMoreCommand = new RelayCommand(async () => await LoadMoreAsync(), () => !_isLoading);
+        _ = LoadMoreAsync();
     }
 
-    private async Task LoadPageAsync()
+    private async Task LoadMoreAsync()
     {
-        if (_loading) return;
-        _loading = true;
+        if (_isLoading) return;
+        _isLoading = true;
+        LoadMoreCommand.RaiseCanExecuteChanged();
         try
         {
-            if (PagedItems.LastOrDefault() is LoadMore lm)
-                PagedItems.Remove(lm);
+            var batch = await _service.GetEntriesAsync(_pageIndex, PageSize);
+            foreach (var entry in batch)
+                _entries.Add(new LogEntryViewModel(entry));
 
-            var next = await Repository.GetPageAsync(_page, PageSize);
-            foreach (var item in next)
-                PagedItems.Add(new Item(item));
-
-            _page++;
-            if (next.Count == PageSize)
-                PagedItems.Add(new LoadMore());
+            _pageIndex++;
+            HasMore = batch.Count == PageSize;
         }
         finally
         {
-            _loading = false;
-            (LoadMoreCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            _isLoading = false;
+            LoadMoreCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    public bool HasMore { get; private set; } = true;
+}
+```
+
+### XAML
+
+```xml
+<ListBox Items="{Binding Entries}" Height="480" ScrollViewer.ScrollChanged="ListBox_ScrollChanged">
+  <ListBox.ItemTemplate>
+    <DataTemplate x:DataType="vm:LogEntryViewModel">
+      <TextBlock Text="{CompiledBinding Message}" FontFamily="Consolas"/>
+    </DataTemplate>
+  </ListBox.ItemTemplate>
+</ListBox>
+```
+
+In code-behind, trigger `LoadMoreCommand` near bottom:
+
+```csharp
+private void ListBox_ScrollChanged(object? sender, ScrollChangedEventArgs e)
+{
+    if (DataContext is LogViewModel vm && vm.HasMore)
+    {
+        var scroll = e.Source as ScrollViewer;
+        if (scroll is not null && scroll.Offset.Y + scroll.Viewport.Height >= scroll.Extent.Height - 200)
+        {
+            if (vm.LoadMoreCommand.CanExecute(null))
+                vm.LoadMoreCommand.Execute(null);
         }
     }
 }
-
-public abstract record ItemOrCommand;
-public record Item(Model Model) : ItemOrCommand { public string Title => Model.Title; }
-public record LoadMore : ItemOrCommand;
 ```
 
-DataGrid performance quick wins
-- Define columns explicitly; avoid AutoGenerateColumns for huge datasets.
-- Prefer TextBlock for display cells; use editing templates only when needed.
-- Keep cell templates lean; avoid images/effects in cells unless necessary.
-- Paging and server‑side filtering/sorting reduce memory and keep UI snappy.
+## 7. DataGrid performance
 
-TreeView tips
-- Keep item visuals light and collapse subtrees not in view.
-- If the tree is deep and wide, consider an alternative UX (search + flat list/grouping) for performance.
+- Set `EnableRowVirtualization="True"` (default) and `EnableColumnVirtualization="True"` if width changes are minimal.
+- Define columns manually:
 
-Scrolling smoothness and item size
-- Fixed item heights help virtualization predict layout and reduce jank.
-- If items vary, cap the maximum size and truncate/clip text rather than wrapping across many lines.
+```xml
+<DataGrid Items="{Binding People}" AutoGenerateColumns="False" IsReadOnly="True">
+  <DataGrid.Columns>
+    <DataGridTextColumn Header="Name" Binding="{Binding FullName}" Width="*"/>
+    <DataGridTextColumn Header="Email" Binding="{Binding Email}" Width="2*"/>
+    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="Auto"/>
+  </DataGrid.Columns>
+</DataGrid>
+```
 
-Avoid these pitfalls
-- Nesting ScrollViewer inside each item: breaks virtualization and harms perf.
-- Binding to huge images per row: use thumbnails or async image loading.
-- Heavy converters per row: precompute in view models.
-- Too many nested panels: flatten with Grid for fewer elements.
-- Selecting all items frequently: track only what you need.
+- Use `DataGridTemplateColumn` sparingly; prefer text columns for speed.
+- For huge datasets, consider server-side paging and virtualization; DataGrid can handle ~100k rows efficiently with virtualization enabled.
 
-Hands‑on: build a fast log viewer
-1) Create a ListBox with VirtualizingStackPanel and a fixed‑height row template.
-2) Stream log lines into an ObservableCollection.
-3) Add a Toggle to pause autoscroll when the user interacts.
-4) Add a filter box that updates the source collection in batches to avoid UI thrash.
+## 8. Grouping and hierarchical data
 
-Look under the hood (browse the source)
-- Controls & containers: src/Avalonia.Controls
-- DataGrid: src/Avalonia.Controls.DataGrid
-- Diagnostics/DevTools: src/Avalonia.Diagnostics
+### Grouping with `CollectionView`
 
-Self‑check
-- What’s the difference between ItemsControl and ListBox?
-- Why does a fixed item height help virtualization?
-- How would you implement incremental loading for a remote API?
-- Name three things that commonly break virtualization.
+```csharp
+var collectionView = new CollectionViewSource(People)
+{
+    GroupDescriptions = { new PropertyGroupDescription("Department") }
+}.View;
+```
 
-Extra practice
-- Replace nested StackPanels in an item template with a single Grid and compare element counts.
-- Add “Load more” to a list that currently fetches everything at once.
-- Profile memory while scrolling 100k items with and without virtualization.
+Bind to `ItemsControl` with `GroupStyle`. Group headers should be minimal to keep virtualization efficient.
 
-What’s next
+### TreeView virtualization
+
+- Virtualizes expanded nodes only.
+- Keep templates thin; consider lazy loading children.
+
+```xml
+<TreeView Items="{Binding Departments}" SelectedItems="{Binding SelectedDepartments}">
+  <TreeView.ItemTemplate>
+    <TreeDataTemplate ItemsSource="{Binding Teams}" x:DataType="vm:DepartmentViewModel">
+      <TextBlock Text="{CompiledBinding Name}" FontWeight="SemiBold"/>
+      <TreeDataTemplate.ItemTemplate>
+        <DataTemplate x:DataType="vm:TeamViewModel">
+          <TextBlock Text="{CompiledBinding Name}" Margin="24,0,0,0"/>
+        </DataTemplate>
+      </TreeDataTemplate.ItemTemplate>
+    </TreeDataTemplate>
+  </TreeView.ItemTemplate>
+</TreeView>
+```
+
+Defer loading large subtrees until expanded (bind to command that fetches children on demand).
+
+## 9. Diagnostics and profiling
+
+- DevTools -> **Visual Tree**: see realized items count.
+- DevTools -> **Events**: watch scroll events and virtualization events.
+- Enable layout/render logs:
+
+```csharp
+AppBuilder.Configure<App>()
+    .UsePlatformDetect()
+    .LogToTrace(LogEventLevel.Debug, new[] { LogArea.Layout, LogArea.Rendering })
+    .StartWithClassicDesktopLifetime(args);
+```
+
+- Use .NET memory profilers or `dotnet-counters` to monitor GC activity while scrolling.
+
+## 10. Practice exercises
+
+1. Create a log viewer with `ListBox + VirtualizingStackPanel` that streams 100k log lines; ensure smooth scroll and provide "Pause autoscroll".
+2. Replace an `ItemsControl` dashboard with `ItemsRepeater` using `UniformGridLayout` for better virtualization.
+3. Implement `SelectionModel` for multi-select email list and bind to checkboxes inside the template.
+4. Add grouping to a `CollectionView`, showing group headers while keeping virtualization intact.
+5. Profile a virtualized vs non-virtualized DataGrid with 200k rows and report memory usage.
+
+## Look under the hood (source bookmarks)
+- Virtualizing panels: [`VirtualizingStackPanel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/VirtualizingStackPanel.cs)
+- Selection model: [`SelectionModel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Selection/SelectionModel.cs)
+- ItemsRepeater layouts: [`UniformGridLayout.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ItemsRepeater/Layout/UniformGridLayout.cs)
+- DataGrid internals: [`Avalonia.Controls.DataGrid`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls.DataGrid)
+- Tree virtualization: [`TreeView.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TreeView.cs)
+
+## Check yourself
+- Which panels support virtualization and how do you enable them in ListBox/ItemsControl?
+- How does `SelectionModel` improve multi-select scenarios compared to `SelectedItems`?
+- What strategies keep DataGrid fast with huge datasets?
+- How can you detect when virtualization is broken?
+
+What's next
 - Next: [Chapter 15](Chapter15.md)

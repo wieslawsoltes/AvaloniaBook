@@ -1,115 +1,73 @@
 # 17. Background work and networking
 
 Goal
-- Run long operations without freezing the UI using async/await
-- Report progress and support cancel for a great UX
-- Make simple and reliable HTTP calls (GET/POST) and download files with progress
+- Keep the UI responsive while doing heavy or long-running tasks using async/await, Task.Run, and progress reporting.
+- Surface status, progress, and cancellation to users.
+- Call web APIs with HttpClient, handle retries/timeouts, and stream downloads/upload.
+- Respond to connectivity changes and test background logic predictably.
 
 Why this matters
-- Real apps load data, process files, and talk to web services
-- Users expect responsive UIs with a spinner or progress, and the option to cancel
-- Async-first code is simpler, safer, and scales across desktop, mobile, and browser
+- Real apps load data, crunch files, and hit APIs. Blocking the UI thread ruins UX.
+- Async-first code scales across desktop, mobile, and browser with minimal changes.
 
-Understand the UI thread
-- Avalonia has a UI thread that must update visuals and properties for UI elements
-- Keep the UI thread free: use async I/O or move CPU-heavy work to a background thread
-- Use Dispatcher.UIThread to marshal back to UI when you need to update visuals from background code
+Prerequisites
+- Chapters 8-9 (binding & commands), Chapter 11 (MVVM), Chapter 16 (file IO).
 
-Quick start: run background work safely
-C#
-```csharp
-using Avalonia.Threading;
+## 1. The UI thread and Dispatcher
 
-private async Task<int> CountToAsync(int limit, CancellationToken ct)
-{
-    var count = 0;
-    // Simulate CPU-bound work; for real CPU-heavy tasks, consider Task.Run
-    for (int i = 0; i < limit; i++)
-    {
-        ct.ThrowIfCancellationRequested();
-        await Task.Delay(1, ct); // non-blocking wait
-        count++;
-        if (i % 100 == 0)
-        {
-            // Update the UI safely
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                StatusText = $"Working... {i}/{limit}"; // assume a property that notifies
-            });
-        }
-    }
-    return count;
-}
-```
+Avalonia has a single UI thread managed by `Dispatcher.UIThread`. UI elements and bound properties must be updated on this thread.
 
-Progress reporting with IProgress<T>
-- Prefer IProgress<T> to decouple work from UI
-- Updates are automatically marshaled to the captured context when created on UI thread
+Rules of thumb:
+- Prefer async I/O (await network/file operations).
+- For CPU-bound work, use `Task.Run` to offload to a thread pool thread.
+- Use `Dispatcher.UIThread.Post/InvokeAsync` to marshal back to the UI thread if needed (though `Progress<T>` usually keeps you on the UI thread).
 
 ```csharp
-public async Task ProcessAsync(IProgress<double> progress, CancellationToken ct)
-{
-    var total = 1000;
-    for (int i = 0; i < total; i++)
-    {
-        ct.ThrowIfCancellationRequested();
-        await Task.Delay(1, ct);
-        progress.Report((double)i / total);
-    }
-}
-
-// Usage from UI (e.g., ViewModel or code-behind)
-var cts = new CancellationTokenSource();
-var progress = new Progress<double>(p =>
-{
-    ProgressValue = p * 100; // 0..100 for ProgressBar
-});
-await ProcessAsync(progress, cts.Token);
+await Dispatcher.UIThread.InvokeAsync(() => Status = "Ready");
 ```
 
-Bind a ProgressBar
-XAML
-```xml
-<StackPanel Spacing="8">
-  <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue}" IsIndeterminate="{Binding IsBusy}"/>
-  <TextBlock Text="{Binding StatusText}"/>
-  <StackPanel Orientation="Horizontal" Spacing="8">
-    <Button Content="Start" Command="{Binding StartCommand}"/>
-    <Button Content="Cancel" Command="{Binding CancelCommand}"/>
-  </StackPanel>
-</StackPanel>
-```
+## 2. Async workflow pattern (ViewModel)
 
-ViewModel (simplified)
 ```csharp
-public class WorkViewModel : INotifyPropertyChanged
+public sealed class WorkViewModel : ObservableObject
 {
-    private double _progressValue;
-    private bool _isBusy;
-    private string? _statusText;
     private CancellationTokenSource? _cts;
+    private double _progress;
+    private string _status = "Idle";
+    private bool _isBusy;
 
-    public double ProgressValue { get => _progressValue; set { _progressValue = value; OnPropertyChanged(); } }
-    public bool IsBusy { get => _isBusy; set { _isBusy = value; OnPropertyChanged(); } }
-    public string? StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
+    public double Progress { get => _progress; set => SetProperty(ref _progress, value); }
+    public string Status { get => _status; set => SetProperty(ref _status, value); }
+    public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
 
-    public ICommand StartCommand => new RelayCommand(async _ => await StartAsync(), _ => !IsBusy);
-    public ICommand CancelCommand => new RelayCommand(_ => _cts?.Cancel(), _ => IsBusy);
+    public RelayCommand StartCommand { get; }
+    public RelayCommand CancelCommand { get; }
+
+    public WorkViewModel()
+    {
+        StartCommand = new RelayCommand(async _ => await StartAsync(), _ => !IsBusy);
+        CancelCommand = new RelayCommand(_ => _cts?.Cancel(), _ => IsBusy);
+    }
 
     private async Task StartAsync()
     {
         IsBusy = true;
         _cts = new CancellationTokenSource();
-        var progress = new Progress<double>(p => ProgressValue = p * 100);
+        var progress = new Progress<double>(value => Progress = value * 100);
+
         try
         {
-            StatusText = "Starting...";
-            await ProcessAsync(progress, _cts.Token);
-            StatusText = "Done";
+            Status = "Processing...";
+            await FakeWorkAsync(progress, _cts.Token);
+            Status = "Completed";
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Canceled";
+            Status = "Canceled";
+        }
+        catch (Exception ex)
+        {
+            Status = $"Error: {ex.Message}";
         }
         finally
         {
@@ -118,65 +76,95 @@ public class WorkViewModel : INotifyPropertyChanged
         }
     }
 
-    // Example background work
-    private static async Task ProcessAsync(IProgress<double> progress, CancellationToken ct)
+    private static async Task FakeWorkAsync(IProgress<double> progress, CancellationToken ct)
     {
         const int total = 1000;
-        for (int i = 0; i < total; i++)
+        await Task.Run(async () =>
         {
-            ct.ThrowIfCancellationRequested();
-            await Task.Delay(2, ct);
-            progress.Report((double)(i + 1) / total);
-        }
+            for (int i = 0; i < total; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                await Task.Delay(2, ct).ConfigureAwait(false);
+                progress.Report((i + 1) / (double)total);
+            }
+        }, ct);
     }
-
-    // INotifyPropertyChanged helper omitted for brevity
 }
 ```
 
-Networking basics: HttpClient
-- Use a single HttpClient for your app or feature area
-- Prefer async methods: GetAsync, PostAsync, ReadAsStreamAsync, ReadFromJsonAsync
-- Handle timeouts and cancellation; check IsSuccessStatusCode
+`Task.Run` offloads CPU work to the thread pool; `ConfigureAwait(false)` keeps the inner loop on the background thread. `Progress<T>` marshals results back to UI thread automatically.
 
-Fetch JSON
-```csharp
-using System.Net.Http;
-using System.Net.Http.Json;
+## 3. UI binding (XAML)
 
-private static readonly HttpClient _http = new HttpClient
-{
-    Timeout = TimeSpan.FromSeconds(30)
-};
-
-public async Task<MyDto?> LoadDataAsync(CancellationToken ct)
-{
-    using var resp = await _http.GetAsync("https://example.com/api/data", ct);
-    resp.EnsureSuccessStatusCode();
-    return await resp.Content.ReadFromJsonAsync<MyDto>(cancellationToken: ct);
-}
-
-public record MyDto(string Name, int Count);
+```xml
+<StackPanel Spacing="12">
+  <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress}" IsIndeterminate="{Binding IsBusy}"/>
+  <TextBlock Text="{Binding Status}"/>
+  <StackPanel Orientation="Horizontal" Spacing="8">
+    <Button Content="Start" Command="{Binding StartCommand}"/>
+    <Button Content="Cancel" Command="{Binding CancelCommand}"/>
+  </StackPanel>
+</StackPanel>
 ```
 
-Post JSON
+## 4. HTTP networking patterns
+
+### 4.1 HttpClient lifetime
+
+Reuse HttpClient (per host/service) to avoid socket exhaustion. Inject or hold static instance.
+
 ```csharp
-public async Task SaveDataAsync(MyDto dto, CancellationToken ct)
+public static class ApiClient
 {
-    using var resp = await _http.PostAsJsonAsync("https://example.com/api/data", dto, ct);
-    resp.EnsureSuccessStatusCode();
+    public static HttpClient Instance { get; } = new HttpClient
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
 }
 ```
 
-Download a file with progress
-```csharp
-public async Task DownloadAsync(Uri url, IStorageFile destination, IProgress<double> progress, CancellationToken ct)
-{
-    using var resp = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-    resp.EnsureSuccessStatusCode();
+### 4.2 GET + JSON
 
-    var contentLength = resp.Content.Headers.ContentLength;
-    await using var httpStream = await resp.Content.ReadAsStreamAsync(ct);
+```csharp
+public async Task<T?> GetJsonAsync<T>(string url, CancellationToken ct)
+{
+    using var resp = await ApiClient.Instance.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+    resp.EnsureSuccessStatusCode();
+    await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+    return await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: ct);
+}
+```
+
+### 4.3 POST JSON with retry
+
+```csharp
+public async Task PostWithRetryAsync<T>(string url, T payload, CancellationToken ct)
+{
+    var policy = Policy
+        .Handle<HttpRequestException>()
+        .Or<TaskCanceledException>()
+        .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt))); // exponential backoff
+
+    await policy.ExecuteAsync(async token =>
+    {
+        using var response = await ApiClient.Instance.PostAsJsonAsync(url, payload, token);
+        response.EnsureSuccessStatusCode();
+    }, ct);
+}
+```
+
+Use `Polly` or custom retry logic. Timeouts and cancellation tokens help stop hanging requests.
+
+### 4.4 Download with progress
+
+```csharp
+public async Task DownloadAsync(Uri uri, IStorageFile destination, IProgress<double> progress, CancellationToken ct)
+{
+    using var response = await ApiClient.Instance.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct);
+    response.EnsureSuccessStatusCode();
+
+    var contentLength = response.Content.Headers.ContentLength;
+    await using var httpStream = await response.Content.ReadAsStreamAsync(ct);
     await using var fileStream = await destination.OpenWriteAsync();
 
     var buffer = new byte[81920];
@@ -187,44 +175,76 @@ public async Task DownloadAsync(Uri url, IStorageFile destination, IProgress<dou
         await fileStream.WriteAsync(buffer.AsMemory(0, read), ct);
         totalRead += read;
         if (contentLength.HasValue)
-        {
-            progress.Report((double)totalRead / contentLength.Value);
-        }
+            progress.Report(totalRead / (double)contentLength.Value);
     }
 }
 ```
 
-UI threading tips
-- Never block with .Result or .Wait() on async tasks; await them instead
-- For CPU-heavy work, wrap synchronous code in Task.Run and report progress back via IProgress<T>
-- Use Dispatcher.UIThread.InvokeAsync/Post to update UI from background threads if you didn’t use IProgress<T>
+## 5. Connectivity awareness
 
-Cross-platform notes
-- Desktop: Full threading available; async/await with HttpClient works as expected
-- Mobile (Android/iOS): Add network permissions as required by the platform; background tasks may be throttled when app is suspended
-- Browser (WebAssembly): HttpClient uses fetch under the hood; CORS applies; sockets and some protocols may not be available; avoid long blocking loops
+Avalonia doesn't ship built-in connectivity events; rely on platform APIs or ping endpoints.
 
-Troubleshooting
-- UI freeze? Look for synchronous waits (.Result/.Wait) or blocking I/O on UI thread
-- Progress not updating? Ensure property change notifications fire and bindings are correct
-- Networking errors? Check HTTPS, certificates, CORS (in browser), and timeouts
-- Cancel not working? Pass the same CancellationToken to all async calls in the operation
+- Desktop: use `System.Net.NetworkInformation.NetworkChange` events.
+- Mobile: Xamarin/MAUI style libraries or platform-specific checks.
+- Browser: `navigator.onLine` via JS interop.
 
-Check yourself
-- Add a Start button that runs a fake task for 5 seconds and updates a ProgressBar
-- Add a Cancel button that stops the task midway and sets a status message
-- Load a small JSON from a public API and show one field in the UI
-- Download a file to disk and show progress from 0 to 100
+Expose a service to signal connectivity changes to view models; keep offline caching in mind.
 
-Extra practice
-- Wrap a CPU-intensive calculation with Task.Run and report progress
-- Add retry with exponential backoff around a flaky HTTP call
-- Let the user pick a destination file (using Chapter 16’s SaveFilePicker) for the downloader
+## 6. Background services & scheduled work
 
-Look under the hood
-- Avalonia UI thread and dispatcher: [Avalonia.Base/Threading/Dispatcher.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Threading/Dispatcher.cs)
-- ProgressBar control: [Avalonia.Controls/ProgressBar.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ProgressBar.cs)
-- Binding basics (see binding implementation): [Markup/Avalonia.Markup](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Markup/Avalonia.Markup)
+For periodic tasks, use `DispatcherTimer` on UI thread or `Task.Run` loops with delays.
 
-What’s next
+```csharp
+var timer = new DispatcherTimer(TimeSpan.FromMinutes(5), DispatcherPriority.Background, (_, _) => RefreshCommand.Execute(null));
+timer.Start();
+```
+
+Long-running background work should check `CancellationToken` frequently, especially when app might suspend (mobile).
+
+## 7. Testing background code
+
+Use `Task.Delay` injection or `ITestScheduler` (ReactiveUI) to control time. For plain async code, wrap delays in an interface to mock in tests.
+
+```csharp
+public interface IDelayProvider
+{
+    Task Delay(TimeSpan time, CancellationToken ct);
+}
+
+public sealed class DelayProvider : IDelayProvider
+{
+    public Task Delay(TimeSpan time, CancellationToken ct) => Task.Delay(time, ct);
+}
+```
+
+Inject and replace with deterministic delays in tests.
+
+## 8. Browser (WebAssembly) considerations
+
+- HttpClient uses fetch; CORS applies.
+- WebSockets available via `ClientWebSocket` when allowed by browser.
+- Long-running loops should yield frequently (`await Task.Yield()`) to avoid blocking JS event loop.
+
+## 9. Practice exercises
+
+1. Build a data sync command that fetches JSON from an API, parses it, and updates view models without freezing UI.
+2. Add cancellation and progress reporting to a file import feature (Chapter 16) using `IProgress<double>`.
+3. Implement retry with exponential backoff around a flaky endpoint and show status messages when retries occur.
+4. Detect connectivity loss and display an offline banner; queue commands to run when back online.
+5. Write a unit test that confirms cancellation stops a long-running operation before completion.
+
+## Look under the hood (source bookmarks)
+- Dispatcher & UI thread: [`Dispatcher.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Threading/Dispatcher.cs)
+- Progress reporting: [`Progress<T>`](https://learn.microsoft.com/dotnet/api/system.progress-1)
+- HttpClient guidance: [.NET HttpClient docs](https://learn.microsoft.com/dotnet/fundamentals/networking/http/httpclient)
+- Cancellation tokens: [.NET cancellation docs](https://learn.microsoft.com/dotnet/standard/threading/cancellation-in-managed-threads)
+
+## Check yourself
+- Why does blocking the UI thread freeze the app? How do you keep it responsive?
+- How do you propagate cancellation through nested async calls?
+- Which HttpClient features help prevent hung requests?
+- How can you provide progress updates without touching `Dispatcher.UIThread` manually?
+- What adjustments are needed when running the same code on the browser?
+
+What's next
 - Next: [Chapter 18](Chapter18.md)
