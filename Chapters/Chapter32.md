@@ -184,4 +184,4 @@ Document interop boundaries (threading, disposal, event forwarding) for your tea
 - When rendering offscreen, which classes help you create an isolated top level and capture the framebuffer?
 
 What's next
-- Return to [Index](../Index.md) for appendices, publishing checklists, or future updates.
+- Next: [Chapter33](Chapter33.md)

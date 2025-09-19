@@ -43,3 +43,24 @@
 30. [Markup, XAML compiler, and extensibility](Chapters/Chapter30.md)
 31. [Extended control modules and component gallery](Chapters/Chapter31.md)
 32. [Platform services, embedding, and native interop](Chapters/Chapter32.md)
+
+## Part VII — Code-first UI without XAML friction
+33. [Code-only startup and architecture blueprint](Chapters/Chapter33.md)
+34. [Layouts and controls authored in pure C#](Chapters/Chapter34.md)
+35. [Bindings, resources, and styles with fluent APIs](Chapters/Chapter35.md)
+36. [Templates, indexers, and dynamic component factories](Chapters/Chapter36.md)
+37. [Reactive patterns, helpers, and tooling for code-first teams](Chapters/Chapter37.md)
+
+## Part VIII — Headless unit testing that gives confidence
+38. [Headless platform fundamentals and lifetimes](Chapters/Chapter38.md)
+39. [Unit testing view-models and controls headlessly](Chapters/Chapter39.md)
+40. [Rendering verification and pixel assertions](Chapters/Chapter40.md)
+41. [Simulating input and automation in headless runs](Chapters/Chapter41.md)
+42. [CI pipelines, diagnostics, and troubleshooting](Chapters/Chapter42.md)
+
+## Part IX — Appium automation done right
+43. [Appium fundamentals for Avalonia apps](Chapters/Chapter43.md)
+44. [Environment setup, drivers, and device clouds](Chapters/Chapter44.md)
+45. [Element discovery, selectors, and PageObjects](Chapters/Chapter45.md)
+46. [Cross-platform scenarios and advanced gestures](Chapters/Chapter46.md)
+47. [Stabilizing suites, reporting, and best practices](Chapters/Chapter47.md)
