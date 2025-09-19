@@ -36,3 +36,10 @@
 25. [Design‑time tooling and the XAML Previewer](Chapters/Chapter25.md)
 26. [Build, publish, and deploy](Chapters/Chapter26.md)
 27. [Read the source, contribute, and grow](Chapters/Chapter27.md)
+
+## Part VI — Advanced interactivity, markup, and platform integration
+28. [Advanced input system and interactivity](Chapters/Chapter28.md)
+29. [Animations, transitions, and composition](Chapters/Chapter29.md)
+30. [Markup, XAML compiler, and extensibility](Chapters/Chapter30.md)
+31. [Extended control modules and component gallery](Chapters/Chapter31.md)
+32. [Platform services, embedding, and native interop](Chapters/Chapter32.md)

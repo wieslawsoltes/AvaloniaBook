@@ -138,4 +138,4 @@ Checklist before submitting work:
 - Which community channels help you stay informed about releases and roadmap?
 
 What's next
-- Return to [Index](../Index.md) or revisit topics as needed. Keep exploring and contributing!
+- Next: [Chapter28](Chapter28.md)
