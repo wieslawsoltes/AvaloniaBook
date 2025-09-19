@@ -80,6 +80,15 @@ Interop tips:
 - Expose the `Content` property to your native layer for dynamic view injection.
 - Bridge focus and input: e.g., WinForms host sets `TabStop` and forwards focus events to the Avalonia root.
 
+### MicroCom bridges for Windows interop
+
+Avalonia relies on [MicroCom](https://github.com/AvaloniaUI/MicroCom) to generate COM-compatible wrappers. When embedding on Windows (drag/drop, menus, Win32 interop):
+- Use `Avalonia.MicroCom.CallbackBase` as the base for custom COM callbacks; it handles reference counting and error reporting.
+- `OleDropTarget` and native menu exporters in `Avalonia.Win32` demonstrate wrapping Win32 interfaces without hand-written COM glue.
+- When exposing Avalonia controls to native hosts, keep MicroCom proxies alive for the lifetime of the host window to avoid releasing underlying HWND/IDispatch too early.
+
+You rarely need to touch MicroCom directly, but understanding it helps when diagnosing drag/drop or accessibility issues on Windows.
+
 ## 4. Remote rendering and previews
 
 Avalonia's remote protocol (`external/Avalonia/src/Avalonia.Remote.Protocol`) powers the XAML previewer and custom remoting scenarios.
@@ -87,6 +96,8 @@ Avalonia's remote protocol (`external/Avalonia/src/Avalonia.Remote.Protocol`) po
 - `RemoteServer` (`external/Avalonia/src/Avalonia.Controls/Remote/RemoteServer.cs`) wraps an `EmbeddableControlRoot` backed by `RemoteServerTopLevelImpl`. It responds to transport messages (layout updates, pointer events) from a remote client.
 - Transports: BSON over TCP (`BsonTcpTransport`), streams (`BsonStreamTransport`), or custom `IAvaloniaRemoteTransportConnection` implementations.
 - Use `Avalonia.DesignerSupport` components to spin up preview hosts; they bind to `IWindowingPlatform` stubs suitable for design-time.
+- On the client side, `RemoteWidget` hosts the mirrored visual tree. It pairs with `RemoteServer` to marshal input/output.
+- Implement a custom `ITransport` when you need alternate channels (named pipes, WebSockets). The protocol is message-based, so you can plug in encryption or compression as needed.
 
 Potential use cases:
 - Live XAML preview in IDEs (already shipped).
@@ -119,6 +130,7 @@ Other services:
 - **System dialogs**: `SystemDialog` classes fallback to managed dialogs when native APIs are unavailable.
 - **Application platform events**: `IApplicationPlatformEvents` handles activation (protocol URLs, file associations). Register via `AppBuilder` extensions.
 - **System navigation**: On mobile, `SystemNavigationManager` handles back-button events; ensure `UsePlatformDetect` registers the appropriate lifetime.
+- **Window chrome**: `Window` exposes `SystemDecorations`, `ExtendClientAreaToDecorationsHint`, `WindowTransparencyLevel`, and the `Chrome.WindowChrome` helpers so you can blend custom title bars with OS hit testing. Always provide resize grips and fall back to system chrome when composition is disabled.
 
 ## 6. Browser, Android, iOS views
 
@@ -158,9 +170,11 @@ Document interop boundaries (threading, disposal, event forwarding) for your tea
 - Native hosting: `external/Avalonia/src/Avalonia.Controls/NativeControlHost.cs`
 - Embedding root: `external/Avalonia/src/Avalonia.Controls/Embedding/EmbeddableControlRoot.cs`
 - Platform manager & services: `external/Avalonia/src/Avalonia.Controls/Platform/PlatformManager.cs`
-- Remote protocol: `external/Avalonia/src/Avalonia.Controls/Remote/RemoteServer.cs`, `external/Avalonia/src/Avalonia.Remote.Protocol/*`
+- Remote protocol: `external/Avalonia/src/Avalonia.Controls/Remote/RemoteServer.cs`, `external/Avalonia/src/Avalonia.Controls/Remote/RemoteWidget.cs`, `external/Avalonia/src/Avalonia.Remote.Protocol/*`
 - Win32 platform: `external/Avalonia/src/Windows/Avalonia.Win32/Win32Platform.cs`
 - Browser/Android/iOS hosts: `external/Avalonia/src/Browser/Avalonia.Browser/AvaloniaView.cs`, `external/Avalonia/src/Android/Avalonia.Android/AvaloniaView.cs`, `external/Avalonia/src/iOS/Avalonia.iOS/AvaloniaView.cs`
+- MicroCom interop: `external/Avalonia/src/Avalonia.MicroCom/CallbackBase.cs`, `external/Avalonia/src/Windows/Avalonia.Win32/OleDropTarget.cs`
+- Window chrome helpers: `external/Avalonia/src/Avalonia.Controls/Chrome/WindowChrome.cs`, `external/Avalonia/src/Avalonia.Controls/Window.cs`
 
 ## Check yourself
 - How does `NativeControlHost` coordinate `INativeControlHostImpl` and what events trigger repositioning?

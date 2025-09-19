@@ -18,7 +18,25 @@ Prerequisites
 - `dotnet publish`: creates a self-contained folder/app ready to run on target machines (Optionally includes .NET runtime).
 - Always test in `Release` configuration: `dotnet publish -c Release`.
 
-## 2. Runtime identifiers (RIDs)
+## 2. Avalonia build tooling & project file essentials
+
+Avalonia ships MSBuild targets that compile XAML and pack resources alongside your assemblies. Understanding them keeps design-time and publish-time behavior in sync.
+
+- [`CompileAvaloniaXamlTask`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Build.Tasks/CompileAvaloniaXamlTask.cs) runs during `BeforeCompile` to turn `.axaml` into generated `.g.cs`. If a publish build reports missing generated files, confirm the Avalonia NuGet packages are referenced and the project imports `Avalonia.props/targets`.
+- [`AvaloniaResource`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Build.Tasks/AvaloniaResource.cs) items embed static content. Include them explicitly so publish outputs contain everything:
+
+```xml
+<ItemGroup>
+  <AvaloniaResource Include="Assets/**" />
+  <AvaloniaResource Include="Themes/**/*.axaml" />
+</ItemGroup>
+```
+
+- Shared targets such as [`build/BuildTargets.targets`](https://github.com/AvaloniaUI/Avalonia/blob/master/build/BuildTargets.targets) tweak platform packaging. Review them before overriding publish stages.
+- Use property flags like `<AvaloniaUseCompiledBindings>true</AvaloniaUseCompiledBindings>` consistently across Debug/Release so the previewer and publish builds agree.
+- For custom steps (version stamping, signing) extend `Target Name="AfterPublish"` or a Directory.Build.targets file; Avalonia emits its files before your target runs, so you can safely zip or notarize afterward.
+
+## 3. Runtime identifiers (RIDs)
 
 Common RIDs:
 - Windows: `win-x64`, `win-arm64`.
@@ -28,7 +46,7 @@ Common RIDs:
 - iOS: `ios-arm64`, `iossimulator-x64`.
 - Browser (WASM): `browser-wasm` (handled by browser head).
 
-## 3. Publish configurations
+## 4. Publish configurations
 
 ### Framework-dependent (requires installed .NET runtime)
 
@@ -80,7 +98,7 @@ Aggressive size reduction; risky because Avalonia/XAML relies on reflection. Req
 | ReadyToRun | Faster cold start | Larger size | 
 | Trimmed | Smaller | Risk of missing types |
 
-## 4. Output directories
+## 5. Output directories and manifest validation
 
 Publish outputs to `bin/Release/<TFramework>/<RID>/publish`.
 
@@ -89,9 +107,19 @@ Examples:
 - `bin/Release/net8.0/linux-x64/publish`
 - `bin/Release/net8.0/osx-arm64/publish`
 
-Verify resources (images, fonts) present; confirm `AvaloniaResource` includes them (check `.csproj`).
+Verify resources (images, fonts) present; confirm `AvaloniaResource` includes them. Use `dotnet publish /bl:publish.binlog` and inspect the binlog with MSBuild Structured Log to confirm each resource path is copied.
 
-## 5. Platform packaging
+- Check the generated `appsettings.json`, `MyApp.runtimeconfig.json`, and `.deps.json` to ensure trimming or single-file options didn't remove dependencies.
+- For RID-specific bundles, review the platform manifests (e.g., `MyApp.app/Contents/Info.plist`, `MyApp.msix`) before shipping.
+
+## 6. Asset packing and resources
+
+- Group related resources into folders and wildcard them via `AvaloniaResource Include="Assets/Icons/**/*"`. The build task preserves folder structure when copying to publish output.
+- Embedded assets larger than a few MB (videos, large fonts) can remain external files by setting `<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>` alongside `AvaloniaResource`. That avoids bloating assemblies and keeps startup fast.
+- When you refactor project layout, set explicit logical paths: `<AvaloniaResource Update="Assets/logo.svg" LogicalPath="resm:MyApp.Assets.logo.svg">`. Logical paths become the keys your app uses with `AssetLoader`.
+- Hook a custom `Target Name="VerifyAvaloniaResources" AfterTargets="ResolveAvaloniaResource"` to ensure required files exist; failing early prevents subtle runtime crashes after publish.
+
+## 7. Platform packaging
 
 ### Windows
 
@@ -130,10 +158,10 @@ Verify resources (images, fonts) present; confirm `AvaloniaResource` includes th
 - `dotnet publish -c Release` in browser head (`MyApp.Browser`). Output in `bin/Release/net8.0/browser-wasm/AppBundle`.
 - Deploy to static host (GitHub Pages, S3, etc.). Use service worker for caching if desired.
 
-## 6. Automation (CI/CD)
+## 8. Automation (CI/CD)
 
 - Use GitHub Actions/Azure Pipelines/GitLab CI to run `dotnet publish` per target.
-- Example GitHub Actions matrix:
+- Example GitHub Actions matrix aligned with Avalonia's build tasks:
 
 ```yaml
 jobs:
@@ -153,25 +181,46 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - run: dotnet publish src/MyApp/MyApp.csproj -c Release -r ${{ matrix.rid }} --self-contained true
+      - name: Restore workloads
+        run: dotnet workload restore
+      - name: Publish
+        run: |
+          dotnet publish src/MyApp/MyApp.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            /p:PublishSingleFile=true \
+            /p:InformationalVersion=${{ github.sha }}
+      - name: Collect binlog on failure
+        if: failure()
+        run: dotnet publish src/MyApp/MyApp.csproj -c Release -r ${{ matrix.rid }} /bl:publish-${{ matrix.rid }}.binlog
       - uses: actions/upload-artifact@v4
         with:
           name: myapp-${{ matrix.rid }}
           path: src/MyApp/bin/Release/net8.0/${{ matrix.rid }}/publish
+      - name: Upload binlog
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-logs-${{ matrix.rid }}
+          path: publish-${{ matrix.rid }}.binlog
 ```
 
 - Add packaging steps (MSIX, DMG) via platform-specific actions/tools.
 - Sign artifacts in CI where possible (store certificates securely).
+- Azure Pipelines alternative: copy patterns from [`azure-pipelines.yml`](https://github.com/AvaloniaUI/Avalonia/blob/master/azure-pipelines.yml) to reuse matrix publishing, signing, and artifact staging.
+- For custom MSBuild integration, define `Target Name="SignArtifacts" AfterTargets="Publish"` or `AfterTargets="BundleApp"` in `Directory.Build.targets` so both local builds and CI run the same packaging hooks.
 
-## 7. Verification checklist
+## 9. Verification checklist
 
 - Run published app on real machines/VMs for each RID.
 - Check fonts, DPI, plugins, network resources.
 - Validate updates to config/resources; ensure relative paths work from publish folder.
 - If using trimming, run automated UITests (Chapter 21) and manual smoke tests.
 - Run `dotnet publish` with `--self-contained` false/true to compare sizes and startup times; pick best trade-off.
+- Capture a SHA/hash of the publish folder (or installer) and include it in release notes so users can verify downloads.
 
-## 8. Troubleshooting
+## 10. Troubleshooting
 
 | Problem | Fix |
 | --- | --- |
@@ -180,24 +229,32 @@ jobs:
 | High CPU at startup | Investigate ReadyToRun vs normal build; pre-load data asynchronously vs synchronously. |
 | Code signing errors (macOS/Windows) | Confirm certificates, entitlements, notarization steps. |
 | Publisher mismatch (store upload) | Align package IDs, manifest metadata with store requirements. |
+| `CompileAvaloniaXamlTask` failure | Clean `obj/`, fix XAML build errors, and examine the `/bl` binlog to inspect generated task arguments. |
+| Native dependency failure (Skia/WASM) | Use `ldd`/`otool`/`wasm-ld` reports to list missing libraries; bundle them or switch to self-contained publishes. |
 
-## 9. Practice exercises
+## 11. Practice exercises
 
 1. Publish self-contained builds for `win-x64`, `osx-arm64`, `linux-x64`. Run each and note size/performance differences.
 2. Enable `PublishSingleFile` and `PublishReadyToRun` for one target; compare startup time and size.
-3. Experiment with trimming on a small sample; add `ILLink` attributes to preserve necessary types; test thoroughly.
-4. Set up a GitHub Actions workflow to publish artifacts per RID and upload them as artifacts.
-5. Optional: create MSIX (Windows) or DMG (macOS) packages and run locally to test installation/updates.
+3. Experiment with trimming on a small sample; protect reflective types with `DynamicDependency` or `ILLinkTrim` descriptors and verify at runtime.
+4. Set up a GitHub Actions workflow to publish RID-specific artifacts, collect binlogs on failure, and attach a checksum file.
+5. Optional: create MSIX (Windows) or DMG (macOS) packages, sign them, and run locally to test installation/updates.
+6. Bonus: add a custom MSBuild target that zips the publish folder and uploads a checksum to your CI artifacts.
 
 ## Look under the hood (source & docs)
-- Avalonia build docs: [`docs/build.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/docs/build.md)
-- Samples for reference packaging: [`samples/ControlCatalog`](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog)
+- Build docs: [`docs/build.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/docs/build.md)
+- XAML compiler task: [`CompileAvaloniaXamlTask.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Build.Tasks/CompileAvaloniaXamlTask.cs)
+- Resource pipeline: [`AvaloniaResource.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Build.Tasks/AvaloniaResource.cs)
+- Shared targets: [`build/BuildTargets.targets`](https://github.com/AvaloniaUI/Avalonia/blob/master/build/BuildTargets.targets)
+- Samples for packaging patterns: [`samples/ControlCatalog`](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog)
+- CI reference: [`azure-pipelines.yml`](https://github.com/AvaloniaUI/Avalonia/blob/master/azure-pipelines.yml)
 - .NET publish docs: [dotnet publish reference](https://learn.microsoft.com/dotnet/core/tools/dotnet-publish)
 - App packaging: Microsoft MSIX docs, Apple code signing docs, AppImage/Flatpak/Snap guidelines.
 
 ## Check yourself
 - What's the difference between framework-dependent and self-contained publishes? When do you choose each?
 - How do single-file, ReadyToRun, and trimming impact size/performance?
+- Which MSBuild tasks make sure `.axaml` files and resources reach your publish output?
 - Which RIDs are needed for your user base?
 - What packaging format suits your distribution channel (installer, app store, raw executable)?
 - How can CI/CD automate builds and packaging per platform?

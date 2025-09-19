@@ -21,6 +21,7 @@ Prerequisites
 | `ClassicDesktopStyleApplicationLifetime` | Windows/macOS/Linux windowed apps | `StartWithClassicDesktopLifetime(args)` |
 | `SingleViewApplicationLifetime` | Mobile (Android/iOS), embedded | `StartWithSingleViewLifetime(view)` |
 | `BrowserSingleViewLifetime` | WebAssembly | `BrowserAppBuilder` setup |
+| `ISingleTopLevelApplicationLifetime` | Single top-level host (preview/embedded scenarios) | Exposed by the runtime; inspect via `ApplicationLifetime as ISingleTopLevelApplicationLifetime` |
 
 `App.OnFrameworkInitializationCompleted` should handle all lifetimes:
 
@@ -45,6 +46,8 @@ public override void OnFrameworkInitializationCompleted()
     base.OnFrameworkInitializationCompleted();
 }
 ```
+
+`ISingleTopLevelApplicationLifetime` is currently marked `[PrivateApi]`, but you may see it when Avalonia hosts supply a single `TopLevel`. Treat it as read-only metadata rather than something you implement yourself.
 
 When targeting browser, use `BrowserAppBuilder` with `SetupBrowserApp`.
 
@@ -132,6 +135,18 @@ if (topLevel?.Screens is { } screens)
 
 `Screens` live under [`Avalonia.Controls/Screens.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Screens.cs).
 
+Subscribe to `screens.Changed` when you need to react to hot-plugging monitors or DPI changes:
+
+```csharp
+screens.Changed += (_, _) =>
+{
+    var active = screens.ScreenFromWindow(this);
+    Logger.LogInformation("Monitor layout changed. Active screen: {Bounds}", active.WorkingArea);
+};
+```
+
+`WindowBase.Screens` always maps to the platform's latest monitor topology, so you can reposition tool windows or popups when displays change.
+
 ### 2.4 Prevent closing with unsaved changes
 
 ```csharp
@@ -147,6 +162,67 @@ Closing += async (sender, e) =>
 ```
 
 Implement `MessageBox` yourself or using Avalonia.MessageBox community package.
+
+### 2.5 Window lifecycle events (`WindowBase`)
+
+`WindowBase` is the shared base type for `Window` and other top-levels. It raises events that fire before layout runs, letting you respond to activation, resizing, and positioning at the window layer:
+
+```csharp
+public partial class ToolWindow : Window
+{
+    public ToolWindow()
+    {
+        InitializeComponent();
+        Activated += (_, _) => StatusBar.Text = "Active";
+        Deactivated += (_, _) => StatusBar.Text = "Inactive";
+        PositionChanged += (_, e) => Logger.LogInformation("Moved to {Point}", e.Point);
+        Resized += (_, e) => Metrics.Track(e.Size, e.Reason);
+        Closed += (_, _) => _subscriptions.Dispose();
+    }
+}
+```
+
+`WindowBase.Resized` reports the reason the platform resized your window (user drag, system DPI change, maximize). Distinguish it from `Control.SizeChanged`, which fires after layout completes. Use `WindowBase.IsActive` to trigger focus-sensitive behaviour such as pausing animations when the window moves to the background.
+
+### 2.6 Platform-specific window features
+
+Avalonia exposes chrome customisation through `TopLevel` properties:
+
+```csharp
+TransparencyLevelHint = new[] { WindowTransparencyLevel.Mica, WindowTransparencyLevel.Acrylic, WindowTransparencyLevel.Transparent };
+SystemDecorations = SystemDecorations.None;
+ExtendClientAreaToDecorationsHint = true;
+ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.SystemChrome | ExtendClientAreaChromeHints.OSXIssueUglyDropShadowHack;
+WindowStartupLocation = WindowStartupLocation.CenterScreen;
+```
+
+Combine those settings with platform options to unlock OS-specific effects:
+
+- **Windows** (`Win32PlatformOptions`): enable `CompositionBackdrop` or `UseWgl` for specific GPU paths. Set `WindowEffect = new MicaEffect();` to match Windows 11 styling.
+- **macOS** (`MacOSPlatformOptions`): toggle `ShowInDock`, `DisableDefaultApplicationMenu`, and `UseNativeMenuBar` per window.
+- **Linux/X11** (`X11PlatformOptions`): control `EnableIME`, `EnableTransparency`, and `DisableDecorations` when providing custom chrome.
+
+Always test transparency fallbacks—older GPUs may fall back to `Opaque`. Query `ActualTransparencyLevel` at runtime to reflect final behaviour in the UI.
+
+### 2.7 Coordinating shutdown with `ShutdownRequestedEventArgs`
+
+`IClassicDesktopStyleApplicationLifetime` exposes a `ShutdownRequested` event. Cancel it when critical work is in progress or when you must prompt the user:
+
+```csharp
+if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+{
+    desktop.ShutdownRequested += (_, e) =>
+    {
+        if (_documentStore.HasDirtyDocuments && !ConfirmShutdown())
+            e.Cancel = true;
+
+        if (e.IsOSShutdown)
+            Logger.LogWarning("OS initiated shutdown");
+    };
+}
+```
+
+Return `true` from `ConfirmShutdown()` only after persisting state or when the user explicitly approves. Pair this with `ShutdownMode` to decide whether closing the main window exits the entire application.
 
 ## 3. Navigation patterns
 
@@ -226,7 +302,32 @@ Register view-model-to-view templates (Chapter 11 showed details). Example snipp
 </Application.DataTemplates>
 ```
 
-### 3.3 Dialog service abstraction
+### 3.3 SplitView shell navigation
+
+For sidebars or hamburger menus, wrap the navigation service in a `SplitView` so content and commands share a host:
+
+```xml
+<SplitView IsPaneOpen="{Binding IsPaneOpen}"
+           DisplayMode="CompactOverlay"
+           CompactPaneLength="48"
+           OpenPaneLength="200">
+  <SplitView.Pane>
+    <ItemsControl ItemsSource="{Binding NavigationItems}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Button Content="{Binding Title}"
+                  Command="{Binding NavigateCommand}"/>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </SplitView.Pane>
+  <TransitioningContentControl Content="{Binding Current}"/>
+</SplitView>
+```
+
+Expose `NavigationItems` as view-model descriptors (title + command). Pair with `SplitView.PanePlacement` to adapt between desktop (left rail) and mobile (bottom sheet). Listen to `TopLevel.BackRequested` to collapse the pane when the host (Android, browser, web view) signals a system back gesture.
+
+### 3.4 Dialog service abstraction
 
 Expose a dialog API from view models without referencing `Window`:
 
@@ -299,6 +400,24 @@ if (topLevel?.StorageProvider is { } sp)
 
 `topLevel!.Screens` provides monitor layout. Use for placing dialogs on active monitor or respecting working area.
 
+### 5.4 System back navigation
+
+`TopLevel.BackRequested` bubbles up hardware or browser navigation gestures through Avalonia's `ISystemNavigationManagerImpl`. Subscribe to it when embedding in Android, browser, or platform WebView hosts:
+
+```csharp
+var topLevel = TopLevel.GetTopLevel(control);
+if (topLevel is { })
+{
+    topLevel.BackRequested += (_, e) =>
+    {
+        if (_navigation.Pop())
+            e.Handled = true;
+    };
+}
+```
+
+Mark the event as handled when your navigation stack consumes the back action; otherwise Avalonia lets the host perform its default behaviour (e.g., browser history navigation).
+
 ## 6. Browser (WebAssembly) considerations
 
 Use `BrowserAppBuilder` and `BrowserSingleViewLifetime`:
@@ -309,25 +428,29 @@ public static void Main(string[] args)
 ```
 
 Use `TopLevel.StorageProvider` for limited file access (via JavaScript APIs). Use JS interop for features missing from storage provider.
+`TopLevel.BackRequested` maps to the browser's history stack—handle it to keep SPA navigation in sync with the host's back button.
 
 ## 7. Practice exercises
 
-1. Persist window placement, including maximized state, and restore on startup.
-2. Implement a navigation history stack (back/forward) using a `Stack<object>` alongside `Current` binding.
-3. Create a dialog service that exposes file open dialogs via `StorageProvider` and unit test the abstraction.
-4. Detect the active screen and center modals on that screen, even when the main window spans monitors.
-5. Implement transitions that differ per platform (e.g., slide on mobile, fade on desktop) by injecting transition providers.
+1. Spawn a secondary tool window from the shell, handle `WindowBase.Resized`/`PositionChanged`, and persist placement per monitor.
+2. Hook `ShutdownRequested` to prompt about unsaved documents, cancelling the shutdown when the user declines.
+3. Subscribe to `Screens.Changed` and reposition floating windows onto the active display when monitors are hot-plugged.
+4. Build a `SplitView` navigation shell that collapses in response to `TopLevel.BackRequested` on Android or the browser.
+5. Toggle `TransparencyLevelHint` and `SystemDecorations` per platform and display the resulting `ActualTransparencyLevel` in the UI.
 
 ## Look under the hood (source bookmarks)
-- Window management: [`Window.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Window.cs)
-- Lifetimes: [`ClassicDesktopStyleApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs), [`SingleViewApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/SingleViewApplicationLifetime.cs)
-- TopLevel services: [`TopLevel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TopLevel.cs)
+- Window management: [`Window.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Window.cs), [`WindowBase.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/WindowBase.cs)
+- Lifetimes & shutdown: [`ClassicDesktopStyleApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs), [`ShutdownRequestedEventArgs.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ShutdownRequestedEventArgs.cs)
+- Navigation surfaces: [`TopLevel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TopLevel.cs), [`SplitView.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/SplitView.cs), [`SystemNavigationManagerImpl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/SystemNavigationManagerImpl.cs)
+- Screens API: [`Screens.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Screens.cs)
 - Transitioning content: [`TransitioningContentControl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TransitioningContentControl.cs)
 
 ## Check yourself
 - How does `ClassicDesktopStyleApplicationLifetime` differ from `SingleViewApplicationLifetime` when showing windows?
 - When should you use `Show` vs `ShowDialog`? Why set `Owner`?
-- How do `TransitioningContentControl` and DataTemplates enable platform-neutral navigation?
+- Which `WindowBase` events fire before layout, and how do they differ from `SizeChanged`?
+- How can `TopLevel.BackRequested` improve the experience on Android or the browser?
+- What does `ShutdownRequestedEventArgs.IsOSShutdown` tell you, and how would you react to it?
 - Which `TopLevel` service would you use to access the clipboard or file picker from a view model?
 
 What's next

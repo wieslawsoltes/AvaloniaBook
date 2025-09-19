@@ -64,6 +64,34 @@ If anything in the pipeline throws, the process exits before UI renders. Log ear
 
 | Lifetime type | Purpose | Typical targets | Key members |
 | --- | --- | --- | --- |
+| `ClassicDesktopStyleApplicationLifetime` | Windowed desktop apps with startup/shutdown events and main window | Windows, macOS, Linux | `MainWindow`, `ShutdownMode`, `Exit`, `ShutdownRequested`, `OnExit` |
+| `SingleViewApplicationLifetime` | Hosts a single root control (`MainView`) | Android, iOS, Embedded | `MainView`, `MainViewClosing`, `OnMainViewClosed` |
+| `BrowserSingleViewLifetime` (implements `ISingleViewApplicationLifetime`) | Same contract as single view, tuned for WebAssembly | Browser (WASM) | `MainView`, async app init |
+| `HeadlessApplicationLifetime` | No visible UI; runs for tests or background services | Unit/UI tests | `TryGetTopLevel()`, manual pumping |
+
+Key interfaces and classes to read:
+- Desktop lifetime: [`ClassicDesktopStyleApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs)
+- Single view lifetime: [`SingleViewApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/SingleViewApplicationLifetime.cs)
+- Browser lifetime: [`BrowserSingleViewLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserSingleViewLifetime.cs)
+- Headless lifetime: [`AvaloniaHeadlessApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/AvaloniaHeadlessApplicationLifetime.cs)
+
+### Desktop lifetime flow
+- `MainWindow` must be assigned before `base.OnFrameworkInitializationCompleted()` or no window will appear.
+- `ShutdownMode` controls when the app exits (`OnLastWindowClose`, `OnMainWindowClose`, or `OnExplicitShutdown`).
+- Subscribe to `ShutdownRequested` to cancel shutdown (e.g., unsaved document prompt). Call `e.Cancel = true` to keep the app running.
+- Additional windows can be opened by tracking them in a collection and calling `Show()` / `Close()`.
+
+### Single view and browser lifetimes
+- Provide a root `Control` via `MainView`. Navigation stacks switch the child content instead of opening new windows.
+- For Android/iOS, the host platform handles navigation/back events; forward them to view models via commands.
+- Browser lifetime initialises asynchronously—await long-running startup logic before assigning `MainView`.
+
+### Headless lifetime notes
+- `StartWithHeadless` disables rendering but still runs the dispatcher. Use it for integration tests.
+- Combine with `Avalonia.Headless.XUnit` or `Avalonia.Headless.NUnit` to drive UI interactions programmatically.
+
+ | Purpose | Typical targets | Key members |
+| --- | --- | --- | --- |
 | `ClassicDesktopStyleApplicationLifetime` | Windowed desktop apps with startup/shutdown events and main window | Windows, macOS, Linux | `MainWindow`, `ShutdownMode`, `Exit`, `OnExit` |
 | `SingleViewApplicationLifetime` | Hosts a single root control (`MainView`) | Android, iOS, Embedded | `MainView`, `MainViewClosing`, `OnMainViewClosed` |
 | `BrowserSingleViewLifetime` (implements `ISingleViewApplicationLifetime`) | Same contract as single view, tuned for WebAssembly | Browser (WASM) | `MainView`, async app init |
@@ -137,7 +165,8 @@ Notes:
 
 Important logging points:
 - `AppBuilder.LogToTrace()` uses Avalonia's logging infrastructure (see [`src/Avalonia.Base/Logging`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Logging)). For production apps, plug in `Serilog`, `Microsoft.Extensions.Logging`, or your preferred provider.
-- Subscribe to `AppDomain.CurrentDomain.UnhandledException` and `TaskScheduler.UnobservedTaskException` inside `Main` to catch fatal issues before the dispatcher tears down.
+- Subscribe to `AppDomain.CurrentDomain.UnhandledException`, `TaskScheduler.UnobservedTaskException`, and `Dispatcher.UIThread.UnhandledException` to capture failures before they tear down the dispatcher.
+- `IControlledApplicationLifetime` (`ApplicationLifetime`) exposes `Exit` and `Shutdown()` so you can close gracefully after logging or prompting the user.
 
 Example:
 
@@ -147,6 +176,12 @@ public static void Main(string[] args)
 {
     AppDomain.CurrentDomain.UnhandledException += (_, e) => LogFatal(e.ExceptionObject);
     TaskScheduler.UnobservedTaskException += (_, e) => LogFatal(e.Exception);
+
+    Dispatcher.UIThread.UnhandledException += (_, e) =>
+    {
+        LogFatal(e.Exception);
+        e.Handled = true; // optionally keep the app alive after logging
+    };
 
     try
     {
@@ -160,7 +195,7 @@ public static void Main(string[] args)
 }
 ```
 
-`ClassicDesktopStyleApplicationLifetime` exposes `ShutdownMode` and `Shutdown()` so you can exit explicitly when critical failures occur.
+`ClassicDesktopStyleApplicationLifetime` exposes `ShutdownMode`, `ShutdownRequested`, and `Shutdown()` so you can decide whether to exit on last window close, on main window close, or only when you call `Shutdown()` explicitly.
 
 ## 5. Switching lifetimes inside one project
 
@@ -239,10 +274,11 @@ public static void Main(string[] args)
 
 ## Practice and validation
 1. Modify your project so the same `App` supports both desktop and single-view lifetimes. Use a command-line switch (`--mobile`) to select `StartWithSingleViewLifetime` and verify your `MainView` renders inside a mobile head (Android emulator or `dotnet run -- --mobile` + `SingleView` desktop simulation).
-2. Register a logging provider using `Microsoft.Extensions.Logging`. Log the current lifetime type inside `OnFrameworkInitializationCompleted` and observe the output.
+2. Register a logging provider using `Microsoft.Extensions.Logging`. Log the current lifetime type inside `OnFrameworkInitializationCompleted`, subscribe to `ShutdownRequested`, and record when the app exits.
 3. Add a simple DI container (as shown) and resolve `MainWindow`/`MainView` through it. Confirm disposal happens when the app exits.
 4. Create a headless console entry point (`BuildAvaloniaApp().Start(AppMain)`) and run a unit test that constructs a view, invokes bindings, and pumps the dispatcher.
-5. Intentionally throw inside `OnFrameworkInitializationCompleted` and observe how logging captures the stack. Then add a `try/catch` to show a fallback dialog or log and exit gracefully.
+5. Wire `Dispatcher.UIThread.UnhandledException` and verify that handled exceptions keep the app alive while unhandled ones terminate.
+6. Intentionally throw inside `OnFrameworkInitializationCompleted` and observe how logging captures the stack. Then add a `try/catch` to show a fallback dialog or log and exit gracefully.
 
 ## Look under the hood (source bookmarks)
 - `AppBuilder` internals: [`src/Avalonia.Controls/AppBuilder.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/AppBuilder.cs)
@@ -251,6 +287,8 @@ public static void Main(string[] args)
 - Single-view lifetime: [`src/Avalonia.Controls/ApplicationLifetimes/SingleViewApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/SingleViewApplicationLifetime.cs)
 - Browser lifetime: [`src/Browser/Avalonia.Browser/BrowserSingleViewLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserSingleViewLifetime.cs)
 - Headless lifetime and tests: [`src/Headless`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless)
+- Controlled lifetime interface (`IControlledApplicationLifetime`): [`src/Avalonia.Controls/ApplicationLifetimes/IControlledApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/IControlledApplicationLifetime.cs)
+- Dispatcher unhandled exception hook: [`src/Avalonia.Base/Threading/Dispatcher.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Threading/Dispatcher.cs)
 
 ## Check yourself
 - What steps does `BuildAvaloniaApp()` perform before choosing a lifetime?

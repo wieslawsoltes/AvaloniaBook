@@ -27,6 +27,8 @@ if (topLevel?.StorageProvider is { } storage)
 
 If `StorageProvider` is null, ensure the control is attached (e.g., call after `Loaded`/`Opened`).
 
+`IStorageProvider` exposes capability flags such as `CanOpen`, `CanSave`, and `CanPickFolder`. Check them before presenting commands so sandboxed targets (browser/mobile) can hide unsupported options. Dialog methods accept option records (`FilePickerOpenOptions`, `FolderPickerOpenOptions`, etc.) that describe filters, suggested locations, and tokens for continuing previous sessions.
+
 ### 1.1 Service abstraction for MVVM
 
 ```csharp
@@ -59,6 +61,21 @@ public sealed class FileDialogService : IFileDialogService
 ```
 
 Register the service per window (in DI) so view models request dialogs via `IFileDialogService` without touching UI types.
+
+### 1.2 Launching files and URIs
+
+`TopLevel.Launcher` gives access to `ILauncher`, which opens files, folders, or URIs using the platform shell (Finder, Explorer, default browser, etc.). Combine it with storage results to let users reveal files after saving.
+
+```csharp
+var topLevel = TopLevel.GetTopLevel(control);
+if (topLevel?.Launcher is { } launcher && file is not null)
+{
+    await launcher.LaunchFileAsync(file);
+    await launcher.LaunchUriAsync(new Uri("https://docs.avaloniaui.net"));
+}
+```
+
+Return values indicate whether the launch succeeded; fall back to in-app viewers when it returns false.
 
 ## 2. Opening files (async streams)
 
@@ -151,7 +168,28 @@ if (folder is not null)
 
 `GetItemsAsync()` returns an async sequence; iterate with `await foreach` on .NET 7+. Use `GetFilesAsync`/`GetFoldersAsync` to filter.
 
-## 5. Platform notes
+## 5. Bookmarks and persisted access
+
+Some platforms revoke file permissions when your app suspends. If an `IStorageItem` reports `CanBookmark`, call `SaveBookmarkAsync()` and store the returned string (e.g., in preferences). Later, reopen it via `IStorageProvider.OpenFileBookmarkAsync`/`OpenFolderBookmarkAsync`.
+
+```csharp
+var bookmarks = new Dictionary<string, string>();
+
+if (file.CanBookmark)
+{
+    var bookmarkId = await file.SaveBookmarkAsync();
+    if (!string.IsNullOrEmpty(bookmarkId))
+        bookmarks[file.Path.ToString()] = bookmarkId;
+}
+
+var restored = await storage.OpenFileBookmarkAsync(bookmarkId);
+```
+
+Keep bookmarks updated when users revoke access. iOS and Android can throw when bookmarks expire—wrap calls in try/catch and ask users to reselect the folder. Desktop platforms typically return standard file paths, but bookmarks still help retain portal-granted access (e.g., Flatpak).
+
+`IStorageItem.GetBasicPropertiesAsync()` exposes metadata (size, modified time) without opening streams—use it when building file browsers.
+
+## 6. Platform notes
 
 | Platform | Storage provider | Considerations |
 | --- | --- | --- |
@@ -161,7 +199,7 @@ if (folder is not null)
 
 Wrap storage calls in try/catch to handle permission denials or canceled dialogs gracefully.
 
-## 6. Drag-and-drop: receiving data
+## 7. Drag-and-drop: receiving data
 
 ```xml
 <Border AllowDrop="True"
@@ -205,7 +243,7 @@ private async void OnDrop(object? sender, DragEventArgs e)
 - `GetFilesAsync()` returns storage items; check for `IStorageFile`.
 - Inspect `e.KeyModifiers` to adjust behavior (e.g., Ctrl for copy).
 
-### 6.1 Initiating drag-and-drop
+### 7.1 Initiating drag-and-drop
 
 ```csharp
 private async void DragSource_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -226,7 +264,25 @@ private async void DragSource_PointerPressed(object? sender, PointerPressedEvent
 
 `DataObject` supports multiple formats (text, files, custom types). For custom data, both source and target must agree on a format string.
 
-## 7. Clipboard operations
+### 7.2 Custom visuals and adorners
+
+Wrap your layout in an `AdornerDecorator` and render drop cues while a drag is in progress. Toggle overlays in `DragEnter`/`DragLeave` handlers to show hit targets or counts.
+
+```csharp
+private void OnDragEnter(object? sender, DragEventArgs e)
+{
+    _dropOverlay.IsVisible = true;
+}
+
+private void OnDragLeave(object? sender, RoutedEventArgs e)
+{
+    _dropOverlay.IsVisible = false;
+}
+```
+
+You can also inspect `e.DragEffects` to switch icons (copy vs move) or reject unsupported formats with a custom message. For complex scenarios create a lightweight `Window` as a drag adorner so the pointer stays responsive on multi-monitor setups.
+
+## 8. Clipboard operations
 
 ```csharp
 public interface IClipboardService
@@ -249,7 +305,7 @@ public sealed class ClipboardService : IClipboardService
 }
 ```
 
-### 7.1 Multi-format clipboard payload
+### 8.1 Multi-format clipboard payload
 
 ```csharp
 var dataObject = new DataObject();
@@ -263,7 +319,7 @@ var formats = await clipboardService.GetFormatsAsync();
 
 Browser restrictions: clipboard APIs require user gesture and may only allow text formats.
 
-## 8. Error handling & async patterns
+## 9. Error handling & async patterns
 
 - Wrap storage operations in try/catch for `IOException`, `UnauthorizedAccessException`.
 - Offload heavy parsing to background threads with `Task.Run` (keep UI thread responsive).
@@ -274,26 +330,28 @@ var progress = new Progress<int>(value => ImportProgress = value);
 await _importService.ImportAsync(file, progress, cancellationToken);
 ```
 
-## 9. Diagnostics
+## 10. Diagnostics
 
 - Log storage/drag errors with `LogArea.Platform` or custom logger.
 - DevTools -> Events tab shows drag/drop events.
 - On Linux portals (Flatpak/Snap), check console logs for portal errors.
 
-## 10. Practice exercises
+## 11. Practice exercises
 
 1. Implement `IFileDialogService` and expose commands for Open, Save, and Pick Folder; update the UI with results.
-2. Build a log viewer that watches a folder, importing new files via drag-and-drop or Open dialog.
+2. Build a file manager pane that enumerates folders asynchronously, persists bookmarks for sandboxed platforms, and mirrors changes via drag/drop.
 3. Create a clipboard history panel that stores the last N text snippets using the `IClipboard` service.
-4. Add drag support from a list to the OS shell (export files) and confirm the OS receives them.
+4. Add drag support from a list to the OS shell (export files) with a custom adorner overlay showing the item count.
 5. Implement cancellation for long-running file imports and confirm resources are disposed when canceled.
 
 ## Look under the hood (source bookmarks)
 - Storage provider: [`IStorageProvider`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/IStorageProvider.cs)
 - File/folder abstractions: [`IStorageFile`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FileIO/IStorageFile.cs), [`IStorageFolder`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FileIO/IStorageFolder.cs)
+- Bookmarks & metadata: [`IStorageItem`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/IStorageItem.cs)
 - Picker options: [`FilePickerOpenOptions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FilePickerOpenOptions.cs), [`FilePickerSaveOptions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FilePickerSaveOptions.cs)
 - Drag/drop: [`DragDrop.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/DragDrop.cs), [`DataObject.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/DataObject.cs)
 - Clipboard: [`IClipboard`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/IClipboard.cs)
+- Launcher: [`ILauncher`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/ILauncher.cs)
 
 ## Check yourself
 - How do you obtain an `IStorageProvider` when you only have a view model?

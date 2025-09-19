@@ -1,284 +1,306 @@
 # 13. Menus, dialogs, tray icons, and system features
 
 Goal
-- Build desktop-friendly menus (in-window and native), wire accelerators, and update menu state dynamically.
-- Provide dialogs through MVVM-friendly services (file pickers, confirmation dialogs, message boxes) that run on desktop and single-view lifetimes.
-- Integrate system tray icons/notifications responsibly and respect platform nuances (Windows, macOS, Linux).
-- Access `TopLevel` services (IStorageProvider, Clipboard, Screens) through abstractions.
+- Wire desktop menus, context menus, and native menu bars using `Menu`, `MenuItem`, `ContextMenu`, and `NativeMenu`.
+- Surface dialogs through MVVM-friendly services that switch between `ManagedFileChooser`, `SystemDialog`, and storage providers.
+- Integrate tray icons, notifications, and app-level commands with the `TrayIcon` API and `TopLevel` services.
+- Document platform-specific behaviour so menus, dialogs, and tray features degrade gracefully.
 
 Why this matters
-- Menus/tray icons are expected on desktop apps; implementing them cleanly keeps UI testable and idiomatic.
-- Dialog flows should not couple view models to windows; service abstractions allow unit testing and platform reuse.
-- Platform-specific APIs (macOS menu bar, Windows tray icons) need awareness to avoid glitches.
+- Desktop users expect menu bars, keyboard accelerators, and tray icons that follow their OS conventions.
+- Dialog flows that stay inside services remain unit-testable and work across desktop, mobile, and browser hosts.
+- System integrations (storage, notifications, clipboard) require a clear view of per-platform capabilities to avoid runtime surprises.
 
 Prerequisites
-- Chapter 9 (commands/input), Chapter 11 (MVVM patterns), Chapter 12 (lifetimes/navigation).
+- Chapters 9 (commands and input), 11 (MVVM patterns), and 12 (lifetimes and windowing).
 
-## 1. Menus and accelerators
+Key namespaces
+- [`Menu.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Menu.cs)
+- [`MenuItem.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/MenuItem.cs)
+- [`NativeMenu.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/NativeMenu.cs)
+- [`ContextMenu.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ContextMenu.cs)
+- [`TrayIcon.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TrayIcon.cs)
+- [`SystemDialog.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/SystemDialog.cs)
+- [`ManagedFileChooser.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Dialogs/ManagedFileChooser.cs)
 
-### 1.1 In-window menu (cross-platform)
+## 1. Menu surfaces at a glance
+
+### 1.1 In-window menus (`Menu`/`MenuItem`)
 
 ```xml
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="MyApp.MainWindow"
-        Title="My App" Width="900" Height="600">
+        Title="My App" Width="1000" Height="700">
   <DockPanel>
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="_File">
-        <MenuItem Header="_New" Command="{Binding NewCommand}" InputGestureText="Ctrl+N"/>
-        <MenuItem Header="_Open..." Command="{Binding OpenCommand}" InputGestureText="Ctrl+O"/>
-        <MenuItem Header="_Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S"/>
+        <MenuItem Header="_New" Command="{Binding AppCommands.New}" HotKey="Ctrl+N"/>
+        <MenuItem Header="_Open..." Command="{Binding AppCommands.Open}" HotKey="Ctrl+O"/>
+        <MenuItem Header="_Save" Command="{Binding AppCommands.Save}" HotKey="Ctrl+S"/>
+        <MenuItem Header="Save _As..." Command="{Binding AppCommands.SaveAs}"/>
         <Separator/>
-        <MenuItem Header="E_xit" Command="{Binding ExitCommand}"/>
+        <MenuItem Header="E_xit" Command="{Binding AppCommands.Exit}"/>
       </MenuItem>
       <MenuItem Header="_Edit">
-        <MenuItem Header="_Undo" Command="{Binding UndoCommand}" InputGestureText="Ctrl+Z"/>
-        <MenuItem Header="_Redo" Command="{Binding RedoCommand}" InputGestureText="Ctrl+Y"/>
+        <MenuItem Header="_Undo" Command="{Binding AppCommands.Undo}"/>
+        <MenuItem Header="_Redo" Command="{Binding AppCommands.Redo}"/>
       </MenuItem>
       <MenuItem Header="_Help">
-        <MenuItem Header="_About" Command="{Binding ShowAboutCommand}"/>
+        <MenuItem Header="_About" Command="{Binding AppCommands.ShowAbout}"/>
       </MenuItem>
     </Menu>
 
-    <ContentControl Content="{Binding Current}"/>
+    <ContentControl Content="{Binding CurrentView}"/>
   </DockPanel>
 </Window>
 ```
 
-Add `KeyBinding` entries (Chapter 9) so shortcuts invoke commands everywhere:
+- `MenuItem.HotKey` accepts `KeyGesture` syntax, keeping accelerators in sync with displayed text.
+- `AppCommands` is a shared command aggregate in the view model layer; use the same instances for menus, toolbars, and tray commands so `CanExecute` state stays consistent.
+- Add `KeyBinding` entries on the window so shortcuts remain active even when focus is inside a text box:
 
 ```xml
 <Window.InputBindings>
-  <KeyBinding Gesture="Ctrl+N" Command="{Binding NewCommand}"/>
-  <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenCommand}"/>
+  <KeyBinding Gesture="Ctrl+N" Command="{Binding AppCommands.New}"/>
+  <KeyBinding Gesture="Ctrl+O" Command="{Binding AppCommands.Open}"/>
 </Window.InputBindings>
 ```
 
-### 1.2 Native menu bar (macOS/global menu)
+### 1.2 Native menus and the macOS menu bar
 
-```xml
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:native="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls">
-  <DockPanel>
-    <native:NativeMenuBar DockPanel.Dock="Top">
-      <native:NativeMenuBar.Menu>
-        <native:NativeMenu>
-          <native:NativeMenuItem Header="My App">
-            <native:NativeMenuItem Header="About" Command="{Binding ShowAboutCommand}"/>
-            <native:NativeMenuSeparator/>
-            <native:NativeMenuItem Header="Quit" Command="{Binding ExitCommand}"/>
-          </native:NativeMenuItem>
-          <native:NativeMenuItem Header="File">
-            <native:NativeMenuItem Header="New" Command="{Binding NewCommand}"/>
-            <native:NativeMenuItem Header="Open..." Command="{Binding OpenCommand}"/>
-          </native:NativeMenuItem>
-        </native:NativeMenu>
-      </native:NativeMenuBar.Menu>
-    </native:NativeMenuBar>
-  </DockPanel>
-</Window>
-```
-
-Use NativeMenuBar on platforms that support global menus (macOS). In-window Menu remains for Windows/Linux.
-
-### 1.3 Dynamic menu updates
-
-Bag commands that toggle state and call `RaiseCanExecuteChanged()`. Example: enabling "Save" only when there are changes.
+`NativeMenu` exports menu metadata to the host OS when available (macOS, some Linux environments). Attach it to the `TopLevel` so Avalonia’s native exporters keep it in sync with window focus.
 
 ```csharp
-public bool CanSave => HasChanges;
-public RelayCommand SaveCommand { get; }
-
-private void OnDocumentChanged()
+public override void OnFrameworkInitializationCompleted()
 {
-    HasChanges = true;
-    SaveCommand.RaiseCanExecuteChanged();
+    if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        var window = Services.GetRequiredService<MainWindow>();
+        desktop.MainWindow = window;
+
+        NativeMenu.SetMenu(window, BuildNativeMenu());
+    }
+
+    base.OnFrameworkInitializationCompleted();
+}
+
+private static NativeMenu BuildNativeMenu()
+{
+    var appMenu = new NativeMenu
+    {
+        new NativeMenuItem("About", (_, _) => Locator.Commands.ShowAbout.Execute(null)),
+        new NativeMenuItemSeparator(),
+        new NativeMenuItem("Quit", (_, _) => Locator.Commands.Exit.Execute(null))
+    };
+
+    var fileMenu = new NativeMenu
+    {
+        new NativeMenuItem("New", (_, _) => Locator.Commands.New.Execute(null))
+        {
+            Gesture = new KeyGesture(Key.N, KeyModifiers.Control)
+        },
+        new NativeMenuItem("Open...", (_, _) => Locator.Commands.Open.Execute(null))
+    };
+
+    return new NativeMenu
+    {
+        new NativeMenuItem("MyApp") { Menu = appMenu },
+        new NativeMenuItem("File") { Menu = fileMenu }
+    };
 }
 ```
 
-Menu item automatically disables when `CanExecute` returns false.
+- `NativeMenuItem.Gesture` mirrors `MenuItem.HotKey` and feeds the OS accelerator tables.
+- Use `NativeMenuBar` in XAML when you want markup control over the native bar:
+
+```xml
+<native:NativeMenuBar DockPanel.Dock="Top">
+  <native:NativeMenuBar.Menu>
+    <native:NativeMenu>
+      <native:NativeMenuItem Header="My App">
+        <native:NativeMenuItem Header="About" Command="{Binding AppCommands.ShowAbout}"/>
+      </native:NativeMenuItem>
+      <native:NativeMenuItem Header="File">
+        <native:NativeMenuItem Header="New" Command="{Binding AppCommands.New}"/>
+      </native:NativeMenuItem>
+    </native:NativeMenu>
+  </native:NativeMenuBar.Menu>
+</native:NativeMenuBar>
+```
+
+### 1.3 Command state and routing
+
+`MenuItem` observes `ICommand.CanExecute`. Use commands that publish notifications (`ReactiveCommand`, `DelegateCommand`) and call `RaiseCanExecuteChanged()` whenever state changes. Keep command instances long-lived (registered in DI or a singleton `AppCommands` class) so every menu, toolbar, context menu, and tray icon reflects the same enable/disable state.
 
 ## 2. Context menus and flyouts
 
-### 2.1 Context menu per control
+Attach `ContextMenu` to items directly or via styles so each container gets the same commands:
 
 ```xml
 <ListBox Items="{Binding Documents}" SelectedItem="{Binding SelectedDocument}">
-  <ListBox.ItemContainerTheme>
-    <ControlTheme TargetType="ListBoxItem">
+  <ListBox.Styles>
+    <Style Selector="ListBoxItem">
       <Setter Property="ContextMenu">
         <ContextMenu>
-          <MenuItem Header="Rename" Command="{Binding DataContext.RenameCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}"/>
-          <MenuItem Header="Delete" Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}"/>
+          <MenuItem Header="Rename"
+                    Command="{Binding DataContext.Rename, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                    CommandParameter="{Binding}"/>
+          <MenuItem Header="Delete"
+                    Command="{Binding DataContext.Delete, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                    CommandParameter="{Binding}"/>
         </ContextMenu>
       </Setter>
-    </ControlTheme>
-  </ListBox.ItemContainerTheme>
+    </Style>
+  </ListBox.Styles>
 </ListBox>
 ```
 
-- `RelativeSource AncestorType=ListBox` lets the item access commands on the parent view model.
+- `RelativeSource AncestorType=ListBox` bridges from the item container back to the list’s data context.
+- For richer layouts (toggles, sliders, forms) use `Flyout` or `MenuFlyout` – both live in `Avalonia.Controls` and share placement logic with context menus.
+- Remember accessibility: set `MenuItem.InputGestureText` or `HotKey` so screen readers announce shortcuts.
 
-### 2.2 Flyout for custom UI
+## 3. Dialog pipelines
 
-```xml
-<Button Content="More">
-  <Button.Flyout>
-    <Flyout>
-      <StackPanel Margin="8" Spacing="8">
-        <TextBlock Text="Quick actions"/>
-        <ToggleSwitch Content="Enable feature" IsChecked="{Binding IsFeatureEnabled}"/>
-        <Button Content="Open settings" Command="{Binding OpenSettingsCommand}"/>
-      </StackPanel>
-    </Flyout>
-  </Button.Flyout>
-</Button>
-```
-
-Flyouts support arbitrary content; use `MenuItem` when you only need command lists.
-
-## 3. Dialog patterns
-
-### 3.1 ViewModel-friendly dialog service
+### 3.1 Define a dialog service interface
 
 ```csharp
-public interface IDialogService
+public interface IFileDialogService
 {
-    Task<bool> ShowConfirmationAsync(string title, string message);
-    Task<string?> ShowOpenFilePickerAsync();
+    Task<IReadOnlyList<FilePickResult>> PickFilesAsync(FilePickerOpenOptions options, CancellationToken ct = default);
+    Task<FilePickResult?> SaveFileAsync(FilePickerSaveOptions options, CancellationToken ct = default);
+    Task<IReadOnlyList<FilePickResult>> PickFoldersAsync(FolderPickerOpenOptions options, CancellationToken ct = default);
 }
 
-public sealed class DialogService : IDialogService
-{
-    private readonly Window _owner;
-
-    public DialogService(Window owner) => _owner = owner;
-
-    public async Task<bool> ShowConfirmationAsync(string title, string message)
-    {
-        var dialog = new ConfirmationDialog(title, message) { Owner = _owner };
-        return await dialog.ShowDialog<bool>(_owner);
-    }
-
-    public async Task<string?> ShowOpenFilePickerAsync()
-    {
-        var ofd = new OpenFileDialog
-        {
-            AllowMultiple = false,
-            Filters = { new FileDialogFilter { Name = "Documents", Extensions = { "txt", "md" } } }
-        };
-        var files = await ofd.ShowAsync(_owner);
-        return files?.FirstOrDefault();
-    }
-}
+public record FilePickResult(string Path, IStorageItem? Handle);
 ```
 
-Register per window in DI:
+Expose the service through dependency injection so view models request it instead of referencing `Window` or `TopLevel`.
+
+### 3.2 Choose between `IStorageProvider`, `SystemDialog`, and `ManagedFileChooser`
+
+`TopLevel.StorageProvider` supplies the native picker implementation (`IStorageProvider`). When it is unavailable (custom hosts, limited backends), fall back to the managed dialog stack built on `ManagedFileChooser`. The extension method `OpenFileDialog.ShowManagedAsync` renders the managed UI and is enabled automatically when you call `AppBuilder.UseManagedSystemDialogs()` during startup.
 
 ```csharp
-services.AddScoped<IDialogService>(sp =>
-{
-    var window = sp.GetRequiredService<MainWindow>();
-    return new DialogService(window);
-});
-```
+using Avalonia.Dialogs;
+using Avalonia.Platform.Storage;
 
-Provide `IDialogService` to `ShellViewModel`. For single-view apps, implement the same interface using `TopLevel.GetTopLevel(view)` to access storage provider.
-
-### 3.2 Storage provider (cross-platform)
-
-```csharp
-public sealed class CrossPlatformDialogService : IDialogService
+public sealed class FileDialogService : IFileDialogService
 {
     private readonly TopLevel _topLevel;
 
-    public CrossPlatformDialogService(TopLevel topLevel) => _topLevel = topLevel;
+    public FileDialogService(TopLevel topLevel) => _topLevel = topLevel;
 
-    public Task<bool> ShowConfirmationAsync(string title, string message)
-        => MessageBox.ShowAsync(_topLevel, title, message, MessageBoxButtons.YesNo);
-
-    public async Task<string?> ShowOpenFilePickerAsync()
+    public async Task<IReadOnlyList<FilePickResult>> PickFilesAsync(FilePickerOpenOptions options, CancellationToken ct = default)
     {
-        if (_topLevel.StorageProvider is null)
-            return null;
-
-        var result = await _topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        var provider = _topLevel.StorageProvider;
+        if (provider is { CanOpen: true })
         {
-            AllowMultiple = false,
-            FileTypeFilter = new[] { FilePickerFileTypes.TextPlain }
-        });
-        var file = result.FirstOrDefault();
-        return file is null ? null : file.Path.LocalPath;
+            var files = await provider.OpenFilePickerAsync(options, ct);
+            return files.Select(f => new FilePickResult(f.TryGetLocalPath() ?? f.Name, f)).ToArray();
+        }
+
+        if (_topLevel is Window window)
+        {
+            var dialog = new OpenFileDialog { AllowMultiple = options.AllowMultiple };
+            var paths = await dialog.ShowManagedAsync(window, new ManagedFileDialogOptions());
+            return paths.Select(p => new FilePickResult(p, handle: null)).ToArray();
+        }
+
+        return Array.Empty<FilePickResult>();
+    }
+
+    public async Task<FilePickResult?> SaveFileAsync(FilePickerSaveOptions options, CancellationToken ct = default)
+    {
+        var provider = _topLevel.StorageProvider;
+        if (provider is { CanSave: true })
+        {
+            var file = await provider.SaveFilePickerAsync(options, ct);
+            return file is null ? null : new FilePickResult(file.TryGetLocalPath() ?? file.Name, file);
+        }
+
+        if (_topLevel is Window window)
+        {
+            var dialog = new SaveFileDialog
+            {
+                DefaultExtension = options.DefaultExtension,
+                InitialFileName = options.SuggestedFileName
+            };
+            var path = await dialog.ShowAsync(window);
+            return path is null ? null : new FilePickResult(path, handle: null);
+        }
+
+        return null;
+    }
+
+    public async Task<IReadOnlyList<FilePickResult>> PickFoldersAsync(FolderPickerOpenOptions options, CancellationToken ct = default)
+    {
+        var provider = _topLevel.StorageProvider;
+        if (provider is { CanPickFolder: true })
+        {
+            var folders = await provider.OpenFolderPickerAsync(options, ct);
+            return folders.Select(f => new FilePickResult(f.TryGetLocalPath() ?? f.Name, f)).ToArray();
+        }
+
+        if (_topLevel is Window window)
+        {
+            var dialog = new OpenFolderDialog();
+            var path = await dialog.ShowAsync(window);
+            return path is null
+                ? Array.Empty<FilePickResult>()
+                : new[] { new FilePickResult(path, handle: null) };
+        }
+
+        return Array.Empty<FilePickResult>();
     }
 }
 ```
 
-## 4. Message boxes and notifications
+- `OpenFileDialog`, `SaveFileDialog`, and `OpenFolderDialog` derive from `SystemDialog`. They remain useful when you need to force specific behaviour or when the platform lacks a proper storage provider.
+- `AppBuilder.UseManagedSystemDialogs()` configures Avalonia to instantiate `ManagedFileChooser` by default whenever a native dialog is unavailable.
+- Treat `FilePickResult.Handle` as optional: on browser/mobile targets you might only receive virtual URIs, while desktop gives full file system access.
 
-Avalonia doesn't ship a default message box, but community packages (`Avalonia.MessageBox`) or custom windows work. A simple custom message box window:
+## 4. Tray icons, notifications, and app commands
 
-```csharp
-public sealed class MessageBoxWindow : Window
-{
-    public MessageBoxWindow(string title, string message)
-    {
-        Title = title;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        var ok = new Button { Content = "OK", IsDefault = true };
-        ok.Click += (_, __) => Close(true);
-        Content = new StackPanel
-        {
-            Margin = new Thickness(16),
-            Spacing = 12,
-            Children = { new TextBlock { Text = message }, ok }
-        };
-    }
-}
-```
-
-## 5. Tray icons and notifications
+The tray API exports icons through the `Application`. Add them during application initialization so they follow the application lifetime automatically.
 
 ```csharp
-public sealed class TrayIconService : IDisposable
+public override void Initialize()
 {
-    private readonly IClassicDesktopStyleApplicationLifetime _lifetime;
-    private readonly TrayIcon _trayIcon;
+    base.Initialize();
 
-    public TrayIconService(IClassicDesktopStyleApplicationLifetime lifetime)
+    if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime)
+        return;
+
+    var trayIcons = new TrayIcons
     {
-        _lifetime = lifetime;
-
-        var showItem = new NativeMenuItem("Show");
-        showItem.Click += (_, _) => _lifetime.MainWindow?.Show();
-
-        var exitItem = new NativeMenuItem("Exit");
-        exitItem.Click += (_, _) => _lifetime.Shutdown();
-
-        _trayIcon = new TrayIcon
+        new TrayIcon
         {
+            Icon = new WindowIcon("avares://MyApp/Assets/App.ico"),
             ToolTipText = "My App",
-            Icon = new WindowIcon("avares://MyApp/Assets/AppIcon.ico"),
-            Menu = new NativeMenu { Items = { showItem, exitItem } }
-        };
-        _trayIcon.Show();
-    }
+            Menu = new NativeMenu
+            {
+                new NativeMenuItem("Show", (_, _) => Locator.Commands.ShowMain.Execute(null)),
+                new NativeMenuItemSeparator(),
+                new NativeMenuItem("Exit", (_, _) => Locator.Commands.Exit.Execute(null))
+            }
+        }
+    };
 
-    public void Dispose() => _trayIcon.Dispose();
+    TrayIcon.SetIcons(this, trayIcons);
 }
 ```
 
-Register the service in `App.OnFrameworkInitializationCompleted` when using desktop lifetime; dispose on exit. Tray icons are not supported on mobile/web.
+- Toggle `TrayIcon.IsVisible` in response to `Window` events to implement “minimize to tray”. Guard the feature by checking `TrayIcon.SetIcons` only when running with a desktop lifetime.
+- `NativeMenu` attached to a tray icon becomes the right-click menu. Reuse the same command implementations that power your primary menu to avoid duplication.
+- Detect tray support by asking `AvaloniaLocator.Current.GetService<IWindowingPlatform>()?.CreateTrayIcon()` inside a try/catch before you rely on it.
 
-### Notifications
-
-Avalonia's `Avalonia.Controls.Notifications` package provides in-app notifications or Windows toast integrations. Example in-app notification manager:
+In-app notifications come from `Avalonia.Controls.Notifications`:
 
 ```csharp
 using Avalonia.Controls.Notifications;
 
-var manager = new WindowNotificationManager(MainWindow)
+var manager = new WindowNotificationManager(_desktopLifetime.MainWindow!)
 {
     Position = NotificationPosition.TopRight,
     MaxItems = 3
@@ -287,9 +309,9 @@ var manager = new WindowNotificationManager(MainWindow)
 manager.Show(new Notification("Saved", "Document saved successfully", NotificationType.Success));
 ```
 
-## 6. Accessing system services via `TopLevel`
+## 5. Top-level services and system integrations
 
-### 6.1 Clipboard service
+`TopLevel` exposes cross-platform services you should wrap behind interfaces for testability:
 
 ```csharp
 public interface IClipboardService
@@ -308,39 +330,41 @@ public sealed class ClipboardService : IClipboardService
 }
 ```
 
-Include this service in DI so view models request clipboard operations without referencing controls.
+Other helpful services on `TopLevel`:
+- `Screens` for multi-monitor awareness and DPI scaling.
+- `DragDrop` helpers (covered in Chapter 16) for integrating system drag-and-drop.
+- `TryGetFeature<T>` for platform-specific features (`ITrayIconImpl`, `IPlatformThemeVariant`).
 
-### 6.2 Drag and drop / system features
+## 6. Platform notes
 
-Drag-and-drop uses `DragDrop` APIs (Chapter 16). System features like power notifications or window effects are platform-specific--wrap them in services like the dialog example.
+- **Windows** – In-window `Menu` is standard. Tray icons appear in the notification area and expect `.ico` assets with multiple sizes. Native system dialogs are available; managed dialogs appear only if you opt in.
+- **macOS** – Use `NativeMenu`/`NativeMenuBar` so menu items land in the global menu bar. Provide monochrome template tray icons via `MacOSProperties.SetIsTemplateIcon`.
+- **Linux** – Desktop environments vary. Ship an in-window `Menu` even if you export a `NativeMenu`. Tray support may require AppIndicator or extensions.
+- **Mobile (Android/iOS)** – Skip menu bars and tray icons. Replace them with toolbars, flyouts, and platform navigation. Storage providers surface document pickers that may not expose local file paths.
+- **Browser** – No native menus or tray. Use in-app overlays and rely on the browser storage APIs (`BrowserStorageProvider`). Managed dialogs are not available.
 
-## 7. Platform guidance
+## 7. Practice exercises
 
-- **macOS**: use `NativeMenuBar`, ensure About/Quit live under the first menu. Tray icons appear in the status bar; `WindowIcon` must be sized to `NSImage` standards.
-- **Windows**: `Menu` inside window is standard. Tray icons appear in the notification area; wrap `TrayIcon` show/hide in a service.
-- **Linux**: Menus vary per environment; in-window `Menu` works everywhere. Tray icons depend on desktop environment (GNOME may require extensions).
-- **Mobile/Web**: skip menus/tray icons; use flyouts, toolbars, and bottom sheets.
-
-## 8. Practice exercises
-
-1. Add menu commands that update their text or visibility when application state changes, verifying `PropertyChanged` triggers menu updates.
-2. Implement a dialog service interface that supports open/save dialogs via `IStorageProvider` and falls back to message boxes when unsupported.
-3. Add context menus to list items with enable/disable states reflecting `CanExecute`.
-4. Create a tray icon that toggles a "compact mode", minimizing the window when closing and restoring on double-click.
-5. Build a notification manager that displays toast-like overlays using `WindowNotificationManager` and ensure they hide on navigation.
+1. Build a shared `AppCommands` class that drives in-window menus, a `NativeMenu`, and a toolbar, verifying that `CanExecute` disables items everywhere.
+2. Implement the dialog service above and log whether each operation used `IStorageProvider`, `SystemDialog`, or `ManagedFileChooser`. Run it on Windows, macOS, and Linux to compare behaviour.
+3. Add a tray icon that toggles a “compact mode”: closing the window hides it, the tray command re-opens it, and the tray menu reflects the current state.
+4. Provide context menus for list items that reuse the same commands as the main menu. Confirm command parameters work for both entry points.
+5. Surface toast notifications for long-running operations using `WindowNotificationManager`, and ensure they disappear automatically when the user navigates away.
 
 ## Look under the hood (source bookmarks)
-- Menus/Native menus: [`Menu.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Menu.cs), [`NativeMenuBar.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/NativeMenuBar.cs)
-- Context menu & flyouts: [`ContextMenu.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ContextMenu.cs), [`Flyout.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Flyout.cs)
+- Menus and native export: [`Menu.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Menu.cs), [`NativeMenu.Export.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/NativeMenu.Export.cs)
+- Context menus & flyouts: [`ContextMenu.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ContextMenu.cs), [`FlyoutBase.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Flyouts/FlyoutBase.cs)
+- Dialog infrastructure: [`SystemDialog.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/SystemDialog.cs), [`ManagedFileChooser.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Dialogs/ManagedFileChooser.cs)
+- Storage provider abstractions: [`IStorageProvider.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/IStorageProvider.cs)
 - Tray icons: [`TrayIcon.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TrayIcon.cs)
 - Notifications: [`WindowNotificationManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls.Notifications/WindowNotificationManager.cs)
-- Storage provider: [`IStorageProvider`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/IStorageProvider.cs)
 
 ## Check yourself
-- When do you prefer `NativeMenuBar` vs in-window `Menu`? How do you attach shortcuts to the same command?
-- How do you expose dialogs to view models without referencing `Window`?
-- What should you consider before adding a tray icon (platform support, lifecycle)?
-- Which `TopLevel` services help with clipboard or file picking?
+- How do `MenuItem` and `NativeMenuItem` share the same command instances, and why does that matter for `CanExecute`?
+- When would you enable `UseManagedSystemDialogs`, and what UX differences should you anticipate compared to native dialogs?
+- Which `TopLevel` services help you access storage, clipboard, and screens without referencing `Window` in view models?
+- How can you detect tray icon availability before exposing tray-dependent features?
+- What platform-specific adjustments do macOS and Linux require for menus and tray icons?
 
 What's next
 - Next: [Chapter 14](Chapter14.md)

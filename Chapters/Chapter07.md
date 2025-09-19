@@ -83,8 +83,9 @@ Include them in `App.axaml`:
 </Application>
 ```
 
-- `ResourceInclude` expects a `ResourceDictionary` root.
-- `StyleInclude` expects `Styles` or a single `Style` root.
+- `ResourceInclude` expects a `ResourceDictionary` root and merges it into the resource lookup chain. Use it for brushes, colors, converters, and typography resources.
+- `StyleInclude` expects `Styles` (or a single `Style`) and registers selectors. Use `avares://Assembly/Path.axaml` URIs to include styles from other assemblies (for example, `avares://Avalonia.Themes.Fluent/Controls/Button.xaml`).
+- When you rename assemblies or move resource files, update the `Source` URI; missing includes surface as `XamlLoadException` during startup.
 
 ## 3. Static vs dynamic resources
 
@@ -96,9 +97,36 @@ Include them in `App.axaml`:
         Background="{DynamicResource BrandPrimaryBrush}"/>
 ```
 
-Resource lookup order: control -> logical parents -> window -> application -> Fluent theme dictionaries. Source: [`ResourceDictionary.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Resources/ResourceDictionary.cs).
+Resource lookup order:
+1. Control-local resources (`this.Resources`).
+2. Logical tree parents (user controls, windows).
+3. `Application.Resources`.
+4. Theme dictionaries merged by `FluentTheme` (light/dark/high contrast).
+5. System theme fallbacks.
+
+The implementation lives in [`ResourceDictionary.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Resources/ResourceDictionary.cs). DevTools -> Resources panel shows the chain and which dictionary satisfied a lookup.
 
 ## 4. Theme variant scope (local theming)
+## 5. Migrating and overriding Fluent resources
+
+When you need to change Fluent defaults globally (for example, switch accent colors or typography), supply variant-specific dictionaries. Place these under `Application.Resources` with a `ThemeVariant` attribute so they override the theme-provided value only for matching variants.
+
+```xml
+<Application.Resources>
+  <ResourceInclude Source="avares://ThemePlayground/Styles/Colors.axaml"/>
+  <ResourceDictionary ThemeVariant="Light">
+    <SolidColorBrush x:Key="SystemAccentColor" Color="#2563EB"/>
+  </ResourceDictionary>
+  <ResourceDictionary ThemeVariant="Dark">
+    <SolidColorBrush x:Key="SystemAccentColor" Color="#60A5FA"/>
+  </ResourceDictionary>
+</Application.Resources>
+```
+
+- Keys that match Fluent resources (`SystemAccentColor`, `SystemControlBackgroundBaseLowBrush`, etc.) override the defaults only for the specified variant.
+- Keep overrides minimal: inspect the Fluent source to copy exact keys. Replace `FluentTheme` with `SimpleTheme` if you want the simple default look.
+- To migrate an existing design system, split colors/typography into `ResourceDictionary` files and create `ControlTheme` overrides for specific controls rather than editing Fluent templates in place.
+
 
 `ThemeVariantScope` lets you apply a specific theme to part of the UI. Implementation: [`ThemeVariantScope.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ThemeVariantScope.cs).
 
@@ -115,7 +143,7 @@ Resource lookup order: control -> logical parents -> window -> application -> Fl
 
 Everything inside the scope resolves resources as if the app were using `ThemeVariant.Dark`. Useful for popovers or modal sheets.
 
-## 5. Runtime theme switching
+## 6. Runtime theme switching
 
 Add a toggle to your main view:
 
@@ -148,7 +176,7 @@ public sealed class ShellViewModel : ObservableObject
 
 Because button styles use `DynamicResource`, they respond immediately. For per-window overrides set `RequestedThemeVariant` on the window itself or wrap content in `ThemeVariantScope`.
 
-## 6. Customizing control templates with `ControlTheme`
+## 7. Customizing control templates with `ControlTheme`
 
 `ControlTheme` lets you replace a control's default template and resources without subclassing. Source: [`ControlTheme.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/ControlTheme.cs).
 
@@ -183,7 +211,7 @@ Apply it:
 
 To inherit Fluent visual states, you can base your theme on existing resources by referencing `themes:ToggleButtonTheme`. Inspect templates in [`src/Avalonia.Themes.Fluent/Controls`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent/Controls) for structure and named parts.
 
-## 7. Working with pseudo-classes and classes
+## 8. Working with pseudo-classes and classes
 
 Use pseudo-classes to target interaction states. Example for `ToggleSwitch`:
 
@@ -197,9 +225,18 @@ Use pseudo-classes to target interaction states. Example for `ToggleSwitch`:
 </Style>
 ```
 
-Pseudo-class documentation lives in [`Selectors.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/docs/styles/selectors.md) and runtime code under [`Selector.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Styling/Selector.cs).
+| Pseudo-class | Applies when |
+| --- | --- |
+| `:pointerover` | Pointer hovers over the control |
+| `:pressed` | Pointer is pressed / command triggered |
+| `:checked` | Toggleable control is on (`CheckBox`, `ToggleSwitch`, `RadioButton`) |
+| `:focus` / `:focus-within` | Control (or a descendant) has keyboard focus |
+| `:disabled` | `IsEnabled = false` |
+| `:invalid` | A binding reports validation errors |
 
-## 8. Accessibility and high contrast themes
+Pseudo-class documentation lives in [`Selectors.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/docs/styles/selectors.md) and runtime code under [`Selector.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Styling/Selector.cs). Combine pseudo-classes with style classes (e.g., `Button.primary:pointerover`) to keep state-specific visuals consistent and accessible.
+
+## 9. Accessibility and high contrast themes
 
 Fluent ships high contrast resources. Switch by setting `RequestedThemeVariant="HighContrast"`.
 
@@ -219,7 +256,7 @@ Example dictionary addition:
 
 `ThemeVariant`-specific dictionaries override defaults when the variant matches.
 
-## 9. Debugging styles with DevTools
+## 10. Debugging styles with DevTools
 
 Press **F12** to open DevTools -> Styles panel:
 - Inspect applied styles, pseudo-classes, and resources.
@@ -235,7 +272,7 @@ AppBuilder.Configure<App>()
     .StartWithClassicDesktopLifetime(args);
 ```
 
-## 10. Practice exercises
+## 11. Practice exercises
 
 1. **Create a brand palette**: define primary and secondary brushes with theme-specific overrides (light/dark/high contrast) and apply them to buttons and toggles.
 2. **Scope a sub-view**: wrap a settings pane in `ThemeVariantScope RequestedThemeVariant="Dark"` to preview dual-theme experiences.
@@ -246,6 +283,7 @@ AppBuilder.Configure<App>()
 ## Look under the hood (source bookmarks)
 - Theme variant scoping: [`ThemeVariantScope.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ThemeVariantScope.cs)
 - Control themes and styles: [`ControlTheme.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/ControlTheme.cs), [`Style.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/Style.cs)
+- Selector engine & pseudo-classes: [`Selector.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Styling/Selector.cs)
 - Fluent resources and templates: [`src/Avalonia.Themes.Fluent/Controls`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent/Controls)
 - Theme variant definitions: [`ThemeVariant.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Styling/ThemeVariant.cs)
 

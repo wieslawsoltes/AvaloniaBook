@@ -25,7 +25,14 @@ Every control inherits from `Layoutable` ([Layoutable.cs](https://github.com/Ava
 
 The `LayoutManager` ([LayoutManager.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/LayoutManager.cs)) schedules layout passes when controls invalidate measure or arrange (`InvalidateMeasure`, `InvalidateArrange`).
 
-## 2. Start a layout playground project
+## 2. Layout invalidation and diagnostics
+- Call `InvalidateMeasure()` when a control's desired size changes (for example, text content updates).
+- Call `InvalidateArrange()` when position changes but desired size remains the same. Panels do this when children move without resizing.
+- `LayoutManager` batches these requests; inspect timings via [`LayoutPassTiming`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/LayoutPassTiming.cs) or DevTools -> Layout tab.
+- Enable DevTools layout overlays (F12 -> Layout) to visualise measure/arrange bounds. Combine with `RendererDebugOverlays.LayoutTimeGraph` to profile layout costs.
+- For custom panels, avoid calling `InvalidateMeasure` from inside `MeasureOverride`; schedule work via `Dispatcher` if you must recalc asynchronously.
+
+## 3. Start a layout playground project
 
 ```bash
 dotnet new avalonia.app -o LayoutPlayground
@@ -98,14 +105,14 @@ Replace `MainWindow.axaml` with an experiment playground that demonstrates the c
 
 Run the app and resize the window. Observe how StackPanel, DockPanel, Grid, and WrapPanel distribute space.
 
-## 3. Alignment and sizing toolkit recap
+## 4. Alignment and sizing toolkit recap
 
 - `Margin` vs `Padding`: Margin adds space around a control; Padding adds space inside a container.
 - `HorizontalAlignment`/`VerticalAlignment`: `Stretch` makes controls fill available space; `Center`, `Start`, `End` align within the assigned slot.
 - `Width`/`Height`: fixed sizes; use sparingly. Prefer `MinWidth`, `MaxWidth`, `MinHeight`, `MaxHeight` for adaptive layouts.
 - Grid sizing: `Auto` (size to content), `*` (take remaining space), `2*` (take twice the share). Column/row definitions can mix Auto, star, and pixel values.
 
-## 4. Advanced layout tools
+## 5. Advanced layout tools
 
 ### Grid with `SharedSizeGroup`
 
@@ -175,7 +182,7 @@ Controls inside the same panel respect `Panel.ZIndex` for stacking order. Higher
 </Canvas>
 ```
 
-## 5. Scrolling and LogicalScroll
+## 6. Scrolling and LogicalScroll
 
 `ScrollViewer` wraps content to provide scrolling. When the child implements `ILogicalScrollable` (e.g., `ItemsPresenter` with virtualization), the scrolling is smoother and can skip measurement of offscreen content.
 
@@ -190,7 +197,7 @@ Controls inside the same panel respect `Panel.ZIndex` for stacking order. Higher
 - For virtualization, panels may implement `ILogicalScrollable` (see [`LogicalScroll.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/LogicalScroll.cs)).
 - `ScrollViewer` triggers layout when viewports change.
 
-## 6. Custom panels (when the built-ins aren't enough)
+## 7. Custom panels (when the built-ins aren't enough)
 
 Derive from `Panel` and override `MeasureOverride`/`ArrangeOverride` to create custom layout logic. Example: a simplified `UniformGrid`:
 
@@ -249,7 +256,7 @@ public class UniformGridPanel : Panel
 - This panel ignores child desired sizes for simplicity; real panels usually respect `child.DesiredSize` from `Measure`.
 - Read `Layoutable` and `Panel` sources to understand helper methods like `ArrangeRect`.
 
-## 7. Layout diagnostics with DevTools
+## 8. Layout diagnostics with DevTools
 
 While running the app press **F12** -> Layout tab:
 - Inspect the measurement and arrange rectangles for each control.
@@ -267,17 +274,19 @@ AppBuilder.Configure<App>()
 
 `LogArea.Layout` logs measure/arrange operations to the console.
 
-## 8. Practice scenarios
+## 9. Practice scenarios
 
 1. **Shared field labels**: Use `Grid.IsSharedSizeScope` and `SharedSizeGroup` across multiple form sections so labels align perfectly, even when collapsed sections are toggled.
 2. **Resizable master-detail**: Combine `GridSplitter` with a two-column layout; ensure minimum sizes keep content readable.
 3. **Rotated card**: Wrap a Border in `LayoutTransformControl` to rotate it; evaluate how alignment behaves inside the transform.
 4. **Custom panel**: Replace a WrapPanel with your `UniformGridPanel` and compare measurement behaviour in DevTools.
 5. **Scroll diagnostics**: Place a long list inside `ScrollViewer`, enable DevTools Layout overlay, and observe how viewport size changes the arrange rectangles.
+6. **Layout logging**: Enable `LogArea.Layout` and capture a trace of `Measure`/`Arrange` calls when resizing. Inspect `LayoutManager.Instance.LayoutPassTiming.LastLayoutTime` to correlate with DevTools overlays.
 
 ## Look under the hood (source bookmarks)
 - Base layout contract: [`Layoutable.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/Layoutable.cs)
 - Layout manager: [`LayoutManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/LayoutManager.cs)
+- Layout pass timing & diagnostics: [`LayoutPassTiming.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/LayoutPassTiming.cs), [`RendererDebugOverlays.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)
 - Grid + shared size: [`Grid.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Grid.cs), [`DefinitionBase.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/DefinitionBase.cs)
 - Layout transforms: [`LayoutTransformControl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/LayoutTransformControl.cs)
 - Scroll infrastructure: [`ScrollViewer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ScrollViewer.cs), [`LogicalScroll.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/LogicalScroll.cs)

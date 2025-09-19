@@ -26,6 +26,38 @@ Rules of thumb:
 await Dispatcher.UIThread.InvokeAsync(() => Status = "Ready");
 ```
 
+### 1.1 Dispatcher priorities
+
+`DispatcherPriority` controls when queued work runs relative to layout, input, and rendering. Use `Dispatcher.UIThread.Post` with an explicit priority when you want work to wait until after animations or to run ahead of rendering.
+
+```csharp
+Dispatcher.UIThread.Post(
+    () => Notifications.Clear(),
+    priority: DispatcherPriority.Background);
+
+Dispatcher.UIThread.Post(
+    () => Toasts.Enqueue(message),
+    priority: DispatcherPriority.Input);
+```
+
+Avoid defaulting everything to `DispatcherPriority.Send` (synchronous) because it can starve input processing.
+
+### 1.2 SynchronizationContext awareness
+
+`DispatcherSynchronizationContext` is installed on the UI thread; async continuations captured there automatically hop back to Avalonia when you `await`. When running background tasks (e.g., unit tests or hosted services) ensure you resume on the UI thread by capturing the context:
+
+```csharp
+var uiContext = SynchronizationContext.Current;
+
+await Task.Run(async () =>
+{
+    var result = await LoadAsync(ct).ConfigureAwait(false);
+    uiContext?.Post(_ => ViewModel.Result = result, null);
+});
+```
+
+When you intentionally want to stay on a background thread, use `ConfigureAwait(false)` to avoid marshaling back.
+
 ## 2. Async workflow pattern (ViewModel)
 
 ```csharp
@@ -190,6 +222,30 @@ Avalonia doesn't ship built-in connectivity events; rely on platform APIs or pin
 
 Expose a service to signal connectivity changes to view models; keep offline caching in mind.
 
+```csharp
+public interface INetworkStatusService
+{
+    IObservable<bool> ConnectivityChanges { get; }
+}
+
+public sealed class NetworkStatusService : INetworkStatusService
+{
+    public IObservable<bool> ConnectivityChanges { get; }
+
+    public NetworkStatusService()
+    {
+        ConnectivityChanges = Observable
+            .FromEventPattern<NetworkAvailabilityChangedEventHandler, NetworkAvailabilityEventArgs>(
+                handler => NetworkChange.NetworkAvailabilityChanged += handler,
+                handler => NetworkChange.NetworkAvailabilityChanged -= handler)
+            .Select(args => args.EventArgs.IsAvailable)
+            .StartWith(NetworkInterface.GetIsNetworkAvailable());
+    }
+}
+```
+
+Register different implementations per target in DI (`#if` or platform-specific partial classes). On mobile, back the observable with platform connectivity APIs; on WebAssembly, bridge to `navigator.onLine` via JS interop. View models can subscribe once and stay platform-agnostic.
+
 ## 6. Background services & scheduled work
 
 For periodic tasks, use `DispatcherTimer` on UI thread or `Task.Run` loops with delays.
@@ -201,7 +257,70 @@ timer.Start();
 
 Long-running background work should check `CancellationToken` frequently, especially when app might suspend (mobile).
 
-## 7. Testing background code
+### 6.1 Orchestrating services across targets
+
+For cross-platform apps, wrap periodic or startup work in services that plug into each lifetime. Example using `IHostedService` semantics:
+
+```csharp
+public interface IBackgroundTask
+{
+    Task StartAsync(CancellationToken token);
+    Task StopAsync(CancellationToken token);
+}
+
+public sealed class SyncBackgroundTask : IBackgroundTask
+{
+    private readonly IDataSync _sync;
+    public SyncBackgroundTask(IDataSync sync) => _sync = sync;
+
+    public Task StartAsync(CancellationToken token)
+        => Task.Run(() => _sync.RunLoopAsync(token), token);
+
+    public Task StopAsync(CancellationToken token)
+        => _sync.StopAsync(token);
+}
+
+public static class BackgroundTaskExtensions
+{
+    public static void Attach(this IBackgroundTask task, IApplicationLifetime lifetime)
+    {
+        switch (lifetime)
+        {
+            case IClassicDesktopStyleApplicationLifetime desktop:
+                desktop.Startup += async (_, _) => await task.StartAsync(CancellationToken.None);
+                desktop.Exit += async (_, _) => await task.StopAsync(CancellationToken.None);
+                break;
+            case ISingleViewApplicationLifetime singleView when singleView.MainView is { } view:
+                view.AttachedToVisualTree += async (_, _) => await task.StartAsync(CancellationToken.None);
+                view.DetachedFromVisualTree += async (_, _) => await task.StopAsync(CancellationToken.None);
+                break;
+        }
+    }
+}
+```
+
+Desktop lifetimes expose `Startup`/`Exit`; single-view/mobile lifetimes expose `FrameworkInitializationCompleted`/`OnStopped`. Provide adapters per lifetime so the task implementation stays portable, and inject platform helpers (connectivity, storage) through interfaces.
+
+## 7. Reactive event streams
+
+`Observable.FromEventPattern` converts callbacks into composable streams. Combine it with `DispatcherScheduler.Current` (from System.Reactive) so observations switch back to the UI thread.
+
+```csharp
+var pointerStream = Observable
+    .FromEventPattern<PointerEventArgs>(handler => control.PointerMoved += handler,
+                                       handler => control.PointerMoved -= handler)
+    .Select(args => args.EventArgs.GetPosition(control))
+    .Throttle(TimeSpan.FromMilliseconds(50))
+    .ObserveOn(DispatcherScheduler.Current)
+    .Subscribe(point => PointerPosition = point);
+
+Disposables.Add(pointerStream);
+```
+
+This pattern keeps heavy processing (`Throttle`, network calls) off the UI thread while delivering results back in order. For view models, expose `IObservable<T>` properties and let the view subscribe using `ReactiveUI.WhenAnyValue` or manual subscriptions.
+`Disposables` here is a `CompositeDisposable` that you dispose when the view/control unloads.
+
+## 8. Testing background code
 
 Use `Task.Delay` injection or `ITestScheduler` (ReactiveUI) to control time. For plain async code, wrap delays in an interface to mock in tests.
 
@@ -219,22 +338,25 @@ public sealed class DelayProvider : IDelayProvider
 
 Inject and replace with deterministic delays in tests.
 
-## 8. Browser (WebAssembly) considerations
+## 9. Browser (WebAssembly) considerations
 
 - HttpClient uses fetch; CORS applies.
 - WebSockets available via `ClientWebSocket` when allowed by browser.
 - Long-running loops should yield frequently (`await Task.Yield()`) to avoid blocking JS event loop.
 
-## 9. Practice exercises
+## 10. Practice exercises
 
 1. Build a data sync command that fetches JSON from an API, parses it, and updates view models without freezing UI.
 2. Add cancellation and progress reporting to a file import feature (Chapter 16) using `IProgress<double>`.
 3. Implement retry with exponential backoff around a flaky endpoint and show status messages when retries occur.
 4. Detect connectivity loss and display an offline banner; queue commands to run when back online.
-5. Write a unit test that confirms cancellation stops a long-running operation before completion.
+5. Transform pointer move events into an `Observable` pipeline with throttling and verify updates stay on the UI thread.
+6. Write a unit test that confirms cancellation stops a long-running operation before completion.
 
 ## Look under the hood (source bookmarks)
 - Dispatcher & UI thread: [`Dispatcher.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Threading/Dispatcher.cs)
+- Priorities & timers: [`DispatcherPriority.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Threading/DispatcherPriority.cs), [`DispatcherTimer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Threading/DispatcherTimer.cs)
+- Lifetimes: [`IClassicDesktopStyleApplicationLifetime`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs), [`ISingleViewApplicationLifetime`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ISingleViewApplicationLifetime.cs)
 - Progress reporting: [`Progress<T>`](https://learn.microsoft.com/dotnet/api/system.progress-1)
 - HttpClient guidance: [.NET HttpClient docs](https://learn.microsoft.com/dotnet/fundamentals/networking/http/httpclient)
 - Cancellation tokens: [.NET cancellation docs](https://learn.microsoft.com/dotnet/standard/threading/cancellation-in-managed-threads)

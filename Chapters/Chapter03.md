@@ -41,9 +41,17 @@ The root `<Window>` tag declares namespaces so XAML can resolve types:
 
 - The default namespace maps to common Avalonia controls (Button, Grid, StackPanel).
 - `xmlns:x` exposes XAML keywords like `x:Name`, `x:Key`, and `x:DataType`.
-- Custom prefixes (e.g., `xmlns:ui`) point to CLR namespaces in your project or other assemblies so you can reference your own classes or controls (`ui:AddressCard`).
+- Custom prefixes (e.g., `xmlns:ui`) point to CLR namespaces in your project or other assemblies so you can reference your own classes or controls (`ui:OrderRow`).
+- To import controls from other assemblies, add the prefix defined by their `[XmlnsDefinition]` attribute (for example, `xmlns:fluent="avares://Avalonia.Themes.Fluent"`).
 
-## 3. Build the main layout (StackPanel + Grid)
+## 3. How Avalonia loads this XAML
+
+- `InitializeComponent()` in `MainWindow.axaml.cs` invokes [`AvaloniaXamlLoader.Load`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs), wiring the compiled XAML into the partial class defined by `x:Class`.
+- During build, Avalonia's MSBuild tasks generate code that registers resources, name scopes, and compiled bindings for the loader (see Chapter 30 for the full pipeline).
+- In design-time or hot reload scenarios, the same loader can parse XAML streams when no compiled version exists, so runtime errors usually originate from this method.
+- Keep `x:Class` values in sync with your namespace; mismatches result in `XamlLoadException` messages complaining about missing compiled XAML.
+
+## 4. Build the main layout (StackPanel + Grid)
 
 Open `Views/MainWindow.axaml` and replace the `<Window.Content>` with:
 
@@ -105,7 +113,7 @@ What you just used:
 - `Grid` split into two columns for the form (left) and list (right).
 - `ItemsControl` repeats a data template for each item in `RecentOrders`.
 
-## 4. Create a reusable user control (`OrderRow`)
+## 5. Create a reusable user control (`OrderRow`)
 
 Add a new file `Views/OrderRow.axaml`:
 
@@ -134,7 +142,7 @@ Add a new file `Views/OrderRow.axaml`:
 - It relies on bindings (`Title`, `Total`, `PlacedOn`) which come from the current item in the data template.
 - Using a user control keeps the item template readable and testable.
 
-## 5. Add a value converter
+## 6. Add a value converter
 
 Converters adapt data for display. Create `Converters/CurrencyConverter.cs`:
 
@@ -176,7 +184,7 @@ Register the converter in `App.axaml` so XAML can reference it:
 </Application>
 ```
 
-## 6. Populate the ViewModel with nested data
+## 7. Populate the ViewModel with nested data
 
 Open `ViewModels/MainWindowViewModel.cs` and replace its contents with:
 
@@ -205,29 +213,68 @@ public sealed record OrderViewModel(string Title, decimal Total, DateTime Placed
 
 Now bindings like `{Binding Customer.Name}` and `{Binding RecentOrders}` have backing data.
 
-## 7. Understand `ContentControl`, `UserControl`, and `NameScope`
+## 8. Understand `ContentControl`, `UserControl`, and `NameScope`
 
 - **`ContentControl`** (see [ContentControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ContentControl.cs)) holds a single content object. Windows, Buttons, and many controls inherit from it. Setting `Content` or placing child XAML elements populates that content.
-- **`UserControl`** (see [UserControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/UserControl.cs)) is a convenient way to package a small view with its own XAML and code-behind. Each `UserControl` has its own `NameScope`.
-- **`NameScope`** (see [NameScope.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/NameScope/NameScope.cs)) governs how `x:Name` lookups work. By default, names are scoped to the nearest `NameScope` provider (Window, UserControl). Use `this.FindControl<T>("CounterText")` or `NameScope.GetNameScope(this)` to resolve names inside the scope.
+- **`UserControl`** (see [UserControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/UserControl.cs)) packages a reusable view with its own XAML and code-behind. Each `UserControl` creates its own `NameScope` so `x:Name` values remain local.
+- **`NameScope`** (see [NameScope.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/NameScope.cs)) governs how `x:Name` lookups work. Use `this.FindControl<T>("OrdersList")` or `NameScope.GetNameScope(this)` to resolve names inside the nearest scope.
+
+Example: add `x:Name="OrdersList"` to the `ItemsControl` in `MainWindow.axaml` and access it from code-behind:
+
+```csharp
+public partial class MainWindow : Window
+{
+    public MainWindow()
+    {
+        InitializeComponent();
+
+        var ordersList = this.FindControl<ItemsControl>("OrdersList");
+        // Inspect or manipulate generated visuals here if needed.
+    }
+}
+```
 
 When you nest user controls, remember: a name defined in `OrderRow` is not visible in `MainWindow` because each `UserControl` has its own scope. This avoids name collisions in templated scenarios.
 
-## 8. Logical tree vs visual tree (why it matters)
+## 9. Logical tree vs visual tree (why it matters)
 
 - The **logical tree** tracks content relationships: windows -> user controls -> ItemsControl items. Bindings and resource lookups walk the logical tree. Inspect with `this.GetLogicalChildren()` or DevTools -> Logical tree.
 - The **visual tree** includes the actual visuals created by templates (Borders, TextBlocks, Panels). DevTools -> Visual tree shows the rendered hierarchy.
 - Some controls (e.g., `ContentPresenter`) exist in the visual tree but not in the logical tree. When `FindControl` fails, confirm whether the element is in the logical tree.
 - Reference implementation: [LogicalTreeExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/LogicalTree/LogicalTreeExtensions.cs) and [Visual.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Visual.cs).
 
-## 9. Data templates explained
+## 10. Data templates explained
 
 - `ItemsControl.ItemTemplate` applies a `DataTemplate` for each item. Inside a data template, the `DataContext` is the individual item (an `OrderViewModel`).
 - You can inline XAML or reference a key: `<DataTemplate x:Key="OrderTemplate"> ...` and then `ItemTemplate="{StaticResource OrderTemplate}"`.
 - Data templates can contain user controls, panels, or inline elements. They are the foundation for list virtualization later.
 - Template source: [DataTemplate.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs).
 
-## 10. Run, inspect, and iterate
+## 11. Work with resources (`FindResource`)
+
+- Declare brushes, converters, or styles in `Window.Resources` or `Application.Resources`.
+- Retrieve them at runtime with `FindResource` or `TryFindResource`:
+
+```xml
+<Window.Resources>
+  <SolidColorBrush x:Key="HighlightBrush" Color="#FFE57F"/>
+</Window.Resources>
+```
+
+```csharp
+private void OnHighlight(object? sender, RoutedEventArgs e)
+{
+    if (FindResource("HighlightBrush") is IBrush brush)
+    {
+        Background = brush;
+    }
+}
+```
+
+- `FindResource` walks the logical tree first, then escalates to application resources, mirroring how the XAML parser resolves `StaticResource`.
+- Resources defined inside a `UserControl` or `DataTemplate` are scoped; use `this.Resources` to override per-view resources without affecting the rest of the app.
+
+## 12. Run, inspect, and iterate
 
 ```bash
 dotnet run
@@ -247,12 +294,16 @@ While the app runs:
 ## Practice and validation
 1. Add a `ui:AddressCard` user control showing billing address details. Bind it to `Customer` using `ContentControl.Content="{Binding Customer}"` and define a data template for `CustomerViewModel`.
 2. Add a `ValueConverter` that highlights orders above $500 by returning a different brush; apply it to the Border background via `{Binding Total, Converter=...}`.
-3. Add a `ListBox` instead of `ItemsControl` and observe how selection adds visual states in the visual tree.
-4. Use DevTools to inspect both logical and visual trees for the `AddressCard`. Note which elements appear in one tree but not the other.
+3. Name the `ItemsControl` (`x:Name="OrdersList"`) and call `this.FindControl<ItemsControl>("OrdersList")` in code-behind to verify name scoping.
+4. Override `HighlightBrush` in `MainWindow.Resources` and use `FindResource` to swap the window background at runtime (e.g., from a button click).
+5. Add a `ListBox` instead of `ItemsControl` and observe how selection adds visual states in the visual tree.
+6. Use DevTools to inspect both logical and visual trees for `OrderRow`. Toggle the Namescope overlay to see how scopes nest.
 
 ## Look under the hood (source bookmarks)
+- XAML loader: [src/Markup/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs)
 - Content control composition: [src/Avalonia.Controls/ContentControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ContentControl.cs)
 - User controls and name scopes: [src/Avalonia.Controls/UserControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/UserControl.cs)
+- `NameScope` implementation: [src/Avalonia.Base/Styling/NameScope.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/NameScope.cs)
 - Logical tree helpers: [src/Avalonia.Base/LogicalTree/LogicalTreeExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/LogicalTree/LogicalTreeExtensions.cs)
 - Data template implementation: [src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs)
 - Value converters: [src/Avalonia.Base/Data/Converters](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Data/Converters)

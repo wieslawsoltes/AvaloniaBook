@@ -194,6 +194,26 @@ public class PressAndHoldRecognizer : GestureRecognizer
 
 Register the routed event (`PressAndHoldEvent`) on your control and listen just like other events. Note the call to `Capture(e.Pointer)` which also calls `PreventGestureRecognition()` to stop competing recognizers.
 
+### Manipulation gestures and inertia
+
+Avalonia exposes higher-level manipulation data through gesture recognizers so you do not have to rebuild velocity tracking yourself.
+
+- `ScrollGestureRecognizer` raises `ScrollGestureEventArgs` with linear deltas and velocities—ideal for kinetic scrolling or canvas panning.
+- `PinchGestureRecognizer` produces `PinchEventArgs` that report scale, rotation, and centroid changes for zoom surfaces.
+- `PullGestureRecognizer` keeps track of displacement against a threshold (`PullGestureRecognizer.TriggerDistance`) so you can drive pull-to-refresh visuals without reimplementing spring physics.
+- Internally, each recognizer uses `VelocityTracker` to compute momentum; you can hook `GestureRecognizer.Completed` to project inertia with your own easing.
+
+Attach event handlers directly on the recognizer when you need raw data:
+
+```csharp
+var scroll = new ScrollGestureRecognizer();
+scroll.Scroll += (_, e) => _viewport += e.DeltaTranslation;
+scroll.Inertia += (_, e) => StartInertiaAnimation(e.Velocity);
+GestureRecognizers.Add(scroll);
+```
+
+Manipulation events coexist with pointer events. Mark the gesture event as handled when you consume it so the default scroll viewer does not fight your logic. For custom behaviors (elastic edges, snap points), tune `ScrollGestureRecognizer.IsContinuous`, `ScrollGestureRecognizer.CanHorizontallyScroll`, and `ScrollGestureRecognizer.CanVerticallyScroll` to match your layout.
+
 ## 6. Designing complex pointer experiences
 
 Strategies for common scenarios:
@@ -203,6 +223,12 @@ Strategies for common scenarios:
 - **Canvas panning + zooming:** differentiate gestures by pointer count—single pointer pans, two pointers feed `PinchGestureRecognizer` for zoom. Combine with `MatrixTransform` on the content.
 - **Edge swipe or pull-to-refresh:** use `PullGestureRecognizer` with `PullDirection` to recognise deflection and expose progress to the view model.
 - **Hover tooltips:** `PointerEntered` kicks off a timer, `PointerExited` cancels it; inspect `e.GetCurrentPoint(this).Properties.PointerUpdateKind` to ignore quick flicks.
+
+Platform differences worth noting:
+- **Windows/macOS/Linux** share pointer semantics, but only touch-capable hardware raises `PointerType.Touch`. Guard pen-specific paths behind `Pointer.Type == PointerType.Pen` because Linux/X11 backends can omit advanced pen properties.
+- **Mobile backends** (Android/iOS) dispatch multi-touch contacts without a mouse concept; ensure commands have keyboard fallbacks if you reuse the view for desktop.
+- **Browser (WASM)** lacks raw access to OS cursors and some pen metrics; `PointerPoint.Properties.Pressure` may always be `1.0`.
+- **Tizen** requires declaring the `http://tizen.org/privilege/haptic` privilege before you can trigger haptics from pull or press gestures.
 
 ## 7. Keyboard navigation, focus, and shortcuts
 
@@ -251,6 +277,8 @@ Configure XY focus per visual:
 | `XYFocus.LeftNavigationStrategy` | Choose default algorithm (closest edge, projection, navigation axis) |
 
 For dense grids (e.g., TV apps), set `XYFocus.NavigationModes="Gamepad,Remote"` and assign explicit neighbours to avoid diagonal jumps. Pair with `KeyBindings` for shortcuts like `Back` or `Menu` buttons on controllers (map gamepad keys via key modifiers on the key event).
+
+Where hardware exposes haptic feedback (mobile, TV remotes), query the platform implementation with `TopLevel.PlatformImpl?.TryGetFeature<TFeature>()`. Some backends surface rumble/vibration helpers; when none are available, fall back gracefully so keyboard-only users are not blocked.
 
 ## 9. Text input services and IME integration
 
@@ -319,7 +347,9 @@ Document findings in README (which gestures compete, how capture behaves on focu
 - Pointer lifecycle: [`Pointer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/Pointer.cs)
 - Pointer events & properties: [`PointerEventArgs.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/PointerEventArgs.cs), [`PointerPoint.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/PointerPoint.cs)
 - Gesture infrastructure: [`GestureRecognizer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/GestureRecognizers/GestureRecognizer.cs), [`Gestures.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/Gestures.cs)
+- Continuous gestures: [`ScrollGestureRecognizer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/GestureRecognizers/ScrollGestureRecognizer.cs), [`PinchGestureRecognizer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/GestureRecognizers/PinchGestureRecognizer.cs), [`PullGestureRecognizer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/GestureRecognizers/PullGestureRecognizer.cs)
 - Keyboard & XY navigation: [`IKeyboardNavigationHandler.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/IKeyboardNavigationHandler.cs), [`XYFocus.Properties.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/Navigation/XYFocus.Properties.cs)
+- Device data: [`KeyEventArgs.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyEventArgs.cs), [`KeyDeviceType.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyDeviceType.cs), [`TouchDevice.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TouchDevice.cs), [`PenDevice.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/PenDevice.cs)
 - Text input pipeline: [`TextInputOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputOptions.cs), [`TextInputMethodManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/InputMethodManager.cs)
 - Input manager stages: [`InputManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/InputManager.cs)
 

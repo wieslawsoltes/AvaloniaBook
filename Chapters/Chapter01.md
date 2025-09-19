@@ -31,6 +31,8 @@ How Avalonia is layered
 - **Markup**: XAML parsing, compiled XAML, and the runtime loader used at startup. Source: [src/Avalonia.Markup.Xaml](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Markup.Xaml) with [AvaloniaXamlLoader.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs).
 - **Platform backends**: per-OS integrations--for example [src/Windows/Avalonia.Win32](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Windows/Avalonia.Win32), [src/Avalonia.Native](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Native), [src/Android/Avalonia.Android](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Android/Avalonia.Android), [src/iOS/Avalonia.iOS](https://github.com/AvaloniaUI/Avalonia/tree/master/src/iOS/Avalonia.iOS), and [src/Browser/Avalonia.Browser](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Browser/Avalonia.Browser).
 
+Create your own architecture sketch showing `Avalonia.Base` at the foundation, `Avalonia.Controls` and `Avalonia.Markup.Xaml` layered above it, theme assemblies such as `Avalonia.Themes.Fluent`, and platform backends surrounding the stack. Keep the diagram handy as you read later chapters.
+
 C#, XAML, and MVVM--who does what
 - **C#**: application startup (`AppBuilder`), services, models, and view models. Logic lives in strongly typed classes.
 - **XAML**: declarative UI markup--controls, layout, styles, resources, and data templates.
@@ -42,6 +44,18 @@ MVVM building blocks you should recognise early
 - Binding expressions: XAML bindings are parsed and applied via the XAML loader. The runtime loader lives in [AvaloniaXamlLoader.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs).
 - Commands: typically `ICommand` implementations on the ViewModel (plain or via libraries such as CommunityToolkit.Mvvm or ReactiveUI) so buttons and menu items can invoke logic.
 - Data templates: define how ViewModels render in lists and navigation. We will use them extensively starting in Chapter 3.
+
+The MVVM contract inside Avalonia
+- `AvaloniaObject` and `StyledElement`: every control derives from `AvaloniaObject`, gaining access to the dependency property system. `StyledElement` adds styling, resources, and the logical tree. These classes live in [`Avalonia.Base`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base).
+- `AvaloniaLocator`: a lightweight service locator ([`AvaloniaLocator.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/AvaloniaLocator.cs)) used by the framework to resolve services (logging, platform implementations). You can register your own singletons during startup when integrating DI containers.
+- Logical vs visual tree: controls participate in a logical tree (resources, data context inheritance) and a visual tree (rendered elements). Explore helpers such as [`LogicalTreeExtensions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/LogicalTree/LogicalTreeExtensions.cs) and the DevTools tree viewers to see both perspectives.
+- `ViewLocator`: MVVM projects often map view models to views dynamically. Avalonia ships a default `ViewLocator` in `Avalonia.ReactiveUI`, and you can create your own service that resolves XAML types by naming convention.
+- Service registration: register singleton services with `AvaloniaLocator.CurrentMutable.Bind<TService>().ToConstant(instance)` during `AppBuilder` configuration so both code-behind and markup extensions can retrieve them.
+
+Data context flow across trees
+- Data contexts inherit through the logical tree (e.g., `Window` → `Grid` → `TextBlock`). Controls outside that tree, such as popups, will not inherit automatically; explicitly assign contexts when necessary.
+- The visual tree may contain additional elements introduced by control templates. Bindings resolve by name through the logical tree first, then resource lookups, so understanding both structures keeps bindings predictable.
+- Use DevTools' Logical/Visual tabs to inspect the tree at runtime and trace resource lookups or data-context changes.
 
 From `AppBuilder.Configure` to the first window (annotated flow)
 1. **Program entry point** creates a builder: `BuildAvaloniaApp()` returns `AppBuilder.Configure<App>()`.
@@ -82,6 +96,7 @@ Practice and validation
 - Clone the Avalonia repository, build, and run the desktop ControlCatalog. Set a breakpoint in `Application.OnFrameworkInitializationCompleted` inside `App.axaml.cs` to watch the lifetime hand-off.
 - While ControlCatalog runs, open DevTools (F12) and track a ViewModel property change (for example, toggle a CheckBox) in the binding diagnostics panel to see `PropertyChanged` events flowing.
 - Inspect the source jump-offs for `Application` ([Application.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Application.cs)), `AvaloniaProperty` ([AvaloniaProperty.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/AvaloniaProperty.cs)), and the XAML loader ([AvaloniaXamlLoader.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs)). Note how the pieces you just read about appear in real code.
+- Pick three controls from ControlCatalog (e.g., Button, SplitView, ColorPicker) and map each to the assembly and namespace hosting its implementation. Sketch the relationships in the architecture diagram you created earlier so you can orient yourself quickly when diving into source.
 
 What's next
 - Next: [Chapter 2](Chapter02.md)

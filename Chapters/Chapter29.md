@@ -215,6 +215,28 @@ When mixing visuals, ensure they come from the same `Compositor` instance (`Elem
 
 `CompositionTarget` (`CompositionTarget.cs`) owns the visual tree that the compositor renders. It handles hit testing, coordinate transforms, and redraw scheduling. Most apps use the compositor implicitly via the built-in renderer, but custom hosts (e.g., embedding Avalonia) can create their own target (`Compositor.CreateCompositionTarget`).
 
+### Composition brushes, effects, and materials
+
+The compositor supports more than simple solids:
+
+- `CompositionColorBrush` and `CompositionGradientBrush` mirror familiar WPF/UWP concepts and can be animated directly on the render thread.
+- `CompositionEffectBrush` applies blend modes and image effects defined in `Composition.Effects`. Use it to build blur/glow pipelines without blocking the UI thread.
+- `CompositionExperimentalAcrylicVisual` ships a ready-made fluent-style acrylic material. Combine it with backdrop animations for frosted surfaces.
+- `CompositionDrawListVisual` lets you record drawing commands once and replay them efficiently; great for particle systems or dashboards.
+
+Use `Compositor.TryCreateBlurEffect()` (platform-provided helpers) to probe support before enabling expensive effects. Not every backend exposes every effect type; guard features behind capability checks.
+
+### Backend considerations
+
+Composition runs on different engines per platform:
+
+- **Windows** defaults to Direct3D via Angle; transparency and acrylic require desktop composition (check `DwmIsCompositionEnabled`).
+- **macOS/iOS** lean on Metal; some blend modes fall back to software when Metal is unavailable.
+- **Linux/X11** routes through OpenGL or Vulkan depending on the build; verify `TransparencyLevel` and composition availability via `X11Globals.IsCompositionEnabled`.
+- **Browser** currently renders via WebGL and omits composition-only APIs. Always branch your motion layer so WebAssembly users still see essential transitions.
+
+When features are missing, prefer classic transitions so the experience remains functional.
+
 ## 7. Composition animations and implicit animations
 
 Composition animations live in `Avalonia.Rendering.Composition.Animations`:
@@ -276,6 +298,7 @@ Document timing curves, easing choices, and any performance issues so the team c
 - Property transitions: `external/Avalonia/src/Avalonia.Base/Animation/Transitions.cs`
 - Page transitions: `external/Avalonia/src/Avalonia.Base/Animation/PageSlide.cs`, `external/Avalonia/src/Avalonia.Base/Animation/CrossFade.cs`
 - Composition gateway: `external/Avalonia/src/Avalonia.Base/Rendering/Composition/Compositor.cs`, `external/Avalonia/src/Avalonia.Base/Rendering/Composition/CompositionTarget.cs`
+- Composition effects & materials: `external/Avalonia/src/Avalonia.Base/Rendering/Composition/CompositionDrawListVisual.cs`, `external/Avalonia/src/Avalonia.Base/Rendering/Composition/CompositionExperimentalAcrylicVisual.cs`, `external/Avalonia/src/Avalonia.Base/Rendering/Composition/Expressions/ExpressionAnimation.cs`
 - Implicit composition animations: `external/Avalonia/src/Avalonia.Base/Rendering/Composition/CompositionObject.cs`
 
 ## Check yourself

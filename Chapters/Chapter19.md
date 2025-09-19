@@ -2,12 +2,12 @@
 
 Goal
 - Configure, build, and run Avalonia apps on Android and iOS using the single-project workflow.
-- Understand single-view lifetimes, navigation patterns, safe areas, and mobile services (storage, clipboard, permissions).
-- Integrate platform-specific features (back button, app icons, splash screens) while keeping shared MVVM architecture.
+- Understand `AvaloniaActivity`, `AvaloniaApplication`, and `AvaloniaAppDelegate` lifetimes so your shared code boots correctly on each platform.
+- Integrate platform services (back button, clipboard, storage, notifications) while respecting safe areas, touch input, and trimming constraints.
 
 Why this matters
 - Mobile devices have different UI expectations (single window, touch, safe areas, OS-managed lifecycle).
-- Avalonia lets you share code across desktop and mobile, but you must adjust windowing, navigation, and services.
+- Avalonia lets you share code across desktop and mobile, but you must adjust hosting lifetimes, navigation, and platform service wiring.
 
 Prerequisites
 - Chapter 12 (lifetimes/navigation), Chapter 16 (storage provider), Chapter 17 (async/networking).
@@ -33,7 +33,19 @@ Project structure:
 - Shared project (e.g., `MyApp`): Avalonia cross-platform code.
 - Platform heads (Android, iOS): host the Avalonia app, provide manifests, icons, metadata.
 
-Avalonia templates (`dotnet new avalonia.app --multiplatform`) create the shared project plus heads (`MyApp.Android`, `MyApp.iOS`).
+`dotnet new avalonia.app --multiplatform` creates the shared project plus heads (`MyApp.Android`, `MyApp.iOS`, optional `MyApp.Browser`). The Android head references `Avalonia.Android` (which contains `AvaloniaActivity` and `AvaloniaApplication`); the iOS head references `Avalonia.iOS` (which contains `AvaloniaAppDelegate`).
+
+Keep trimming/linker settings in `Directory.Build.props` so shared code doesn't lose reflection-heavy ViewModels. Example additions:
+
+```xml
+<PropertyGroup>
+  <TrimMode>partial</TrimMode>
+  <IlcInvariantGlobalization>true</IlcInvariantGlobalization>
+  <PublishTrimmed>true</PublishTrimmed>
+</PropertyGroup>
+```
+
+Use `TrimmerRootAssembly` or `DynamicDependency` attributes if you depend on reflection-heavy frameworks (e.g., ReactiveUI). Test Release builds on devices early to catch linker issues.
 
 ## 2. Single-view lifetime
 
@@ -59,6 +71,8 @@ public override void OnFrameworkInitializationCompleted()
 
 `ShellView` is a `UserControl` with mobile-friendly layout and navigation.
 
+Hot reload: on Android, Rider/Visual Studio can use .NET Hot Reload against `MyApp.Android`. For XAML hot reload in Previewer, add `<ItemGroup><XamlIlAssemblyInfo>true</XamlIlAssemblyInfo></ItemGroup>` to the shared project and keep the head running via `dotnet build -t:Run`.
+
 ## 3. Mobile navigation patterns
 
 Use view-model-first navigation (Chapter 12) but ensure a visible Back control.
@@ -77,7 +91,7 @@ Use view-model-first navigation (Chapter 12) but ensure a visible Back control.
 </UserControl>
 ```
 
-`ShellViewModel` keeps a stack of view models and implements `BackCommand`/`NavigateTo`. Hook Android back button (Next section) to `BackCommand`.
+`ShellViewModel` keeps a stack of view models and implements `BackCommand`/`NavigateTo`. Hook Android back button (Next section) to `BackCommand` and mirror the same logic inside `AvaloniaAppDelegate` to react to swipe-back gestures on iOS.
 
 ## 4. Safe areas and input insets
 
@@ -122,14 +136,18 @@ if (pane is not null)
 }
 ```
 
+Touch input specifics: prefer gesture recognizers (`Tapped`, `DoubleTapped`, `PointerGestureRecognizer`) over mouse events, and test with real hardware—emulators may not surface haptics or multi-touch.
+
 ## 5. Platform head customization
 
 ### 5.1 Android head (MyApp.Android)
 
-- `MainActivity.cs` hosts Avalonia.
+- `MainActivity.cs` inherits from `AvaloniaActivity`. Override `AppBuilder CustomizeAppBuilder(AppBuilder builder)` to inject logging or DI.
+- `MyApplication.cs` can inherit from `AvaloniaApplication` to bootstrap services before the activity creates the view.
 - `AndroidManifest.xml`: declare permissions (`INTERNET`, `READ_EXTERNAL_STORAGE`), orientation, minimum SDK.
-- App icons/splash: `Resources/mipmap-*`, `Resources/layout` for splash.
-- Intercept hardware Back button: override `OnBackPressed` to call service.
+- App icons/splash: `Resources/mipmap-*`, `Resources/xml/splashscreen.xml` for Android 12+ splash.
+- Enable fast deployment/device hot reload by setting `<AndroidEnableProfiler>true</AndroidEnableProfiler>` in Debug configuration.
+- Intercept hardware Back button by overriding `OnBackPressed` or using `AvaloniaLocator.Current.GetService<IMobileNavigation>()`.
 
 ```csharp
 public override void OnBackPressed()
@@ -139,15 +157,21 @@ public override void OnBackPressed()
 }
 ```
 
-`TryGoBack` calls into shared navigation service and returns true if you consumed the event.
+`TryGoBack` calls into shared navigation service and returns true if you consumed the event. To embed Avalonia inside an existing native activity, host `AvaloniaView` inside a layout and call `AvaloniaView.Initialize(this, AppBuilder.Configure<App>()...)`.
 
 ### 5.2 iOS head (MyApp.iOS)
 
-- `AppDelegate.cs` sets up Avalonia.
+- `AppDelegate.cs` inherits from `AvaloniaAppDelegate`. Override `CustomizeAppBuilder` to inject services or register platform-specific singletons.
+- `Program.cs` wraps `UIApplication.Main(args, null, typeof(AppDelegate))` so the delegate boots Avalonia.
 - `Info.plist`: permissions (e.g., camera), orientation, status bar style.
-- Launch screen via `LaunchScreen.storyboard` or SwiftUI resources.
+- Launch screen via `LaunchScreen.storyboard` or SwiftUI resources in Xcode.
+- Use `AvaloniaViewController` to embed Avalonia content inside UIKit navigation stacks or tab controllers.
 
-Handle universal links or background tasks by bridging to shared services in `AppDelegate`.
+Handle universal links or background tasks by bridging to shared services in `AppDelegate`. For swipe-back gestures, implement `TryGoBack` inside `AvaloniaNavigationController` or intercept `UINavigationControllerDelegate` callbacks.
+
+### 5.3 Sharing services across heads
+
+Inject platform implementations for `IClipboard`, `IStorageProvider`, notifications, and share targets via dependency injection. Register them in `AvaloniaLocator.CurrentMutable` inside `CustomizeAppBuilder` to keep shared code unaware of head-specific services.
 
 ## 6. Permissions & storage
 
@@ -155,18 +179,22 @@ Handle universal links or background tasks by bridging to shared services in `Ap
   - Android: declare `<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>` and use runtime requests.
   - iOS: add entries to Info.plist (e.g., `NSPhotoLibraryUsageDescription`).
 - Consider packaging specific data (e.g., from `AppBundle`) instead of relying on arbitrary file system access.
+- Use `EssentialsPermissions` helper libraries carefully—Release builds with trimming must preserve permission classes. Validate by running `dotnet publish -c Release` on device/emulator.
+- Push notifications and background fetch require platform services: expose custom interfaces (e.g., `IPushNotificationService`) that platform heads implement and inject into shared locator.
 
 ## 7. Touch and gesture design
 
 - Ensure controls are at least 44x44 DIP.
 - Provide ripple/highlight states for buttons (Fluent theme handles this). Avoid hover-only interactions.
 - Use `Tapped`/`DoubleTapped` events for simple gestures; `PointerGestureRecognizer` for advanced ones.
+- Keep layout responsive: use `TopLevel.Screen` to detect orientation/size classes and expose them via your view models.
 
 ## 8. Performance & profiling
 
 - Keep navigation stacks small; heavy animations may impact lower-end devices.
 - Profile with Android Studio's profiler / Xcode Instruments for CPU, memory, GPU.
 - When using `Task.Run`, consider battery impact; use async I/O where possible.
+- Enable GPU frame stats with `adb shell dumpsys gfxinfo` or Xcode's Metal throughput counters to detect rendering bottlenecks.
 
 ## 9. Packaging and deployment
 
@@ -187,6 +215,11 @@ Sign with keystore for app store.
 
 - Use Xcode to build and deploy to simulator/device. `dotnet build -t:Run -f net8.0-ios` works on macOS with Xcode installed.
 - Provisioning profiles & certificates required for devices/app store.
+- Linker errors often show up only in Release; enable `--warnaserror` on linker warnings to catch missing assemblies early.
+
+### Optional: Tizen
+
+Avalonia's Tizen backend (`Avalonia.Tizen`) targets smart TVs/wearables. The structure mirrors Android/iOS: implement a Tizen `Program.cs` that calls `AppBuilder.Configure<App>().UseTizen<TizenApplication>()` and handles platform storage/permissions via Tizen APIs.
 
 ## 10. Browser compatibility (bonus)
 
@@ -198,14 +231,16 @@ Mobile code often reuses single-view logic for WebAssembly. Check `ApplicationLi
 2. Implement a navigation service with back stack and wire Android back button to it.
 3. Adjust safe-area padding and keyboard insets for a login screen (Inputs remain visible when keyboard shows).
 4. Add file pickers via `StorageProvider` and test on device (consider permission prompts).
-5. Package a release build (.aab for Android, .ipa for iOS) and validate icons/splash screens.
+5. Package a release build (.aab for Android, .ipa for iOS), validate icons/splash screens, and confirm Release trimming did not strip services.
+6. (Stretch) Embed Avalonia inside a native screen (`AvaloniaView` on Android, `AvaloniaViewController` on iOS) and pass data between native and Avalonia layers.
 
 ## Look under the hood (source bookmarks)
+- Android hosting: [`AvaloniaActivity`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Android/Avalonia.Android/AvaloniaActivity.cs), [`AvaloniaApplication`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Android/Avalonia.Android/AvaloniaApplication.cs)
+- iOS hosting: [`AvaloniaAppDelegate`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/iOS/Avalonia.iOS/AvaloniaAppDelegate.cs), [`AvaloniaViewController`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/iOS/Avalonia.iOS/AvaloniaViewController.cs)
 - Single-view lifetime: [`SingleViewApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/SingleViewApplicationLifetime.cs)
-- Input pane (soft keyboard): [`IInputPane`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Platform/IInputPane.cs)
-- Insets manager: [`IInsetsManager`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Platform/IInsetsManager.cs)
-- Android platform project: [`src/Android`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Android)
-- iOS platform project: [`src/iOS`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/iOS)
+- Insets and input pane: [`IInsetsManager`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Platform/IInsetsManager.cs), [`IInputPane`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Platform/IInputPane.cs)
+- Platform services: [`AvaloniaLocator`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/AvaloniaLocator.cs), [`IClipboard`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Input/IClipboard.cs)
+- Tizen backend: [`Avalonia.Tizen`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Tizen)
 - Mobile samples: [`samples/ControlCatalog.Android`](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog.Android), [`samples/ControlCatalog.iOS`](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog.iOS)
 
 ## Check yourself

@@ -1,9 +1,9 @@
 # 21. Headless and testing
 
 Goal
-- Test Avalonia UI components without a display server using the headless platform.
+- Test Avalonia UI components without a display server using `Avalonia.Headless` (`AvaloniaHeadlessPlatformExtensions.UseHeadless`).
 - Simulate user input, capture rendered frames, and integrate UI tests into CI (xUnit, NUnit, other frameworks).
-- Organize your test strategy: view models, control-level tests, visual regression, fast feedback.
+- Organize your test strategy: view models, control-level tests, visual regression, automation, fast feedback.
 
 Why this matters
 - UI you can't test will regress. Headless testing runs anywhere (CI, Docker) and stays deterministic.
@@ -142,6 +142,8 @@ public void Border_Renders_Correct_Size()
 
 Compare pixels to baseline image using e.g., `ImageMagick` or custom diff with tolerance. Keep baselines per theme/resolution to avoid false positives.
 
+If you need Avalonia to drive the render loop before reading pixels, call `CaptureRenderedFrame()` instead of `GetLastRenderedFrame()`—it schedules a composition pass and forces a render tick. This mirrors what desktop renderers do when they flush the `CompositionTarget`, keeping the snapshot pipeline close to production.
+
 ## 5. Organizing tests
 
 - **ViewModel tests**: no Avalonia dependencies; test commands and property changes (fastest).
@@ -149,9 +151,17 @@ Compare pixels to baseline image using e.g., `ImageMagick` or custom diff with t
 - **Visual regression**: limited number; capture frames and compare.
 - **Integration/E2E**: run full app with navigation; keep few due to complexity.
 
-## 6. Advanced headless scenarios
+## 6. Custom fixtures and automation hooks
 
-### 6.1 VNC mode
+- Build reusable fixtures around `HeadlessUnitTestSession.StartNew(typeof(App))` when you need deterministic startup logic outside the provided xUnit/NUnit attributes. Wrap it in `IAsyncLifetime` so tests share a dispatcher loop safely.
+- Register platform services for tests inside the session by entering an `AvaloniaLocator` scope and injecting fakes (e.g., mock `IClipboard`, stub `IStorageProvider`).
+- Expose convenience methods (e.g., `ShowControlAsync<TControl>()`) that create a `Window`, attach the control, call `ForceRenderTimerTick`, and return the control for assertions.
+- For automation cues, use Avalonia's UI automation peers: call `AutomationPeer.CreatePeerForElement(control)` and assert patterns (`InvokePattern`, `ValuePattern`) without relying on visual tree traversal.
+- Study the headless unit tests in `external/Avalonia/tests/Avalonia.Headless.UnitTests` for patterns that wrap `AppBuilder` and expose helpers for reuse across cases.
+
+## 7. Advanced headless scenarios
+
+### 7.1 VNC mode
 
 For debugging, you can run headless with a VNC server and observe the UI.
 
@@ -163,15 +173,15 @@ AppBuilder.Configure<App>()
 
 Connect with a VNC client to view frames and interact.
 
-### 6.2 Simulating time & timers
+### 7.2 Simulating time & timers
 
 Use `AvaloniaHeadlessPlatform.ForceRenderTimerTick()` to advance timers. For `DispatcherTimer` or animations, call it repeatedly.
 
-### 6.3 File system in tests
+### 7.3 File system in tests
 
 For file-based assertions, use in-memory streams or temp directories. Avoid writing to the repo path; tests should be self-cleaning.
 
-## 7. Testing async flows
+## 8. Testing async flows
 
 - Use `Dispatcher.UIThread.InvokeAsync` for UI updates.
 - Await tasks; avoid `.Result` or `.Wait()`.
@@ -191,27 +201,28 @@ async Task WaitForAsync(Func<bool> condition, TimeSpan timeout)
 }
 ```
 
-## 8. CI integration
+## 9. CI integration
 
 - Headless tests run under `dotnet test` in GitHub Actions/Azure Pipelines/GitLab.
 - On Linux CI, no display server required (no `Xvfb`).
 - Provide environment variables or test-specific configuration as needed.
 - Collect snapshots as build artifacts when tests fail (optional).
 
-## 9. Practice exercises
+## 10. Practice exercises
 
 1. Write a headless test that types into a TextBox, presses Enter, and asserts a command executed.
 2. Simulate a drag-and-drop using `DragDrop` helpers and confirm target list received data.
 3. Capture a frame of an entire form and compare to a baseline image stored under `tests/BaselineImages`.
 4. Create a test fixture that launches the app's main view, navigates to a secondary page, and verifies a label text.
 5. Add headless tests to CI and configure the pipeline to upload snapshot diffs for failing cases.
+6. Write an automation-focused test that inspects `AutomationPeer` patterns (Invoke/Value) to validate accessibility contracts alongside visual assertions.
 
 ## Look under the hood (source bookmarks)
-- Headless platform: [`AvaloniaHeadlessPlatform`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/AvaloniaHeadlessPlatform.cs)
-- Input extensions: [`HeadlessWindowExtensions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs)
-- xUnit integration: [`Avalonia.Headless.XUnit`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.XUnit)
-- NUnit integration: [`Avalonia.Headless.NUnit`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.NUnit)
-- Reference tests: [`tests/Avalonia.Headless.UnitTests`](https://github.com/AvaloniaUI/Avalonia/tree/master/tests/Avalonia.Headless.UnitTests)
+- Headless platform setup: [`AvaloniaHeadlessPlatform.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/AvaloniaHeadlessPlatform.cs)
+- Session control: [`HeadlessUnitTestSession.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/HeadlessUnitTestSession.cs)
+- Input helpers: [`HeadlessWindowExtensions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs)
+- Test adapters: [`Avalonia.Headless.XUnit`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.XUnit), [`Avalonia.Headless.NUnit`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.NUnit)
+- Samples: [`tests/Avalonia.Headless.UnitTests`](https://github.com/AvaloniaUI/Avalonia/tree/master/tests/Avalonia.Headless.UnitTests), [`tests/Avalonia.Headless.XUnit.UnitTests`](https://github.com/AvaloniaUI/Avalonia/tree/master/tests/Avalonia.Headless.XUnit.UnitTests)
 
 ## Check yourself
 - How do you initialize the headless platform for xUnit? Which attribute is required?
@@ -219,6 +230,7 @@ async Task WaitForAsync(Func<bool> condition, TimeSpan timeout)
 - What steps are needed to capture rendered frames? Why might you use them sparingly?
 - How can you run the headless platform visually (e.g., via VNC) for debugging?
 - How does your test strategy balance view model tests, control tests, and visual regression tests?
+- When would you reach for AutomationPeers in headless tests instead of asserting on visuals alone?
 
 What's next
 - Next: [Chapter 22](Chapter22.md)

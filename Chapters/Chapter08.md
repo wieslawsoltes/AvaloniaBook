@@ -2,10 +2,10 @@
 
 Goal
 - Understand the binding engine (DataContext, binding paths, inheritance) and when to use different binding modes.
-- Work with binding variations (`Binding`, `CompiledBinding`, `MultiBinding`, `PriorityBinding`, `ElementName`, `RelativeSource`).
-- Connect collections to `ItemsControl`/`ListBox` with data templates and selection models.
-- Use converters, validation (`INotifyDataErrorInfo`), and asynchronous bindings for real-world scenarios.
-- Diagnose bindings using Avalonia's DevTools and `BindingDiagnostics` logging.
+- Work with binding variations (`Binding`, `CompiledBinding`, `MultiBinding`, `PriorityBinding`, `ElementName`, `RelativeSource`) and imperative helpers via `BindingOperations`.
+- Connect collections to `ItemsControl`/`ListBox` with data templates, `SelectionModel`, and compiled binding expressions.
+- Use converters, validation (`INotifyDataErrorInfo`), asynchronous bindings, and reactive bridges (`AvaloniaPropertyObservable`).
+- Bind to attached properties, tune performance with compiled bindings, and diagnose issues using DevTools and `BindingDiagnostics` logging.
 
 Why this matters
 - Bindings keep UI and data in sync, reducing boilerplate and keeping views declarative.
@@ -23,6 +23,8 @@ Avalonia's binding engine lives under [`src/Avalonia.Base/Data`](https://github.
 - `Binding`: describes a path, mode, converter, fallback, etc.
 - `BindingBase`: base for compiled bindings, multi bindings, priority bindings.
 - `BindingExpression`: runtime evaluation created for each binding target.
+- `BindingOperations`: static helpers to install, remove, or inspect bindings imperatively.
+- `ExpressionObserver`: low-level observable pipeline underpinning async, compiled, and reactive bindings.
 
 Bindings resolve in this order:
 1. Find the source (DataContext, element name, relative source, etc.).
@@ -30,7 +32,59 @@ Bindings resolve in this order:
 3. Apply converters or string formatting.
 4. Update the target property according to the binding mode.
 
-## 2. Set up the sample project
+`BindingOperations.SetBinding` mirrors WPF/WinUI and is useful when you need to create bindings from code (for dynamic property names or custom controls). `BindingOperations.ClearBinding` removes them safely, keeping reference tracking intact.
+
+## 2. Binding scopes and source selection
+
+Binding sources are resolved differently depending on the binding type:
+
+- **`DataContext` inheritance** – `StyledElement.DataContext` flows through the logical tree. Setting `DataContext` on a container automatically scopes child bindings.
+- **Element name** – `{Binding ElementName=Root, Path=Value}` uses `NameScope` lookup to find another control.
+- **Relative source** – `{Binding RelativeSource={RelativeSource AncestorType=ListBox}}` walks the logical tree to find an ancestor of the specified type.
+- **Self bindings** – `{Binding Path=Bounds, RelativeSource={RelativeSource Self}}` is handy when exposing properties of the control itself.
+- **Static/CLR properties** – `{Binding Path=(local:ThemeOptions.AccentBrush)}` reads attached or static properties registered as Avalonia properties.
+
+Avalonia also supports multi-level ancestor search and templated parent references:
+
+```xml
+<TextBlock Text="{Binding DataContext.Title, RelativeSource={RelativeSource AncestorType=Window}}"/>
+
+<ContentControl ContentTemplate="{StaticResource CardTemplate}" />
+
+<DataTemplate x:Key="CardTemplate" x:DataType="vm:Card">
+  <Border Background="{Binding Source={RelativeSource TemplatedParent}, Path=Background}"/>
+</DataTemplate>
+```
+
+When creating controls dynamically, use `BindingOperations.SetBinding` so the engine tracks lifetimes and updates `DataContext` inheritance correctly:
+
+```csharp
+var binding = new Binding
+{
+    Path = "Person.FullName",
+    Mode = BindingMode.OneWay
+};
+
+BindingOperations.SetBinding(nameTextBlock, TextBlock.TextProperty, binding);
+```
+
+`BindingOperations.ClearBinding(nameTextBlock, TextBlock.TextProperty)` detaches it. To observe `AvaloniaProperty` values reactively, wrap them with `AvaloniaPropertyObservable.Observe`:
+
+```csharp
+using System;
+using System.Reactive.Linq;
+using Avalonia.Reactive;
+
+var textStream = AvaloniaPropertyObservable.Observe(this, TextBox.TextProperty)
+    .Select(value => value as string ?? string.Empty);
+
+var subscription = textStream.Subscribe(text => ViewModel.TextLength = text.Length);
+```
+
+`AvaloniaPropertyObservable` lives in [`AvaloniaPropertyObservable.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Reactive/AvaloniaPropertyObservable.cs) and bridges the binding system with `IObservable<T>` pipelines.
+Dispose the subscription in `OnDetachedFromVisualTree` (or your view's `Dispose` pattern) to avoid leaks.
+
+## 3. Set up the sample project
 
 ```bash
 dotnet new avalonia.mvvm -o BindingPlayground
@@ -39,7 +93,7 @@ cd BindingPlayground
 
 We'll expand `MainWindow.axaml` and `MainWindowViewModel.cs`.
 
-## 3. Core bindings (OneWay, TwoWay, OneTime)
+## 4. Core bindings (OneWay, TwoWay, OneTime)
 
 View model implementing `INotifyPropertyChanged`:
 
@@ -102,7 +156,7 @@ In `MainWindow.axaml` set the DataContext:
 
 `Design.DataContext` provides design-time data in the previewer.
 
-## 4. Binding modes in action
+## 5. Binding modes in action
 
 ```xml
 <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,*" Padding="16" RowSpacing="16" ColumnSpacing="24">
@@ -140,7 +194,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 }
 ```
 
-## 5. ElementName and RelativeSource
+## 6. ElementName and RelativeSource
 
 ### ElementName binding
 
@@ -165,7 +219,26 @@ This binds to the window's DataContext even if the local control has its own Dat
 
 Relative source syntax also supports `Self` (`RelativeSource={RelativeSource Self}`) and `TemplatedParent` for control templates.
 
-## 6. Compiled bindings
+### Binding to attached properties
+
+Avalonia registers attached properties (e.g., `ScrollViewer.HorizontalScrollBarVisibilityProperty`) as `AvaloniaProperty`. Bind to them by wrapping the property name in parentheses:
+
+```xml
+<ListBox ItemsSource="{Binding Items}">
+  <ListBox.Styles>
+    <Style Selector="ListBox">
+      <Setter Property="(ScrollViewer.HorizontalScrollBarVisibility)" Value="Disabled"/>
+      <Setter Property="(ScrollViewer.VerticalScrollBarVisibility)" Value="Auto"/>
+    </Style>
+  </ListBox.Styles>
+</ListBox>
+
+<Border Background="{Binding (local:ThemeOptions.AccentBrush)}"/>
+```
+
+Attached property syntax also works inside `Binding` or `MultiBinding`. When setting them from code, use the generated static accessor (e.g., `ScrollViewer.SetHorizontalScrollBarVisibility(listBox, ScrollBarVisibility.Disabled);`).
+
+## 7. Compiled bindings
 
 Compiled bindings (`CompiledBinding`) produce strongly-typed accessors with better performance. Require `x:DataType` or `CompiledBindings` namespace:
 
@@ -186,7 +259,7 @@ xmlns:vm="clr-namespace:BindingPlayground.ViewModels"
 
 If `x:DataType` is set, `CompiledBinding` uses compile-time checking and generates binding code. Source: [`CompiledBindingExtension.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/MarkupExtensions/CompiledBindingExtension.cs).
 
-## 7. MultiBinding and PriorityBinding
+## 8. MultiBinding and PriorityBinding
 
 ### MultiBinding
 
@@ -246,7 +319,7 @@ Priority bindings try sources in order and use the first that yields a value:
 
 Source: [`PriorityBinding.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup/Data/PriorityBinding.cs).
 
-## 8. Lists, selection, and templates
+## 9. Lists, selection, and templates
 
 `MainWindowViewModel` exposes collections:
 
@@ -299,7 +372,7 @@ Bind it:
 <ListBox Items="{Binding People}" Selection="{Binding PeopleSelection}"/>
 ```
 
-## 9. Validation with `INotifyDataErrorInfo`
+## 10. Validation with `INotifyDataErrorInfo`
 
 Implement `INotifyDataErrorInfo` for asynchronous validation.
 
@@ -366,7 +439,7 @@ Bind the validation feedback automatically:
 
 Avalonia surfaces validation errors via attached properties. For a full pattern see [`Validation`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Validation).
 
-## 10. Asynchronous bindings
+## 11. Asynchronous bindings
 
 Use `Task`-returning properties with `Binding` and `BindingPriority.AsyncLocalValue`. Example view model property:
 
@@ -394,7 +467,7 @@ Bind with fallback until the value arrives:
 
 You can also bind directly to `Task` results using `TaskObservableCollection` or reactive extensions (Chapter 17 covers background work).
 
-## 11. Binding diagnostics
+## 12. Binding diagnostics
 
 - **DevTools**: press F12 -> Diagnostics -> Binding Errors tab. Inspect live errors (missing properties, converters failing).
 - **Binding logging**: enable via `BindingDiagnostics`.
@@ -419,28 +492,32 @@ Source: [`BindingDiagnostics.cs`](https://github.com/AvaloniaUI/Avalonia/blob/ma
 
 Use `TraceBindingFailures` extension to log failures for specific bindings.
 
-## 12. Practice exercises
+## 13. Practice exercises
 
 1. **Compiled binding sweep**: add `x:DataType` to each data template and replace `Binding` with `CompiledBinding` where possible. Observe compile-time errors when property names are mistyped.
 2. **MultiBinding formatting**: create a multi binding that formats `FirstName`, `LastName`, and `Age` into a sentence like "Ada Lovelace is 36 years old." Add a converter parameter for custom formats.
 3. **Priority fallback**: allow a user-provided display name to override `FullName`, falling back to initials if names are empty.
 4. **Validation UX**: display validation errors inline using `INotifyDataErrorInfo` and highlight inputs (`Style Selector="TextBox:invalid"`).
-5. **Diagnostics drill**: intentionally break a binding (typo) and use DevTools and `BindingDiagnostics` to find it. Fix the binding and confirm logs clear.
+5. **Runtime binding helpers**: dynamically add a `TextBlock` for each person in a collection, use `BindingOperations.SetBinding` to wire `TextBlock.Text`, then `ClearBinding` when removing the item.
+6. **Observable probes**: pipe `TextBox.TextProperty` through `AvaloniaPropertyObservable.Observe` and surface the text length in the UI.
+7. **Diagnostics drill**: intentionally break a binding (typo) and use DevTools and `BindingDiagnostics` to find it. Fix the binding and confirm logs clear.
 
 ## Look under the hood (source bookmarks)
 - Binding implementation: [`Binding.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/Binding.cs), [`BindingExpression.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/BindingExpression.cs)
+- Binding helpers: [`BindingOperations.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/BindingOperations.cs), [`ExpressionObserver.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/ExpressionObserver.cs)
 - Compiled bindings: [`CompiledBindingExtension.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/MarkupExtensions/CompiledBindingExtension.cs)
 - Multi/Priority binding: [`MultiBinding.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup/Data/MultiBinding.cs), [`PriorityBinding.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup/Data/PriorityBinding.cs)
+- Reactive bridge: [`AvaloniaPropertyObservable.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Reactive/AvaloniaPropertyObservable.cs)
 - Selection model: [`SelectionModel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Selection/SelectionModel.cs)
 - Validation: [`Validation.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Validation/Validation.cs)
 - Diagnostics: [`BindingDiagnostics.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/BindingDiagnostics.cs)
 
 ## Check yourself
-- When would you choose `CompiledBinding` over `Binding`? What prerequisites does it have?
-- How do `ElementName` and `RelativeSource` differ in resolving binding sources?
-- What scenarios call for `MultiBinding` or `PriorityBinding`?
-- How does `INotifyDataErrorInfo` surface validation errors to the UI? What attached properties expose them?
-- Which tools can you use to debug binding failures during development?
+- When would you choose `CompiledBinding` over `Binding`, and what prerequisites does it have?
+- How do `ElementName`, `RelativeSource`, and attached property syntax change the binding source?
+- Which scenarios call for `MultiBinding`, `PriorityBinding`, or programmatic calls to `BindingOperations.SetBinding`?
+- How does `AvaloniaPropertyObservable.Observe` integrate with the binding engine, and when would you prefer it over classic bindings?
+- Which tooling surfaces validation and binding errors during development, and how would you enable the relevant diagnostics?
 
 What's next
 - Next: [Chapter 9](Chapter09.md)

@@ -2,19 +2,30 @@
 
 Goal
 - Deliver interfaces that are usable with keyboard, screen readers, and high-contrast themes.
-- Localize content, formats, and layout direction for multiple cultures.
-- Implement automation metadata (AutomationProperties, custom peers) and test accessibility.
+- Implement automation metadata (`AutomationProperties`, custom `AutomationPeer`s) so assistive technologies understand your UI.
+- Localize content, formats, fonts, and layout direction for multiple cultures while supporting IME and text services.
+- Build a repeatable accessibility testing loop that spans platform tooling and automated checks.
 
 Why this matters
-- Accessibility ensures compliance (WCAG/ADA) and a better experience for keyboard and assistive technology users.
-- Internationalization widens reach and avoids culture-specific bugs.
+- Accessibility ensures compliance (WCAG/ADA) and a better experience for keyboard and assistive-technology users.
+- Internationalization widens your reach and avoids locale-specific bugs in formatting or layout direction.
+- Treating accessibility and localization as first-class requirements keeps your app portable across desktop, mobile, and browser targets.
 
 Prerequisites
-- Keyboard/commands (Chapter 9), resources (Chapter 10), MVVM (Chapter 11), navigation (Chapter 12).
+- Keyboard input and commands (Chapter 9), resources (Chapter 10), MVVM patterns (Chapter 11), navigation and lifetimes (Chapter 12).
+
+Key namespaces
+- [`AutomationProperties.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/AutomationProperties.cs)
+- [`AutomationPeer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/Peers/AutomationPeer.cs)
+- [`ControlAutomationPeer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/Peers/ControlAutomationPeer.cs)
+- [`TextInputMethodClient.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputMethodClient.cs)
+- [`TextInputOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputOptions.cs)
+- [`FontManagerOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/FontManagerOptions.cs)
+- [`FlowDirection.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Visuals/FlowDirection.cs)
 
 ## 1. Keyboard accessibility
 
-### 1.1 Focus order and tab stops
+### 1.1 Focus order and tab navigation
 
 ```xml
 <StackPanel Spacing="8" KeyboardNavigation.TabNavigation="Cycle">
@@ -37,56 +48,58 @@ Prerequisites
 </StackPanel>
 ```
 
-- `KeyboardNavigation.TabNavigation="Cycle"` wraps focus within container.
-- Use `IsTabStop="False"` or `Focusable="False"` for decorative elements.
-- Access keys (underscore) require `AccessText` or `RecognizesAccessKey="True"`.
+- `KeyboardNavigation.TabNavigation="Cycle"` keeps focus within the container, ideal for dialogs.
+- Use `AccessText` or `RecognizesAccessKey="True"` to expose mnemonic keys.
+- Disable focus for decorative elements via `IsTabStop="False"` or `Focusable="False"`.
 
 ### 1.2 Keyboard navigation helpers
 
-`KeyboardNavigation` class (source: [`KeyboardNavigation.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyboardNavigation.cs)) supports:
-- `DirectionalNavigation="Cycle"` for arrow-key traversal (menus, grids).
-- `TabNavigation` modes: `Continue`, `Once`, `Local`, `Cycle`, `None`.
+`KeyboardNavigation` (source: [`KeyboardNavigation.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyboardNavigation.cs)) provides:
+- `DirectionalNavigation="Cycle"` for arrow-key traversal in menus/panels.
+- `TabNavigation` modes (`Continue`, `Once`, `Local`, `Cycle`, `None`).
+- `Control.IsTabStop` per element when you need to skip items like labels or icons.
 
 ## 2. Screen reader semantics
 
-### 2.1 AutomationProperties essentials
+Attach `AutomationProperties` to expose names, help text, and relationships:
 
 ```xml
 <StackPanel Spacing="10">
   <TextBlock x:Name="EmailLabel" Text="Email"/>
-  <TextBox Text="{Binding Email}" AutomationProperties.LabeledBy="{Binding #EmailLabel}"/>
+  <TextBox Text="{Binding Email}"
+           AutomationProperties.LabeledBy="{Binding #EmailLabel}"
+           AutomationProperties.AutomationId="EmailInput"/>
 
   <TextBlock x:Name="StatusLabel" Text="Status"/>
-  <TextBlock AutomationProperties.LabeledBy="{Binding #StatusLabel}"
-             AutomationProperties.LiveSetting="Polite"
-             Text="Ready"/>
+  <TextBlock Text="{Binding Status}"
+             AutomationProperties.LabeledBy="{Binding #StatusLabel}"
+             AutomationProperties.LiveSetting="Polite"/>
 </StackPanel>
 ```
 
-Properties:
-- `AutomationProperties.Name`: accessible label if no visible label exists.
-- `AutomationProperties.HelpText`: extra instructions.
-- `AutomationProperties.AutomationId`: stable ID for UI tests.
-- `AutomationProperties.ControlType`: override role in rare cases.
-- `AutomationProperties.LabeledBy`: link to label element.
+- `AutomationProperties.Name` provides a fallback label when there is no visible text.
+- `AutomationProperties.HelpText` supplies extra instructions for screen readers.
+- `AutomationProperties.LiveSetting` (`Polite`, `Assertive`) controls how urgent announcements are.
+- `AutomationProperties.ControlType` lets you override the role in edge cases (use sparingly).
 
-### 2.2 Announcing updates
+`AutomationProperties` map to automation peers. The base `ControlAutomationPeer` inspects properties and pseudo-classes to expose state.
 
-For live regions (status bars, chat messages):
+## 3. Custom automation peers
 
-```xml
-<TextBlock AutomationProperties.LiveSetting="Polite" Text="{Binding Status}"/>
-```
-
-`Polite` vs `Assertive` determines urgency.
-
-### 2.3 Custom automation peers
-
-When creating custom controls, override `OnCreateAutomationPeer` (source: [`ControlAutomationPeer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/Peers/ControlAutomationPeer.cs)):
+Create peers when you author custom controls so assistive technology can identify them correctly.
 
 ```csharp
 public class ProgressBadge : TemplatedControl
 {
+    public static readonly StyledProperty<string?> TextProperty =
+        AvaloniaProperty.Register<ProgressBadge, string?>(nameof(Text));
+
+    public string? Text
+    {
+        get => GetValue(TextProperty);
+        set => SetValue(TextProperty, value);
+    }
+
     protected override AutomationPeer? OnCreateAutomationPeer()
         => new ProgressBadgeAutomationPeer(this);
 }
@@ -95,111 +108,138 @@ public sealed class ProgressBadgeAutomationPeer : ControlAutomationPeer
 {
     public ProgressBadgeAutomationPeer(ProgressBadge owner) : base(owner) { }
 
-    protected override string? GetNameCore()
-        => (Owner as ProgressBadge)?.Text;
-
-    protected override AutomationControlType GetAutomationControlTypeCore()
-        => AutomationControlType.Text;
+    protected override string? GetNameCore() => (Owner as ProgressBadge)?.Text;
+    protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Text;
+    protected override AutomationLiveSetting GetLiveSettingCore() => AutomationLiveSetting.Polite;
 }
 ```
 
-Register peers for custom controls to describe their role/names to screen readers.
+- Override `PatternInterfaces` (e.g., `IRangeValueProvider`, `IValueProvider`) when your control supports specific automation patterns.
+- Use `AutomationProperties.AccessibilityView` to control whether a control appears in the content vs. control view.
 
-## 3. High contrast & color considerations
+## 4. High contrast and theme variants
 
-- Provide sufficient contrast (WCAG 2.1 suggests 4.5:1 for text).
-- Use theme resources instead of hard-coded colors. For high contrast, include variant dictionaries:
+Avalonia supports theme variants (`Light`, `Dark`, `HighContrast`). Bind colors to resources instead of hard-coding values.
 
 ```xml
-<ResourceDictionary ThemeVariant="HighContrast">
-  <SolidColorBrush x:Key="AccentBrush" Color="#00FF00"/>
+<ResourceDictionary>
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Default">
+      <SolidColorBrush x:Key="AccentBrush" Color="#2563EB"/>
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="HighContrast">
+      <SolidColorBrush x:Key="AccentBrush" Color="#00FF00"/>
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>
 ```
 
-Test high contrast by toggling `RequestedThemeVariant` (Chapter 7) and using OS settings.
+Switch variants for testing:
 
-## 4. Internationalization (i18n)
+```csharp
+Application.Current!.RequestedThemeVariant = ThemeVariant.HighContrast;
+```
 
-### 4.1 Resource management with RESX
+Provide clear focus visuals using pseudo-classes (`:focus`, `:pointerover`) and ensure contrast ratios meet WCAG (4.5:1 for body text). For Windows, respect system accent colors by reading `RequestedThemeVariant` and `SystemBarColor` (Chapter 7).
 
-Create `Resources.resx` (default) and `Resources.{culture}.resx`. Example localizer:
+## 5. Text input, IME, and text services
+
+IME support matters for CJK languages and handwriting. `TextInputMethodClient` is the bridge between your control and platform IME surfaces. Text controls in Avalonia already implement it; custom text editors should derive from `TextInputMethodClient` (or reuse `TextPresenter`).
+
+```csharp
+public sealed class CodeEditorTextInputClient : TextInputMethodClient
+{
+    private readonly CodeEditor _editor;
+
+    public CodeEditorTextInputClient(CodeEditor editor) => _editor = editor;
+
+    public override Visual TextViewVisual => _editor.TextLayer;
+    public override bool SupportsPreedit => true;
+    public override bool SupportsSurroundingText => true;
+    public override string SurroundingText => _editor.Document.GetText();
+    public override Rect CursorRectangle => _editor.GetCaretRect();
+    public override TextSelection Selection
+    {
+        get => new(_editor.SelectionStart, _editor.SelectionEnd);
+        set => _editor.SetSelection(value.Start, value.End);
+    }
+
+    public void UpdateCursor()
+    {
+        RaiseCursorRectangleChanged();
+        RaiseSelectionChanged();
+        RaiseSurroundingTextChanged();
+    }
+}
+```
+
+Configure text options with the attached `TextInputOptions` properties:
+
+```xml
+<TextBox Text="{Binding PhoneNumber}"
+         InputMethod.TextInputOptions.ContentType="TelephoneNumber"
+         InputMethod.TextInputOptions.ReturnKeyType="Done"
+         InputMethod.TextInputOptions.IsCorrectionEnabled="False"/>
+```
+
+- On mobile, `ReturnKeyType` changes the soft keyboard button (e.g., “Go”, “Send”).
+- `ContentType` hints at expected input, enabling numeric keyboards or email layouts.
+- `IsContentPredictionEnabled`/`IsSpellCheckEnabled` toggle autocorrect.
+
+When you detect IME-specific behaviour, test on Windows (IMM32), macOS, Linux (IBus/Fcitx), Android, and iOS — each backend surfaces slightly different capabilities.
+
+## 6. Localization workflow
+
+### 6.1 Resource management
+
+Use RESX resources or a localization service that surfaces culture-specific strings.
 
 ```csharp
 public sealed class Loc : INotifyPropertyChanged
 {
     private CultureInfo _culture = CultureInfo.CurrentUICulture;
-    private readonly ResourceManager _resources = Resources.ResourceManager;
-
-    public string this[string key] => _resources.GetString(key, _culture) ?? key;
+    public string this[string key] => Resources.ResourceManager.GetString(key, _culture) ?? key;
 
     public void SetCulture(CultureInfo culture)
     {
-        if (!_culture.Equals(culture))
-        {
-            _culture = culture;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
-        }
+        if (_culture.Equals(culture))
+            return;
+
+        _culture = culture;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 }
 ```
 
-Register in `App.axaml`:
+Register in `App.axaml` and bind:
 
 ```xml
 <Application.Resources>
   <local:Loc x:Key="Loc"/>
 </Application.Resources>
-```
 
-Use in XAML via indexer binding:
-
-```xml
-<MenuItem Header="{Binding [File], Source={StaticResource Loc}}"/>
 <TextBlock Text="{Binding [Ready], Source={StaticResource Loc}}"/>
 ```
 
 Switch culture at runtime:
 
 ```csharp
-var loc = (Loc)Application.Current!.Resources["Loc"];
-loc.SetCulture(new CultureInfo("fr-FR"));
-CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = new CultureInfo("fr-FR");
+var culture = new CultureInfo("fr-FR");
+CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = culture;
+((Loc)Application.Current!.Resources["Loc"]).SetCulture(culture);
 ```
 
-Reassigning `CurrentCulture` ensures format strings (`{0:C}`) use new culture.
+### 6.2 Formatting and layout direction
 
-### 4.2 Culture-aware formatting
+- Use binding `StringFormat` or `string.Format` with the current culture for dates, numbers, and currency.
+- Set `FlowDirection="RightToLeft"` for RTL languages and override back to `LeftToRight` for controls that must remain LTR (e.g., numeric fields).
+- Mirror icons and layout padding when mirrored (use `ScaleTransform` or `LayoutTransform`).
 
-```xml
-<TextBlock Text="{Binding OrderTotal, StringFormat={}{0:C}}"/>
-<TextBlock Text="{Binding OrderDate, StringFormat={}{0:D}}"/>
-```
+## 7. Fonts and fallbacks
 
-Round-trip parsing uses `CultureInfo.CurrentCulture`. For manual conversions, pass `CultureInfo.CurrentCulture` to `TryParse`.
-
-### 4.3 FlowDirection for RTL languages
-
-```xml
-<Window FlowDirection="RightToLeft">
-  <StackPanel>
-    <TextBlock Text="{Binding [Hello], Source={StaticResource Loc}}"/>
-    <TextBox FlowDirection="LeftToRight" Text="{Binding Input}"/>
-  </StackPanel>
-</Window>
-```
-
-- RTL flips layout for panels and default icons. Use `FlowDirection.LeftToRight` for controls that should remain LTR (e.g., numbers).
-- `FlowDirection` is defined in [`Avalonia.Visuals/FlowDirection.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Visuals/FlowDirection.cs).
-
-### 4.4 Input Method Editors (IME)
-
-Text input (Asian languages) uses IME. Controls like `TextBox` handle IME automatically. When building custom text surfaces, implement `ITextInputMethodClient` (source: [`TextInputMethodClient.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputMethodClient.cs)).
-
-## 5. Fonts and fallbacks
-
-Use fonts with wide Unicode coverage (Noto Sans, Segoe UI, Roboto). Set defaults via `FontManagerOptions` (Chapter 7). For script-specific fonts, add fallback chain:
+Ensure glyph coverage with `FontManagerOptions`:
 
 ```csharp
 AppBuilder.Configure<App>()
@@ -213,65 +253,47 @@ AppBuilder.Configure<App>()
             new FontFallback { Family = "Noto Sans CJK SC" }
         }
     })
-    .LogToTrace();
+    .StartWithClassicDesktopLifetime(args);
 ```
 
-Embed fonts for branding or to ensure glyph coverage. Use `FontFamily="avares://MyApp/Assets/Fonts/NotoSans.ttf#Noto Sans"` in styles.
+- Ship branded fonts via `FontFamily="avares://MyApp/Assets/Fonts/Brand.ttf#Brand"`.
+- Test scripts that require surrogate pairs (emoji, rare CJK ideographs) to ensure fallbacks load.
+- On Windows, consider `TextRenderingMode` for clarity vs. smoothness.
 
-## 6. Testing accessibility
+## 8. Testing accessibility
 
-- Manual: Tab through UI, run screen reader (Narrator, VoiceOver, Orca).
-- Automated: Use UI test frameworks (Avalonia.Headless, Chapter 21) combined with `AutomationId` to verify accessibility properties.
-- Tools: Contrast analyzers (Color Oracle, Stark), `Accessibility Insights` for Windows to inspect accessibility tree.
+Tips for a repeatable test loop:
 
-### 6.1 Inspecting automation tree
+- **Keyboard** – Tab through each screen, ensure focus indicators are visible, and verify shortcuts work.
+- **Screen readers** – Use Narrator, NVDA, or JAWS on Windows; VoiceOver on macOS/iOS; TalkBack on Android; Orca on Linux. Confirm names, roles, and help text.
+- **Automation tree** – Avalonia DevTools → **Automation** tab visualizes peers and properties.
+- **Contrast** – Run `Accessibility Insights` (Windows), `Color Oracle`, or browser dev tools to verify contrast ratios.
+- **Automated** – Combine `Avalonia.Headless` UI tests (Chapter 21) with assertions on `AutomationId` and localized content.
 
-Avalonia DevTools (F12) -> Automation tab displays automation peers and properties. Confirm names, roles, help text.
+Document gaps (e.g., missing peers, insufficient contrast) and track them like any other defect.
 
-## 7. Accessibility checklist
+## 9. Practice exercises
 
-Keyboard
-- All interactive elements reachable via Tab/Shift+Tab.
-- Visible focus indicator (use styles to highlight `:focus` pseudo-class).
-- Access keys for primary commands.
-
-Screen readers
-- Provide `AutomationProperties.Name`/`LabeledBy` for inputs.
-- Use `AutomationProperties.HelpText` for guidance.
-- Broadcast status updates via `AutomationProperties.LiveSetting`.
-
-High contrast
-- Colors bound to theme resources; text meets contrast ratios.
-- Check `RequestedThemeVariant=HighContrast` for readability.
-
-Internationalization
-- All strings from resources.
-- `CultureInfo.CurrentCulture`/`CurrentUICulture` update when switching language.
-- Layout supports `FlowDirection` changes.
-- Fonts cover required scripts.
-
-## 8. Practice exercises
-
-1. Add access keys and keyboard navigation for a form; verify focus order matches the spec.
-2. Add `AutomationProperties.Name`, `HelpText`, and `AutomationId` to controls in a settings screen and test with Narrator or VoiceOver.
-3. Localize UI strings into two additional cultures (e.g., es-ES, ar-SA), provide culture switching, and confirm RTL layout in Arabic.
-4. Configure a default font fallback chain and verify glyph rendering for accented Latin, Cyrillic, Arabic, and CJK text.
-5. Build an automated test (Avalonia.Headless) that finds elements via `AutomationId` and asserts localized content changes with culture.
+1. Annotate a settings page with `AutomationProperties.Name`, `HelpText`, and `AutomationId`; inspect the automation tree with DevTools and NVDA.
+2. Derive a custom `AutomationPeer` for a progress pill control, exposing live updates and value patterns, then verify announcements in a screen reader.
+3. Configure `TextInputOptions` for phone number input on Windows, Android, and iOS. Test with an IME (Japanese/Chinese) to ensure composition events render correctly.
+4. Localize UI strings into two additional cultures (e.g., es-ES, ar-SA), toggle `FlowDirection`, and confirm mirrored layouts do not break focus order.
+5. Set up `FontManagerOptions` with script-specific fallbacks and validate that Arabic, Cyrillic, and CJK text render without tofu glyphs.
 
 ## Look under the hood (source bookmarks)
 - Keyboard navigation: [`KeyboardNavigation.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyboardNavigation.cs)
-- Access text: [`AccessText.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Primitives/AccessText.cs)
-- Automation properties: [`AutomationProperties.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/AutomationProperties.cs)
-- Automation peers: [`ControlAutomationPeer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/Peers/ControlAutomationPeer.cs)
+- Automation metadata: [`AutomationProperties.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/AutomationProperties.cs), [`ControlAutomationPeer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/Peers/ControlAutomationPeer.cs)
+- Text input & IME: [`TextInputMethodClient.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputMethodClient.cs), [`TextInputOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputOptions.cs)
+- Localization: [`CultureInfoExtensions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Localization/CultureInfoExtensions.cs), [`RuntimePlatformServices`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Runtime/PlatformServices.cs)
+- Font management: [`FontManagerOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/FontManagerOptions.cs)
 - Flow direction: [`FlowDirection.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Visuals/FlowDirection.cs)
-- Font manager options: [`FontManagerOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/FontManagerOptions.cs)
 
 ## Check yourself
-- How do you connect a TextBox to its label so screen readers announce them together?
-- Which property enables live region updates for status text?
-- How do you switch UI language at runtime and refresh all localized bindings?
-- Where do you configure font fallbacks to support multiple scripts?
-- What steps ensure your UI handles high-contrast settings correctly?
+- How do `AutomationProperties.LabeledBy` and `AutomationId` improve automated testing and screen reader output?
+- When should you implement a custom `AutomationPeer`, and which patterns do you need to expose for value-based controls?
+- Which `TextInputOptions` settings influence IME behaviour and soft keyboard layouts across platforms?
+- How do you switch UI language at runtime and ensure both text and layout update correctly?
+- Where do you configure font fallbacks to cover multiple scripts without shipping duplicate glyphs?
 
 What's next
 - Next: [Chapter 16](Chapter16.md)

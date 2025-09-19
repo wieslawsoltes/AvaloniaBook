@@ -60,7 +60,34 @@ Supports options: `AttachDevTools(new DevToolsOptions { StartupScreenIndex = 1 }
 
 Use the target picker to select elements on screen and inspect descendants/ancestors.
 
-## 4. Debug overlays (`RendererDebugOverlays`)
+## 4. Renderer diagnostics API
+
+- Every `TopLevel` exposes `IRenderer Diagnostics`. Subscribe to `PropertyChanged` to stream overlay toggles or other diagnostics to logs, counters, or dashboards.
+- Toggle overlays without opening DevTools: set `renderer.Diagnostics.DebugOverlays` from code or configuration.
+- Hook `SceneInvalidated` when you need per-frame insight into which rectangles triggered redraws. Pair this with your own timers to understand long layout/render passes.
+- Enable `LogArea.Composition` in logging when you need to correlate compositor operations (scene graph updates, render thread work) with on-screen symptoms.
+
+```csharp
+using System.Diagnostics;
+
+if (TopLevel is { Renderer: { } renderer })
+{
+    renderer.SceneInvalidated += (_, e) =>
+    {
+        Debug.WriteLine($"Invalidated {e.Rect}");
+    };
+
+    renderer.Diagnostics.PropertyChanged += (_, e) =>
+    {
+        if (e.PropertyName == nameof(RendererDiagnostics.DebugOverlays))
+        {
+            Debug.WriteLine($"Overlays now: {renderer.Diagnostics.DebugOverlays}");
+        }
+    };
+}
+```
+
+## 5. Debug overlays (`RendererDebugOverlays`)
 
 Access via DevTools "Diagnostics" pane or programmatically:
 
@@ -86,7 +113,15 @@ Interpretation:
 - LayoutTime spikes = heavy measure/arrange; check Layout Explorer to spot bottleneck.
 - RenderTime spikes = expensive drawing (big bitmaps, custom rendering).
 
-## 5. Performance checklist
+## 6. Remote diagnostics (`Avalonia.Remote.Protocol`)
+
+- Remote DevTools streams frames and inspection data over the transports defined in `Avalonia.Remote.Protocol` (BSON/TCP by default).
+- Use `Avalonia.Controls.Remote.RemoteServer` with a `BsonTcpTransport` to expose an interactive surface when debugging devices without a local inspector (mobile, kiosk). Connect using an Avalonia DevTools client (dotnet `avalonia` tool or IDE integration) pointing at `tcp-bson://host:port`.
+- Messages such as `TransportMessages.cs` describe the payloads (frame buffers, input, diagnostics). Extend them if you build custom tooling.
+- Remote sessions respect overlay and logging flags, so enabling `RendererDebugOverlays` locally will surface in the remote stream as well.
+- For secure deployments, wrap `TcpTransportBase` in an authenticated tunnel (SSH port forward, reverse proxy) and disable remote servers in production builds.
+
+## 7. Performance checklist
 
 Lists & templates
 - Use virtualization (`VirtualizingStackPanel`) for list controls.
@@ -111,20 +146,20 @@ Profiling
 - Use `.NET` profilers (dotTrace, PerfView, dotnet-trace) to capture CPU/memory.
 - For GPU, use platform tools if necessary (RenderDoc for GL/DirectX when supported).
 
-## 6. Considerations per platform
+## 8. Considerations per platform
 
 - Windows: ensure GPU acceleration enabled; check drivers. Acrylic/Mica can cost extra GPU time.
 - macOS: retina scaling multiplies pixel counts; ensure vector assets and efficient drawing.
 - Linux: varying window managers/compositors. If using software rendering, expect lower FPS--optimize accordingly.
 - Mobile & Browser: treat CPU/GPU resources as more limited; avoid constant redraw loops.
 
-## 7. Automation & CI
+## 9. Automation & CI
 
 - Combine unit tests with headless UI tests (Chapter 21).
 - Create regression tests for performance-critical features (measure time for known operations, fail if above threshold).
 - Capture baseline metrics (FPS, load time) and compare across commits; tools like BenchmarkDotNet can help (for logic-level measurements).
 
-## 8. Workflow summary
+## 10. Workflow summary
 
 1. Reproduce in Release with logging disabled -> measure baseline.
 2. Enable DevTools overlays (FPS, dirty rects, layout/render graphs) -> identify pattern.
@@ -133,21 +168,23 @@ Profiling
 5. Re-measure with overlays/logs to confirm improvements.
 6. Capture notes and, if beneficial, automate tests for future regressions.
 
-## 9. Practice exercises
+## 11. Practice exercises
 
-1. Attach DevTools to your app, enable `RendererDebugOverlays.Fps`, and record FPS before/after virtualizing a long list.
-2. Log `Binding`/`Property` areas and identify recurring property changes; batch or throttle updates.
-3. Measure layout time via overlay before/after simplifying a nested panel layout; compare results.
-4. Add a unit/UITest that asserts a time-bound operation completes under a threshold (e.g., load 1,000 items). Use Release build to verify.
-5. Capture a profile with `dotnet-trace` or `dotnet-counters` during a slow interaction; interpret CPU/memory graphs.
+1. Attach DevTools, toggle `RendererDebugOverlays.Fps | LayoutTimeGraph`, and record metrics before/after enabling virtualization in a long list.
+2. Capture binding noise by raising `LogArea.Binding` to `Debug`, then fix the source and verify the log stream quiets down.
+3. Spin up a `RemoteServer` with `BsonTcpTransport`, connect using an Avalonia DevTools client (dotnet `avalonia` tool or IDE integration), and confirm overlays/logging data mirror the local session.
+4. Profile the same interaction with `dotnet-trace` and align CPU spikes with render diagnostics to validate the chosen fix.
 
 ## Look under the hood (source bookmarks)
 - DevTools attach helpers: [`DevToolsExtensions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/DevToolsExtensions.cs)
 - DevTools view models (toggling overlays): [`MainViewModel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/ViewModels/MainViewModel.cs)
+- Renderer diagnostics: [`RendererDiagnostics.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDiagnostics.cs)
 - Renderer overlays: [`RendererDebugOverlays.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)
 - Logging infrastructure: [`LogArea`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Logging/LogArea.cs)
 - RenderOptions (quality settings): [`RenderOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/RenderOptions.cs)
 - Layout diagnostics: [`LayoutHelper`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/LayoutHelper.cs)
+- Remote transport messages: [`TransportMessages.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Remote.Protocol/TransportMessages.cs)
+- Remote server host: [`RemoteServer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Remote/RemoteServer.cs)
 
 ## Check yourself
 - Why must performance measurements be done in Release builds?

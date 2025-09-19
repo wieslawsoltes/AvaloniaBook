@@ -156,9 +156,83 @@ public sealed class PeopleViewModel : ObservableObject
 }
 ```
 
-`IPersonService` represents data access. Inject it via DI in `App.axaml.cs` (see Section 4).
+`IPersonService` represents data access. Inject it via DI in `App.axaml.cs` (see Section 3).
 
-### 2.4 Mapping view models to views via DataTemplates
+### 2.4 Binding notifications and validation
+
+Bindings surface both conversion errors and validation failures through `BindingNotification` and the `DataValidationException` payload. Listening to those notifications helps you surface validation summaries in the UI and quickly diagnose binding issues during development.
+
+```csharp
+public sealed class AccountViewModel : ObservableValidator
+{
+    private string _email = string.Empty;
+    public ObservableCollection<string> ValidationMessages { get; } = new();
+
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Enter a valid email address")]
+    public string Email
+    {
+        get => _email;
+        set => SetProperty(ref _email, value, true);
+    }
+}
+```
+
+`ObservableValidator` lives in CommunityToolkit.Mvvm and combines property change notification with `INotifyDataErrorInfo` support. Expose `ValidationMessages` (e.g., an `ObservableCollection<string>`) to feed summaries or inline hints.
+
+```xml
+<TextBox x:Name="EmailBox"
+         Text="{Binding Email, Mode=TwoWay, ValidatesOnNotifyDataErrors=True, UpdateSourceTrigger=PropertyChanged}"/>
+<ItemsControl ItemsSource="{Binding ValidationMessages}"/>
+```
+
+```csharp
+var subscription = EmailBox.GetBindingObservable(TextBox.TextProperty)
+    .Subscribe(result =>
+    {
+        if (result.HasError && result.Error is BindingNotification notification)
+        {
+            if (notification.Error is ValidationException validation)
+                ValidationMessages.Add(validation.Message);
+            else
+                Logger.LogError(notification.Error, "Binding failure for Email");
+        }
+    });
+
+DataValidationErrors.GetObservable(EmailBox)
+    .Subscribe(args => ValidationMessages.Add(args.Error.Content?.ToString() ?? string.Empty));
+```
+
+`BindingNotification` distinguishes between binding errors and data validation errors (`BindingErrorType`). Validation failures arrive as `DataValidationException` instances on the notification, exposing the offending property and message. Use Avalonia's `DataValidationErrors` helper to observe validation changes and feed a summary control or toast.
+
+### 2.5 Value converters and formatting
+
+When view and view model types differ, implement `IValueConverter` or `IBindingTypeConverter` to keep view models POCO-friendly.
+
+```csharp
+public sealed class TimestampToLocalTimeConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is DateTimeOffset dto ? dto.ToLocalTime().ToString("t", culture) : string.Empty;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => DateTimeOffset.TryParse(value as string, culture, DateTimeStyles.AssumeLocal, out var dto) ? dto : BindingOperations.DoNothing;
+}
+```
+
+Register converters in resources and reuse them across DataTemplates:
+
+```xml
+<Window.Resources>
+  <local:TimestampToLocalTimeConverter x:Key="LocalTime"/>
+</Window.Resources>
+
+<TextBlock Text="{Binding LastSignIn, Converter={StaticResource LocalTime}}"/>
+```
+
+Converters keep view models focused on domain types while views shape presentation. For complex pipelines, combine converters with `Binding.ConverterParameter` or chained bindings.
+
+### 2.6 Mapping view models to views via DataTemplates
 
 ```xml
 
@@ -181,9 +255,30 @@ In `MainWindow.axaml`:
 <ContentControl Content="{Binding CurrentViewModel}"/>
 ```
 
-`CurrentViewModel` property determines which view to display. This is the ViewModel-first approach: DataTemplates map VM types to Views automatically.
+`CurrentViewModel` property determines which view to display. This is the ViewModel-first approach: DataTemplates map VM types to Views automatically. For advanced scenarios, register an `IGlobalDataTemplates` implementation to provide templates at runtime (e.g., when view models live in feature modules).
 
-### 2.5 Navigation service (classic MVVM)
+```csharp
+public sealed class AppDataTemplates : IGlobalDataTemplates
+{
+    private readonly IServiceProvider _services;
+
+    public AppDataTemplates(IServiceProvider services) => _services = services;
+
+    public bool Match(object? data) => data is ViewModelBase;
+
+    public Control Build(object? data)
+        => data switch
+        {
+            HomeViewModel => _services.GetRequiredService<HomeView>(),
+            SettingsViewModel => _services.GetRequiredService<SettingsView>(),
+            _ => new TextBlock { Text = "No view registered." }
+        };
+}
+```
+
+Register the implementation in `App` or DI container so Avalonia uses it when resolving content.
+
+### 2.7 Navigation service (classic MVVM)
 
 ```csharp
 public interface INavigationService
@@ -217,7 +312,9 @@ public sealed class NavigationService : ObservableObject, INavigationService
 
 Register navigation service via dependency injection (next section). View models call `navigationService.NavigateTo<PeopleViewModel>()` to swap views.
 
-## 3. Dependency injection and composition
+## 3. Composition and state management
+
+### 3.1 Dependency injection and view model factories
 
 Use your favorite DI container. Example with Microsoft.Extensions.DependencyInjection in `App.axaml.cs`:
 
@@ -236,6 +333,10 @@ public partial class App : Application
         {
             desktop.MainWindow = _services.GetRequiredService<MainWindow>();
         }
+        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
+        {
+            singleView.MainView = _services.GetRequiredService<ShellView>();
+        }
 
         base.OnFrameworkInitializationCompleted();
     }
@@ -244,16 +345,86 @@ public partial class App : Application
     {
         var services = new ServiceCollection();
         services.AddSingleton<MainWindow>();
+        services.AddSingleton<ShellView>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddTransient<PeopleViewModel>();
         services.AddTransient<HomeViewModel>();
         services.AddSingleton<IPersonService, PersonService>();
+        services.AddSingleton<IGlobalDataTemplates, AppDataTemplates>();
         return services.BuildServiceProvider();
     }
 }
 ```
 
-Inject `INavigationService` into view models to drive navigation.
+Inject `INavigationService` (or a more opinionated router) into view models to drive navigation. Supplying `IGlobalDataTemplates` from the service provider keeps view discovery aligned with DI—views can request their own dependencies on construction.
+
+### 3.2 State orchestration with observables
+
+Centralize shared state in dedicated services so view models remain focused on UI coordination:
+
+```csharp
+public sealed class DocumentStore : ObservableObject
+{
+    private readonly ObservableCollection<DocumentViewModel> _documents = new();
+    public ReadOnlyObservableCollection<DocumentViewModel> OpenDocuments { get; }
+
+    public DocumentStore()
+        => OpenDocuments = new ReadOnlyObservableCollection<DocumentViewModel>(_documents);
+
+    public void Open(DocumentViewModel document)
+    {
+        if (!_documents.Contains(document))
+            _documents.Add(document);
+    }
+
+    public void Close(DocumentViewModel document) => _documents.Remove(document);
+}
+```
+
+Expose commands that call into the store instead of duplicating logic across view models. For undo/redo, track a stack of undoable actions and leverage property observables to record mutations:
+
+```csharp
+public interface IUndoableAction
+{
+    void Execute();
+    void Undo();
+}
+
+public sealed class UndoRedoManager
+{
+    private readonly Stack<IUndoableAction> _undo = new();
+    private readonly Stack<IUndoableAction> _redo = new();
+
+    public void Do(IUndoableAction action)
+    {
+        action.Execute();
+        _undo.Push(action);
+        _redo.Clear();
+    }
+
+    public void Undo() => Execute(_undo, _redo);
+    public void Redo() => Execute(_redo, _undo);
+
+    private static void Execute(Stack<IUndoableAction> source, Stack<IUndoableAction> target)
+    {
+        if (source.TryPop(out var action))
+        {
+            action.Undo();
+            target.Push(action);
+        }
+    }
+}
+```
+
+Subscribe to `INotifyPropertyChanged` or use `Observable.FromEventPattern` to capture state snapshots whenever important properties change. This approach works equally well for manual MVVM, CommunityToolkit, or ReactiveUI view models.
+
+### 3.3 Bridging other MVVM frameworks
+
+- **Prism**: Register `ViewModelLocator.AutoWireViewModel` in XAML and let Prism resolve view models via Avalonia DI. Use Prism's region navigation on top of `ContentControl`-based shells.
+- **Caliburn.Micro / Stylet**: Hook their view locator into Avalonia by implementing `IGlobalDataTemplates` or setting `ViewLocator.LocateForModelType` to the framework's resolver.
+- **PropertyChanged.Fody / FSharp.ViewModule**: Combine source generators with Avalonia bindings—`BindingNotification` still surfaces validation errors, so logging and diagnostics remain consistent.
+
+The key is to treat Avalonia's property system as the integration point: as long as view models raise property change notifications, you can plug in different MVVM toolkits without rewriting view code.
 
 ## 4. Testing classic MVVM view models
 
@@ -423,6 +594,37 @@ Routers manage stacks of `IRoutableViewModel` instances. Example shell view mode
 
 ReactiveUI navigation supports back/forward, parameter passing, and async transitions.
 
+### 5.6 Avalonia.ReactiveUI helpers
+
+`Avalonia.ReactiveUI` ships opinionated base classes such as `ReactiveWindow<TViewModel>`, `ReactiveContentControl<TViewModel>`, and extension methods that bridge Avalonia's property system with ReactiveUI's `IObservable` pipelines.
+
+```csharp
+public partial class ShellWindow : ReactiveWindow<ShellViewModel>
+{
+    public ShellWindow()
+    {
+        InitializeComponent();
+
+        this.WhenActivated(disposables =>
+        {
+            this.OneWayBind(ViewModel, vm => vm.Router, v => v.RouterHost.Router)
+                .DisposeWith(disposables);
+            this.BindCommand(ViewModel, vm => vm.ExitCommand, v => v.ExitMenuItem)
+                .DisposeWith(disposables);
+        });
+    }
+}
+```
+
+Activation hooks route `BindingNotification` instances through ReactiveUI's logging infrastructure, so binding failures show up in `RxApp.DefaultExceptionHandler`. Register `ActivationForViewFetcher` when hosting custom controls so ReactiveUI can discover activation semantics:
+
+```csharp
+Locator.CurrentMutable.Register(() => new ShellWindow(), typeof(IViewFor<ShellViewModel>));
+Locator.CurrentMutable.RegisterConstant(new AvaloniaActivationForViewFetcher(), typeof(IActivationForViewFetcher));
+```
+
+These helpers keep Avalonia bindings, routing, and interactions in sync with ReactiveUI conventions.
+
 ## 6. Interactions and dialogs
 
 Use `Interaction<TInput,TOutput>` to request UI interactions from view models.
@@ -487,23 +689,28 @@ Mixing is common: use classic MVVM for most pages; ReactiveUI for reactive-heavy
 
 ## 9. Practice exercises
 
-1. Convert the People example from classic to CommunityToolkit.Mvvm using `[ObservableProperty]` and `[RelayCommand]` attributes.
-2. Add async loading with cancellation (Chapter 17) and unit-test cancellation for both MVVM styles.
-3. Implement a view locator that resolves views via DI rather than naming convention.
-4. Extend ReactiveUI routing with a modal dialog page and test navigation using `TestScheduler`.
-5. Compare command implementations by profiling UI responsiveness when commands run long operations.
+1. Compose a multi-view shell that swaps `HomeViewModel`/`SettingsViewModel` via DI-backed `IGlobalDataTemplates` and an `INavigationService`.
+2. Extend the account form to surface a validation summary by listening to `DataValidationErrors.GetObservable` and logging `BindingNotification` errors.
+3. Author a currency `IValueConverter`, register it in resources, and verify formatting in both classic and ReactiveUI views.
+4. Implement an async load pipeline with `ReactiveCommand`, binding `IsExecuting` to a progress indicator and asserting behaviour with `TestScheduler`.
+5. Add undo/redo support to the People sample by capturing `INotifyPropertyChanged` via `Observable.FromEventPattern` and replaying changes.
 
 ## Look under the hood (source bookmarks)
+- Binding diagnostics: [`BindingNotification.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/BindingNotification.cs)
+- Data validation surfaces: [`DataValidationErrors.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/DataValidationErrors.cs)
 - Avalonia + ReactiveUI integration: [`Avalonia.ReactiveUI`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.ReactiveUI)
-- Data templates & view mapping: [`DataTemplate.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs)
+- Global templates: [`IGlobalDataTemplates.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/IGlobalDataTemplates.cs)
+- Value conversion defaults: [`DefaultValueConverter.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/Converters/DefaultValueConverter.cs)
 - Reactive command implementation: [`ReactiveCommand.cs`](https://github.com/reactiveui/ReactiveUI/blob/main/src/ReactiveUI/ReactiveCommand.cs)
 - Interaction pattern: [`Interaction.cs`](https://github.com/reactiveui/ReactiveUI/blob/main/src/ReactiveUI/Interaction.cs)
 
 ## Check yourself
 - What benefits does a view locator provide compared to manual view creation?
+- How do `BindingNotification` and `DataValidationErrors` help diagnose problems during binding?
 - How do `ReactiveCommand` and classic `RelayCommand` differ in async handling?
 - Why is DI helpful when constructing view models? How would you register services in Avalonia?
 - Which scenarios justify ReactiveUI's routing over simple `ContentControl` swaps?
+- What advantage does `IGlobalDataTemplates` offer over static XAML data templates?
 
 What's next
 - Next: [Chapter 12](Chapter12.md)

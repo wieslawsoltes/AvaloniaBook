@@ -137,6 +137,16 @@ Validation strategies:
 - For forms, show hint text using pseudo-class `:hasnodate` when `SelectedDate` is null.
 - Provide automation names for the button and popup to assist screen readers.
 
+### Calendar control for planners
+
+`Calendar` gives you a full month or decade view without the flyout wrapper.
+- `DisplayMode` toggles Month, Year, or Decade views—useful for date pickers embedded in dashboards.
+- `SelectedDates` supports multi-selection when `SelectionMode` is `MultipleRange`; bind it to a collection for booking scenarios.
+- Handle `DisplayDateChanged` to lazy-load data (appointments, deadlines) as the user browses months.
+- Customize the template to expose additional adorners (badges, tooltips). Keep `PART_DaysPanel` and related names intact so the control keeps functioning.
+
+When you need both `Calendar` and `DatePicker`, reuse the same `CalendarDatePicker` styles so typography and spacing stay consistent.
+
 ## 6. SplitView and navigation panes
 
 `SplitView` builds side drawers with flexible display modes (`SplitView.cs`).
@@ -167,6 +177,15 @@ Tips:
 - Manage focus: when the pane opens via keyboard, move focus to the first focusable element; when closing, restore focus to the toggle.
 - Combine with `TransitioningContentControl` (Chapter 29) for smooth page transitions.
 
+### TransitioningContentControl for dynamic views
+
+`TransitioningContentControl` wraps a content presenter with `IPageTransition` support.
+- Assign `PageTransition` in XAML (slide, cross-fade, custom transitions) to animate view-model swaps.
+- Hook `TransitionCompleted` to dispose old view models or trigger analytics when navigation ends.
+- Pair with `SplitView` or navigation shells to animate content panes independently of the chrome.
+
+For component galleries, use it to showcase before/after states or responsive layouts without writing manual animation plumbing.
+
 ## 7. SplitButton and ToggleSplitButton
 
 `SplitButton` provides a main action plus a secondary flyout (`SplitButton.cs`).
@@ -190,11 +209,17 @@ Example:
 
 Ensure `Command.CanExecute` updates by binding to view model state; `SplitButton` listens for `CanExecuteChanged` and toggles `IsEnabled` accordingly.
 
-## 8. Notifications & documents in hybrid scenarios
+## 8. Notifications, documents, and media surfaces
 
 - `Inline`, `Run`, `Span`, and `InlineUIContainer` in `Avalonia.Controls.Documents` let you build rich text with embedded controls (useful for notifications or chat bubbles).
 - Use `InlineUIContainer` sparingly; it affects layout performance.
 - Combine `NotificationCard` with document inlines to highlight formatted content (bold text, links).
+
+`MediaPlayerElement` (available when you reference the media package) embeds audio/video playback with transport controls.
+- Bind `Source` to URIs or streams; the element manages decoding via platform backends (`Windows` uses Angle/DX, `Linux` goes through FFmpeg when available).
+- Toggle `AreTransportControlsEnabled` to show built-in play/pause UI; for custom chrome, bind to `MediaPlayer` and drive commands yourself.
+- Handle `MediaOpened`/`MediaEnded` to chain playlists or update state.
+- On platforms without native codecs, surface fallbacks (download prompts, external players) so the UI stays predictable.
 
 ## 9. Building a component gallery
 
@@ -247,9 +272,10 @@ Best practices:
 - Color picker foundation: `external/Avalonia/src/Avalonia.Controls.ColorPicker/ColorPicker/ColorPicker.cs`
 - Pull-to-refresh: `external/Avalonia/src/Avalonia.Controls/PullToRefresh/RefreshContainer.cs`
 - Notifications: `external/Avalonia/src/Avalonia.Controls/Notifications/WindowNotificationManager.cs`, `NotificationCard.cs`
-- Date/time: `external/Avalonia/src/Avalonia.Controls/DateTimePickers/DatePicker.cs`, `TimePicker.cs`
+- Calendar & date/time: `external/Avalonia/src/Avalonia.Controls/Calendar/Calendar.cs`, `external/Avalonia/src/Avalonia.Controls/DateTimePickers/DatePicker.cs`, `TimePicker.cs`
 - Split view/button: `external/Avalonia/src/Avalonia.Controls/SplitView/SplitView.cs`, `external/Avalonia/src/Avalonia.Controls/SplitButton/SplitButton.cs`
 - Documents: `external/Avalonia/src/Avalonia.Controls/Documents/*`
+- Transitions host: `external/Avalonia/src/Avalonia.Controls/TransitioningContentControl.cs`
 
 ## Check yourself
 - Which namespace hosts `RefreshContainer`, and why does it need a `RefreshVisualizer`?

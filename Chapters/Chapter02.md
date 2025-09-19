@@ -14,21 +14,36 @@ Why this matters
 
 ## Prerequisites by operating system
 
+### SDK matrix at a glance
+Avalonia 11 targets .NET 8.0. The official repository pins versions in [`global.json`](https://github.com/AvaloniaUI/Avalonia/blob/master/global.json):
+
+| Scenario | SDK / Tooling | Notes |
+| --- | --- | --- |
+| Desktop (Windows/macOS/Linux) | .NET SDK `8.0.x` | Use latest LTS; `global.json` ensures consistent builds across machines. |
+| Android | .NET SDK `8.0.x` + `android` workload | Requires Android Studio or Visual Studio mobile workloads. |
+| iOS/macOS Catalyst | .NET SDK `8.0.x` + `ios` workload | Requires Xcode CLI tools and Apple certificates for device deployment. |
+| Browser (WebAssembly) | .NET SDK `8.0.x` + `wasm-tools` workload | Installs Emscripten toolchain for WASM builds. |
+
+Run `dotnet --list-sdks` to confirm the expected SDK version is installed. When multiple SDKs coexist, keep a repo-level `global.json` to pin builds to the Avalonia-supported version.
+
 ### Windows
 - Install the latest **.NET SDK** (x64) from <https://dotnet.microsoft.com/download>.
 - Install **Visual Studio 2022** with the ".NET desktop development" workload; add ".NET Multi-platform App UI development" for mobile tooling.
 - Optional: `winget install --id Microsoft.DotNet.SDK.8` (replace with the current LTS) and install the **Windows Subsystem for Linux** if you plan to test Linux packages.
+- Native dependencies: Avalonia bundles Skia; keep GPU drivers updated. When shipping self-contained builds, include ANGLE libraries (`libEGL`, `libGLESv2`, `d3dcompiler_47`) for broader GPU compatibility (see Chapter 26).
 
 ### macOS
 - Install the latest **.NET SDK (Arm64 or x64)** from Microsoft.
 - Install **Xcode** (App Store) to satisfy iOS build prerequisites.
 - Recommended IDEs: **JetBrains Rider**, **Visual Studio 2022 for Mac** (if installed), or **Visual Studio Code** with the C# Dev Kit.
 - Optional: install **Homebrew** and use it for `brew install dotnet-sdk` to keep versions updated.
+- Native dependencies: Avalonia uses Skia via Metal/OpenGL; ensure Command Line Tools are installed (`xcode-select --install`).
 
 ### Linux (Ubuntu/Debian example)
 - Add the Microsoft package feed and install the latest **.NET SDK** (`sudo apt install dotnet-sdk-8.0`).
 - Install an IDE: **Rider** or **Visual Studio Code** with the C# extension (OmniSharp or C# Dev Kit).
 - Ensure GTK dependencies are present (`sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0`) because the ControlCatalog sample relies on them.
+- Native dependencies: install Mesa/OpenGL drivers (`sudo apt install mesa-utils`) and ICU libraries for globalization support.
 
 > Verify your SDK installation:
 >
@@ -47,6 +62,10 @@ Run these commands only if you plan to target additional platforms soon (you can
 dotnet workload install wasm-tools      # Browser (WebAssembly)
 dotnet workload install android         # Android toolchain
 dotnet workload install ios             # iOS/macOS Catalyst toolchain
+dotnet workload install maui           # Optional: Windows tooling support
+
+# Restore workloads declared in a solution (after cloning a repo)
+dotnet workload restore
 ```
 
 If a workload fails, run `dotnet workload repair` and confirm your IDE also installed the Android/iOS dependencies (Android SDK Managers, Xcode command-line tools).
@@ -67,6 +86,8 @@ If a workload fails, run `dotnet workload repair` and confirm your IDE also inst
 - Install the **C# Dev Kit** or **C# (OmniSharp)** extension for IntelliSense and debugging.
 - Add the **Avalonia for VS Code** extension for XAML tooling and preview.
 - Configure `dotnet watch` tasks or use the Avalonia preview extension's Live Preview panel.
+- Add tasks in `.vscode/tasks.json` for `dotnet run` / `dotnet watch` to trigger builds with **Ctrl+Shift+B**.
+- Set `"avalonia.preview.host"` to `dotnet` in `.vscode/settings.json` so the previewer launches automatically when you open XAML files.
 
 ## Install Avalonia project templates
 
@@ -83,6 +104,19 @@ dotnet new list avalonia
 ```
 
 You should see a table of available Avalonia templates.
+
+### Template quick-reference
+
+| Template | Command | When to use |
+| --- | --- | --- |
+| Desktop (code-behind) | `dotnet new avalonia.app -n MyApp` | Small prototypes with code-behind patterns. |
+| MVVM starter | `dotnet new avalonia.mvvm -n MyApp.Mvvm` | Includes a ViewModel base class and sample bindings. |
+| ReactiveUI | `dotnet new avalonia.reactiveui -n MyApp.ReactiveUI` | If you standardise on ReactiveUI for MVVM. |
+| Cross-platform heads | `dotnet new avalonia.app --multiplatform -n MyApp.Multi` | Generates desktop, mobile, and browser heads in one project. |
+| Split head projects | `dotnet new avalonia.xplat -n MyApp.Xplat` | Separate desktop/mobile projects (Visual Studio friendly). |
+| Control library | `dotnet new avalonia.library -n MyApp.Controls` | Create reusable UI/control libraries. |
+
+Pair this with `dotnet workload list` to confirm matching workloads are installed for the heads you create.
 
 ## Create and run your first project (CLI-first flow)
 
@@ -108,6 +142,8 @@ A starter window appears. Close it when done.
 - `dotnet new avalonia.mvvm -o HelloAvalonia.Mvvm` -> includes a ViewModel base class and data-binding sample.
 - `dotnet new avalonia.reactiveui -o HelloAvalonia.ReactiveUI` -> adds ReactiveUI integration out of the box.
 - `dotnet new avalonia.app --multiplatform -o HelloAvalonia.Multi` -> single-project layout with mobile/browser heads.
+- `dotnet new avalonia.xplat -o HelloAvalonia.Xplat` -> generates separate head projects (desktop/mobile) suited to Visual Studio.
+- `dotnet new avalonia.library -o HelloAvalonia.Controls` -> starts a reusable control/library project.
 
 ## Open the project in your IDE
 
@@ -158,6 +194,8 @@ Rebuild and run (`dotnet run` or IDE Run) to confirm the change.
 - **Workload errors**: run `dotnet workload repair`. Ensure Visual Studio or Xcode installed the matching tooling.
 - **IDE previewer fails**: confirm the Avalonia extension/plugin is installed, build the project once, and check the Output window for loader errors.
 - **Runtime missing native dependencies** (Linux): install GTK, Skia, and OpenGL packages (`libmesa`, `libx11-dev`).
+- **GPU anomalies**: temporarily disable GPU (`SKIA_SHARP_GPU=0`) to isolate driver issues, then update GPU drivers or include ANGLE fallbacks.
+- **Nightly packages**: add `https://www.myget.org/F/avalonia-nightly/api/v3/index.json` to NuGet sources to test nightly builds; pin a stable package before release.
 
 ## Build Avalonia from source (optional but recommended once)
 - Clone the framework: `git clone https://github.com/AvaloniaUI/Avalonia.git`.
@@ -170,11 +208,13 @@ Rebuild and run (`dotnet run` or IDE Run) to confirm the change.
 Building from source gives you binaries with the latest commits, useful for testing fixes or contributing.
 
 ## Practice and validation
-1. Confirm your environment with `dotnet --list-sdks` and `dotnet workload list`.
-2. Install the Avalonia templates and scaffold a new project.
-3. Run the app from the CLI and from your IDE, verifying hot reload or the previewer works.
-4. Clone the Avalonia repo, build it, and run the ControlCatalog sample.
-5. Set a breakpoint in `App.axaml.cs` (`OnFrameworkInitializationCompleted`) and step through startup to watch the lifetime initialise.
+1. Confirm your environment with `dotnet --list-sdks` and `dotnet workload list`. If workloads are missing, run `dotnet workload restore`.
+2. Install the Avalonia templates and scaffold each template from the quick-reference table. Capture which commands require additional workloads.
+3. Run one generated app from the CLI and another from your IDE, verifying hot reload or the previewer works in both flows.
+4. Clone the Avalonia repo, build it (`./build.sh --target=Build` or `.\build.ps1 -Target Build`), and run the ControlCatalog sample.
+5. Inspect `samples/ControlCatalog/ControlCatalog.csproj` and map referenced Avalonia packages to their source folders. Update your architecture sketch with these relationships.
+6. Set a breakpoint in `App.axaml.cs` (`OnFrameworkInitializationCompleted`) and step through startup to watch the lifetime initialise.
+7. Document SDK versions, workloads, and template output in a team README so new developers can reproduce your setup.
 
 ## Look under the hood (source bookmarks)
 - Build pipeline tasks: [src/Avalonia.Build.Tasks](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Build.Tasks).
