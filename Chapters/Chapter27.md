@@ -27,7 +27,7 @@ Avalonia repo highlights:
 Scripts in repo root:
 - `build.ps1` (Windows), `build.sh` (Unix), `build.cmd`.
 - These restore NuGet packages, compile, run tests (optionally), and produce packages.
-- The repo also ships [`build/NukeBuild`](https://github.com/AvaloniaUI/Avalonia/tree/master/build/NukeBuild). Run `dotnet run --project build/NukeBuild` or `.uild.ps1 --target Test` to execute curated pipelines (`Compile`, `Test`, `Package`, etc.) identical to CI.
+- The repo also ships [`build/NukeBuild`](https://github.com/AvaloniaUI/Avalonia/tree/master/build/NukeBuild). Run `dotnet run --project build/NukeBuild` or `.\build.ps1 --target Test` to execute curated pipelines (`Compile`, `Test`, `Package`, etc.) identical to CI.
 
 Manual build:
 
@@ -92,7 +92,7 @@ Steps:
 2. Fork repo, create feature branch.
 3. Implement change (small, focused scope).
 4. Add/update tests under `tests/` (headless tests for controls, unit tests for logic).
-5. Run `dotnet build` and `dotnet test` (or `.uild.ps1 --target Test` / `nuke Test`).
+5. Run `dotnet build` and `dotnet test` (or `.\build.ps1 --target Test` / `nuke Test`).
 6. Update docs/samples if behavior changed.
 7. Submit PR with clear description, referencing issue IDs/sites.
 8. Respond to feedback promptly.
@@ -132,7 +132,7 @@ Checklist before submitting work:
 
 ## 11. Practice exercises
 
-1. Clone the Avalonia repo and run `.uild.ps1 --target Compile` (or `dotnet run --project build/NukeBuild Compile`). Verify the build succeeds and inspect the generated artifacts.
+1. Clone the Avalonia repo and run `.\build.ps1 --target Compile` (or `dotnet run --project build/NukeBuild Compile`). Verify the build succeeds and inspect the generated artifacts.
 2. Launch ControlCatalog from the sample folder, then step into the code for one control you use frequently.
 3. Configure symbol/source mapping in your IDE and step into `TextBlock` rendering while running ControlCatalog.
 4. File a sample issue in a sandbox repo (practice minimal repro). Outline expected vs actual behavior clearly.
