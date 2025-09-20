@@ -120,24 +120,153 @@ fi
 : > "$TMP_MD"
 {
   echo "---";
-  echo "title: \"Avalonia Book\"";
+  echo "title: \"\"";
+  echo "header-includes:";
+  echo "  - \"\\\\AtBeginDocument{\\\\let\\\\maketitle\\\\relax}\"";
   echo "---";
   echo;
 } >> "$TMP_MD"
 
-# Extract chapter files from Index.md in order (portable, no mapfile)
+python3 - "$TMP_MD" <<'PY_COVER'
+import sys
+from pathlib import Path
+
+tmp_path = Path(sys.argv[1])
+
+content = [
+    "```{=latex}",
+    "\\thispagestyle{empty}",
+    "\\vspace*{\\fill}",
+    "\\begin{center}",
+    "{\\Huge\\bfseries Avalonia Book}",
+    "\\end{center}",
+    "\\vspace*{\\fill}",
+    "\\clearpage",
+    "```",
+    "",
+]
+
+with tmp_path.open("a", encoding="utf-8") as handle:
+    handle.write("\n".join(content))
+PY_COVER
+
+python3 - "$TMP_MD" <<'PY_TOC'
+import sys
+from pathlib import Path
+
+tmp_path = Path(sys.argv[1])
+
+content = [
+    "```{=latex}",
+    "\\setcounter{tocdepth}{3}",
+    "\\tableofcontents",
+    "\\clearpage",
+    "```",
+    "",
+]
+
+with tmp_path.open("a", encoding="utf-8") as handle:
+    handle.write("\n".join(content))
+PY_TOC
+
+# Extract part headings and chapter files from Index.md in order
 count=0
-while IFS= read -r chapter; do
-  [ -z "$chapter" ] && continue
-  count=$((count+1))
-  # Insert a page break between chapters for LaTeX engines
-  printf '\n```{=latex}\n\\newpage\n```\n\n' >> "$TMP_MD"
-  cat "$ROOT_DIR/$chapter" >> "$TMP_MD"
-  printf '\n' >> "$TMP_MD"
-  echo "Added $chapter"
-done <<EOF
-$(grep -oE "\(Chapters/[^)]+\.md\)" "$INDEX_FILE" | sed 's/[()]//g')
-EOF
+part_count=0
+
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+
+  if [[ $line =~ ^##[[:space:]]+Part ]]; then
+    part_heading=${line#\#\# }
+    if [[ -n "$part_heading" ]]; then
+      python3 - "$TMP_MD" "$part_heading" "$part_count" <<'PY_PART'
+import sys
+from pathlib import Path
+
+tmp_path = Path(sys.argv[1])
+heading = sys.argv[2]
+part_index = int(sys.argv[3])
+
+def escape_latex(text: str) -> str:
+    replacements = {
+        "\\": r"\\\\",
+        "&": r"\\&",
+        "%": r"\\%",
+        "$": r"\\$",
+        "#": r"\\#",
+        "_": r"\\_",
+        "{": r"\\{",
+        "}": r"\\}",
+    }
+    for src, dst in replacements.items():
+        text = text.replace(src, dst)
+    return text
+
+content = ["```{=latex}"]
+if part_index > 0:
+    content.append("\\clearpage")
+latex_heading = escape_latex(heading)
+content.extend([
+    "\\phantomsection",
+    f"\\addcontentsline{{toc}}{{section}}{{{latex_heading}}}",
+    "\\thispagestyle{empty}",
+    "\\vspace*{\\fill}",
+    "\\begin{center}",
+    f"{{\\Huge\\bfseries {latex_heading}}}",
+    "\\end{center}",
+    "\\vspace*{\\fill}",
+    "\\clearpage",
+    "```",
+    "",
+])
+
+with tmp_path.open("a", encoding="utf-8") as handle:
+    handle.write("\n".join(content))
+PY_PART
+      part_count=$((part_count+1))
+    fi
+    continue
+  fi
+
+  chapter_path=$(printf '%s\n' "$line" | sed -n 's/.*(\(Chapters\/[^)]*\.md\)).*/\1/p')
+  if [[ -n "$chapter_path" ]]; then
+    if [[ $count -gt 0 ]]; then
+      printf '\n```{=latex}\n\\newpage\n```\n\n' >> "$TMP_MD"
+    fi
+    chapter_file="$ROOT_DIR/$chapter_path"
+    if [[ ! -f "$chapter_file" ]]; then
+      echo "Error: Chapter file $chapter_file not found" >&2
+      exit 1
+    fi
+    python3 - "$chapter_file" 1 >> "$TMP_MD" <<'PY_HELPER'
+import sys
+import re
+from pathlib import Path
+
+path = Path(sys.argv[1])
+shift = int(sys.argv[2])
+lines = path.read_text(encoding='utf-8').splitlines()
+
+heading_re = re.compile(r'^( {0,3})(#{1,6})(\s+)(.*)$')
+
+shifted_lines = []
+for line in lines:
+    match = heading_re.match(line)
+    if not match:
+        shifted_lines.append(line)
+        continue
+    indent, hashes, space, rest = match.groups()
+    new_count = min(len(hashes) + shift, 6)
+    shifted_lines.append(f"{indent}{'#' * new_count}{space}{rest}")
+
+sys.stdout.write("\n".join(shifted_lines) + "\n")
+PY_HELPER
+    printf '\n' >> "$TMP_MD"
+    echo "Added $chapter_path"
+    count=$((count+1))
+  fi
+done < "$INDEX_FILE"
+
 if [[ $count -eq 0 ]]; then
   echo "Error: Could not parse chapters from $INDEX_FILE" >&2
   exit 1
@@ -145,10 +274,10 @@ fi
 
 # Common Pandoc options
 COMMON_OPTS=(
-  --toc --toc-depth=2
   --resource-path="$ROOT_DIR:$ROOT_DIR/Chapters"
   --highlight-style=pygments
   -f markdown+raw_tex
+  "--metadata=title-meta:Avalonia Book"
   --pdf-engine="$PDF_ENGINE"
 )
 
