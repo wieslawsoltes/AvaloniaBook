@@ -1,13 +1,35 @@
 ---
-title: "Avalonia Book"
+title: ""
+header-includes:
+  - "\\AtBeginDocument{\\let\\maketitle\\relax}"
 ---
 
-
 ```{=latex}
-\newpage
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+{\Huge\bfseries Avalonia Book}
+\end{center}
+\vspace*{\fill}
+\clearpage
 ```
-
-# 1. Welcome to Avalonia and MVVM
+```{=latex}
+\setcounter{tocdepth}{3}
+\tableofcontents
+\clearpage
+```
+```{=latex}
+\phantomsection
+\addcontentsline{toc}{section}{Part I — Foundations you can’t skip}
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+{\Huge\bfseries Part I — Foundations you can’t skip}
+\end{center}
+\vspace*{\fill}
+\clearpage
+```
+## 1. Welcome to Avalonia and MVVM
 
 Goal
 - Understand what Avalonia is today, how it has grown, and where it is heading.
@@ -115,7 +137,7 @@ What's next
 \newpage
 ```
 
-# 2. Set up tools and build your first project
+## 2. Set up tools and build your first project
 
 Goal
 - Install the .NET SDK, Avalonia templates, and an IDE on your operating system of choice.
@@ -129,9 +151,9 @@ Why this matters
 - Knowing where the generated files live prepares you for upcoming chapters on layout, lifetimes, and MVVM.
 - Building the framework from source lets you test bug fixes, follow development, and debug into the toolkit.
 
-## Prerequisites by operating system
+### Prerequisites by operating system
 
-### SDK matrix at a glance
+#### SDK matrix at a glance
 Avalonia 11 targets .NET 8.0. The official repository pins versions in [`global.json`](https://github.com/AvaloniaUI/Avalonia/blob/master/global.json):
 
 | Scenario | SDK / Tooling | Notes |
@@ -143,20 +165,20 @@ Avalonia 11 targets .NET 8.0. The official repository pins versions in [`global.
 
 Run `dotnet --list-sdks` to confirm the expected SDK version is installed. When multiple SDKs coexist, keep a repo-level `global.json` to pin builds to the Avalonia-supported version.
 
-### Windows
+#### Windows
 - Install the latest **.NET SDK** (x64) from <https://dotnet.microsoft.com/download>.
 - Install **Visual Studio 2022** with the ".NET desktop development" workload; add ".NET Multi-platform App UI development" for mobile tooling.
 - Optional: `winget install --id Microsoft.DotNet.SDK.8` (replace with the current LTS) and install the **Windows Subsystem for Linux** if you plan to test Linux packages.
 - Native dependencies: Avalonia bundles Skia; keep GPU drivers updated. When shipping self-contained builds, include ANGLE libraries (`libEGL`, `libGLESv2`, `d3dcompiler_47`) for broader GPU compatibility (see Chapter 26).
 
-### macOS
+#### macOS
 - Install the latest **.NET SDK (Arm64 or x64)** from Microsoft.
 - Install **Xcode** (App Store) to satisfy iOS build prerequisites.
 - Recommended IDEs: **JetBrains Rider**, **Visual Studio 2022 for Mac** (if installed), or **Visual Studio Code** with the C# Dev Kit.
 - Optional: install **Homebrew** and use it for `brew install dotnet-sdk` to keep versions updated.
 - Native dependencies: Avalonia uses Skia via Metal/OpenGL; ensure Command Line Tools are installed (`xcode-select --install`).
 
-### Linux (Ubuntu/Debian example)
+#### Linux (Ubuntu/Debian example)
 - Add the Microsoft package feed and install the latest **.NET SDK** (`sudo apt install dotnet-sdk-8.0`).
 - Install an IDE: **Rider** or **Visual Studio Code** with the C# extension (OmniSharp or C# Dev Kit).
 - Ensure GTK dependencies are present (`sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0`) because the ControlCatalog sample relies on them.
@@ -171,7 +193,7 @@ Run `dotnet --list-sdks` to confirm the expected SDK version is installed. When 
 >
 > Make sure the Avalonia-supported SDK (currently .NET 8.x for Avalonia 11) appears in the list before moving on.
 
-## Optional workloads for advanced targets
+### Optional workloads for advanced targets
 
 Run these commands only if you plan to target additional platforms soon (you can add them later):
 
@@ -181,32 +203,32 @@ dotnet workload install android         # Android toolchain
 dotnet workload install ios             # iOS/macOS Catalyst toolchain
 dotnet workload install maui           # Optional: Windows tooling support
 
-# Restore workloads declared in a solution (after cloning a repo)
+## Restore workloads declared in a solution (after cloning a repo)
 dotnet workload restore
 ```
 
 If a workload fails, run `dotnet workload repair` and confirm your IDE also installed the Android/iOS dependencies (Android SDK Managers, Xcode command-line tools).
 
-## Recommended IDE setup
+### Recommended IDE setup
 
-### Visual Studio 2022 (Windows)
+#### Visual Studio 2022 (Windows)
 - Ensure the **Avalonia for Visual Studio** extension is installed (Marketplace) for XAML IntelliSense and the previewer.
 - Enable **XAML Hot Reload** under Tools -> Options -> Debugging -> General.
 - For Android/iOS, open Visual Studio Installer and add the corresponding mobile workloads.
 
-### JetBrains Rider
+#### JetBrains Rider
 - Install the **Avalonia plugin** (File -> Settings -> Plugins -> Marketplace -> search "Avalonia").
 - Enable the built-in XAML previewer via `View -> Tool Windows -> Avalonia Previewer`.
 - Configure Android SDKs under Preferences -> Build Tools if you plan to run Android projects.
 
-### Visual Studio Code
+#### Visual Studio Code
 - Install the **C# Dev Kit** or **C# (OmniSharp)** extension for IntelliSense and debugging.
 - Add the **Avalonia for VS Code** extension for XAML tooling and preview.
 - Configure `dotnet watch` tasks or use the Avalonia preview extension's Live Preview panel.
 - Add tasks in `.vscode/tasks.json` for `dotnet run` / `dotnet watch` to trigger builds with **Ctrl+Shift+B**.
 - Set `"avalonia.preview.host"` to `dotnet` in `.vscode/settings.json` so the previewer launches automatically when you open XAML files.
 
-## Install Avalonia project templates
+### Install Avalonia project templates
 
 ```bash
 dotnet new install Avalonia.Templates
@@ -222,7 +244,7 @@ dotnet new list avalonia
 
 You should see a table of available Avalonia templates.
 
-### Template quick-reference
+#### Template quick-reference
 
 | Template | Command | When to use |
 | --- | --- | --- |
@@ -235,58 +257,58 @@ You should see a table of available Avalonia templates.
 
 Pair this with `dotnet workload list` to confirm matching workloads are installed for the heads you create.
 
-## Create and run your first project (CLI-first flow)
+### Create and run your first project (CLI-first flow)
 
 ```bash
-# Create a new solution folder
+## Create a new solution folder
 mkdir HelloAvalonia && cd HelloAvalonia
 
-# Scaffold a desktop app template (code-behind pattern)
+## Scaffold a desktop app template (code-behind pattern)
 dotnet new avalonia.app -o HelloAvalonia.Desktop
 
 cd HelloAvalonia.Desktop
 
-# Restore packages and build
+## Restore packages and build
 dotnet build
 
-# Run the app
+## Run the app
 dotnet run
 ```
 
 A starter window appears. Close it when done.
 
-### Alternative templates
+#### Alternative templates
 - `dotnet new avalonia.mvvm -o HelloAvalonia.Mvvm` -> includes a ViewModel base class and data-binding sample.
 - `dotnet new avalonia.reactiveui -o HelloAvalonia.ReactiveUI` -> adds ReactiveUI integration out of the box.
 - `dotnet new avalonia.app --multiplatform -o HelloAvalonia.Multi` -> single-project layout with mobile/browser heads.
 - `dotnet new avalonia.xplat -o HelloAvalonia.Xplat` -> generates separate head projects (desktop/mobile) suited to Visual Studio.
 - `dotnet new avalonia.library -o HelloAvalonia.Controls` -> starts a reusable control/library project.
 
-## Open the project in your IDE
+### Open the project in your IDE
 
-### Visual Studio
+#### Visual Studio
 1. File -> Open -> Project/Solution -> select `HelloAvalonia.Desktop.csproj`.
 2. Press **F5** (or the green Run arrow) to launch with the debugger.
 3. Verify XAML Hot Reload by editing `MainWindow.axaml` while the app runs.
 
-### Rider
+#### Rider
 1. File -> Open -> choose the solution folder.
 2. Use the top-right run configuration to run/debug.
 3. Open the Avalonia Previewer tool window to see live XAML updates.
 
-### VS Code
+#### VS Code
 1. `code .` inside the project directory.
 2. Accept the prompt to add build/debug assets; VS Code generates `launch.json` and `.vscode/tasks.json`.
 3. Use the Run and Debug panel (F5) and the Avalonia preview extension for live previews.
 
-## Generated project tour (why each file matters)
+### Generated project tour (why each file matters)
 - `HelloAvalonia.Desktop.csproj`: project metadata--target frameworks, NuGet packages, Avalonia build tasks (`Avalonia.Build.Tasks` compiles XAML to BAML-like assets; see [CompileAvaloniaXamlTask.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Build.Tasks/CompileAvaloniaXamlTask.cs)).
 - `Program.cs`: entry point returning `BuildAvaloniaApp()`. Calls `UsePlatformDetect`, `UseSkia`, `LogToTrace`, and starts the classic desktop lifetime (definition in [AppBuilderDesktopExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Desktop/AppBuilderDesktopExtensions.cs)).
 - `App.axaml` / `App.axaml.cs`: global resources and startup logic. `App.OnFrameworkInitializationCompleted` creates and shows `MainWindow` (implementation defined in [Application.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Application.cs)).
 - `MainWindow.axaml` / `.axaml.cs`: your initial view. XAML is loaded by [AvaloniaXamlLoader](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs).
 - `Assets/` and `Styles/`: sample resource dictionaries you can expand later.
 
-## Make a visible change and rerun
+### Make a visible change and rerun
 
 ```xml
 
@@ -304,7 +326,7 @@ A starter window appears. Close it when done.
 
 Rebuild and run (`dotnet run` or IDE Run) to confirm the change.
 
-## Troubleshooting checklist
+### Troubleshooting checklist
 - **`dotnet` command missing**: reinstall the .NET SDK and restart the terminal/IDE. Confirm environment variables (`PATH`) include the dotnet installation path.
 - **Template not found**: rerun `dotnet new install Avalonia.Templates` or remove outdated versions with `dotnet new uninstall Avalonia.Templates`.
 - **NuGet restore issues**: clear caches (`dotnet nuget locals all --clear`), ensure internet access or configure an offline mirror, then rerun `dotnet restore`.
@@ -314,7 +336,7 @@ Rebuild and run (`dotnet run` or IDE Run) to confirm the change.
 - **GPU anomalies**: temporarily disable GPU (`SKIA_SHARP_GPU=0`) to isolate driver issues, then update GPU drivers or include ANGLE fallbacks.
 - **Nightly packages**: add `https://www.myget.org/F/avalonia-nightly/api/v3/index.json` to NuGet sources to test nightly builds; pin a stable package before release.
 
-## Build Avalonia from source (optional but recommended once)
+### Build Avalonia from source (optional but recommended once)
 - Clone the framework: `git clone https://github.com/AvaloniaUI/Avalonia.git`.
 - Initialise submodules if prompted: `git submodule update --init --recursive`.
 - On Windows: run `.\build.ps1 -Target Build`.
@@ -324,7 +346,7 @@ Rebuild and run (`dotnet run` or IDE Run) to confirm the change.
 
 Building from source gives you binaries with the latest commits, useful for testing fixes or contributing.
 
-## Practice and validation
+### Practice and validation
 1. Confirm your environment with `dotnet --list-sdks` and `dotnet workload list`. If workloads are missing, run `dotnet workload restore`.
 2. Install the Avalonia templates and scaffold each template from the quick-reference table. Capture which commands require additional workloads.
 3. Run one generated app from the CLI and another from your IDE, verifying hot reload or the previewer works in both flows.
@@ -333,13 +355,13 @@ Building from source gives you binaries with the latest commits, useful for test
 6. Set a breakpoint in `App.axaml.cs` (`OnFrameworkInitializationCompleted`) and step through startup to watch the lifetime initialise.
 7. Document SDK versions, workloads, and template output in a team README so new developers can reproduce your setup.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Build pipeline tasks: [src/Avalonia.Build.Tasks](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Build.Tasks).
 - Desktop lifetime helpers: [src/Avalonia.Desktop/AppBuilderDesktopExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Desktop/AppBuilderDesktopExtensions.cs).
 - ControlCatalog project: [samples/ControlCatalog/ControlCatalog.csproj](https://github.com/AvaloniaUI/Avalonia/blob/master/samples/ControlCatalog/ControlCatalog.csproj).
 - Framework application startup: [src/Avalonia.Controls/Application.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Application.cs).
 
-## Check yourself
+### Check yourself
 - Which command installs Avalonia templates and how do you verify the install?
 - How do you list installed .NET SDKs and workloads?
 - Where does `App.OnFrameworkInitializationCompleted` live and what does it do?
@@ -354,7 +376,7 @@ What's next
 \newpage
 ```
 
-# 3. Your first UI: layouts, controls, and XAML basics
+## 3. Your first UI: layouts, controls, and XAML basics
 
 Goal
 - Build your first meaningful window with StackPanel, Grid, and reusable user controls.
@@ -371,20 +393,20 @@ Why this matters
 Prerequisites
 - Chapter 2 completed. You can run `dotnet new`, `dotnet build`, and `dotnet run` on your machine.
 
-## 1. Scaffold the sample project
+### 1. Scaffold the sample project
 
 ```bash
-# Create a new sample app for this chapter
+## Create a new sample app for this chapter
 dotnet new avalonia.mvvm -o SampleUiBasics
 cd SampleUiBasics
 
-# Restore packages and run once to ensure the template works
+## Restore packages and run once to ensure the template works
 dotnet run
 ```
 
 Open the project in your IDE before continuing.
 
-## 2. Quick primer on XAML namespaces
+### 2. Quick primer on XAML namespaces
 
 The root `<Window>` tag declares namespaces so XAML can resolve types:
 
@@ -400,14 +422,14 @@ The root `<Window>` tag declares namespaces so XAML can resolve types:
 - Custom prefixes (e.g., `xmlns:ui`) point to CLR namespaces in your project or other assemblies so you can reference your own classes or controls (`ui:OrderRow`).
 - To import controls from other assemblies, add the prefix defined by their `[XmlnsDefinition]` attribute (for example, `xmlns:fluent="avares://Avalonia.Themes.Fluent"`).
 
-## 3. How Avalonia loads this XAML
+### 3. How Avalonia loads this XAML
 
 - `InitializeComponent()` in `MainWindow.axaml.cs` invokes [`AvaloniaXamlLoader.Load`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs), wiring the compiled XAML into the partial class defined by `x:Class`.
 - During build, Avalonia's MSBuild tasks generate code that registers resources, name scopes, and compiled bindings for the loader (see Chapter 30 for the full pipeline).
 - In design-time or hot reload scenarios, the same loader can parse XAML streams when no compiled version exists, so runtime errors usually originate from this method.
 - Keep `x:Class` values in sync with your namespace; mismatches result in `XamlLoadException` messages complaining about missing compiled XAML.
 
-## 4. Build the main layout (StackPanel + Grid)
+### 4. Build the main layout (StackPanel + Grid)
 
 Open `Views/MainWindow.axaml` and replace the `<Window.Content>` with:
 
@@ -469,7 +491,7 @@ What you just used:
 - `Grid` split into two columns for the form (left) and list (right).
 - `ItemsControl` repeats a data template for each item in `RecentOrders`.
 
-## 5. Create a reusable user control (`OrderRow`)
+### 5. Create a reusable user control (`OrderRow`)
 
 Add a new file `Views/OrderRow.axaml`:
 
@@ -498,7 +520,7 @@ Add a new file `Views/OrderRow.axaml`:
 - It relies on bindings (`Title`, `Total`, `PlacedOn`) which come from the current item in the data template.
 - Using a user control keeps the item template readable and testable.
 
-## 6. Add a value converter
+### 6. Add a value converter
 
 Converters adapt data for display. Create `Converters/CurrencyConverter.cs`:
 
@@ -540,7 +562,7 @@ Register the converter in `App.axaml` so XAML can reference it:
 </Application>
 ```
 
-## 7. Populate the ViewModel with nested data
+### 7. Populate the ViewModel with nested data
 
 Open `ViewModels/MainWindowViewModel.cs` and replace its contents with:
 
@@ -569,7 +591,7 @@ public sealed record OrderViewModel(string Title, decimal Total, DateTime Placed
 
 Now bindings like `{Binding Customer.Name}` and `{Binding RecentOrders}` have backing data.
 
-## 8. Understand `ContentControl`, `UserControl`, and `NameScope`
+### 8. Understand `ContentControl`, `UserControl`, and `NameScope`
 
 - **`ContentControl`** (see [ContentControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ContentControl.cs)) holds a single content object. Windows, Buttons, and many controls inherit from it. Setting `Content` or placing child XAML elements populates that content.
 - **`UserControl`** (see [UserControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/UserControl.cs)) packages a reusable view with its own XAML and code-behind. Each `UserControl` creates its own `NameScope` so `x:Name` values remain local.
@@ -592,21 +614,21 @@ public partial class MainWindow : Window
 
 When you nest user controls, remember: a name defined in `OrderRow` is not visible in `MainWindow` because each `UserControl` has its own scope. This avoids name collisions in templated scenarios.
 
-## 9. Logical tree vs visual tree (why it matters)
+### 9. Logical tree vs visual tree (why it matters)
 
 - The **logical tree** tracks content relationships: windows -> user controls -> ItemsControl items. Bindings and resource lookups walk the logical tree. Inspect with `this.GetLogicalChildren()` or DevTools -> Logical tree.
 - The **visual tree** includes the actual visuals created by templates (Borders, TextBlocks, Panels). DevTools -> Visual tree shows the rendered hierarchy.
 - Some controls (e.g., `ContentPresenter`) exist in the visual tree but not in the logical tree. When `FindControl` fails, confirm whether the element is in the logical tree.
 - Reference implementation: [LogicalTreeExtensions.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/LogicalTree/LogicalTreeExtensions.cs) and [Visual.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Visual.cs).
 
-## 10. Data templates explained
+### 10. Data templates explained
 
 - `ItemsControl.ItemTemplate` applies a `DataTemplate` for each item. Inside a data template, the `DataContext` is the individual item (an `OrderViewModel`).
 - You can inline XAML or reference a key: `<DataTemplate x:Key="OrderTemplate"> ...` and then `ItemTemplate="{StaticResource OrderTemplate}"`.
 - Data templates can contain user controls, panels, or inline elements. They are the foundation for list virtualization later.
 - Template source: [DataTemplate.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs).
 
-## 11. Work with resources (`FindResource`)
+### 11. Work with resources (`FindResource`)
 
 - Declare brushes, converters, or styles in `Window.Resources` or `Application.Resources`.
 - Retrieve them at runtime with `FindResource` or `TryFindResource`:
@@ -630,7 +652,7 @@ private void OnHighlight(object? sender, RoutedEventArgs e)
 - `FindResource` walks the logical tree first, then escalates to application resources, mirroring how the XAML parser resolves `StaticResource`.
 - Resources defined inside a `UserControl` or `DataTemplate` are scoped; use `this.Resources` to override per-view resources without affecting the rest of the app.
 
-## 12. Run, inspect, and iterate
+### 12. Run, inspect, and iterate
 
 ```bash
 dotnet run
@@ -641,13 +663,13 @@ While the app runs:
 - Select an `OrderRow` TextBlock and confirm the binding path (`Total`) resolves to the right data.
 - Try editing `OrderViewModel` values in code and rerun to see updates.
 
-## Troubleshooting
+### Troubleshooting
 - **Binding path errors**: DevTools -> Diagnostics -> Binding Errors shows typos. Ensure properties exist or set `x:DataType="vm:OrderViewModel"` in templates for compile-time checks (once you add namespaces for view models).
 - **Converter not found**: ensure the namespace prefix in `App.axaml` matches the converter's CLR namespace and the key matches `StaticResource CurrencyConverter`.
 - **User control not rendering**: confirm the namespace prefix `xmlns:ui` matches the CLR namespace of `OrderRow` and that the class is `partial` with matching `x:Class`.
 - **FindControl returns null**: check `NameScope`. If the element is inside a data template, use `e.Source` from events or bind through the ViewModel instead of searching.
 
-## Practice and validation
+### Practice and validation
 1. Add a `ui:AddressCard` user control showing billing address details. Bind it to `Customer` using `ContentControl.Content="{Binding Customer}"` and define a data template for `CustomerViewModel`.
 2. Add a `ValueConverter` that highlights orders above $500 by returning a different brush; apply it to the Border background via `{Binding Total, Converter=...}`.
 3. Name the `ItemsControl` (`x:Name="OrdersList"`) and call `this.FindControl<ItemsControl>("OrdersList")` in code-behind to verify name scoping.
@@ -655,7 +677,7 @@ While the app runs:
 5. Add a `ListBox` instead of `ItemsControl` and observe how selection adds visual states in the visual tree.
 6. Use DevTools to inspect both logical and visual trees for `OrderRow`. Toggle the Namescope overlay to see how scopes nest.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - XAML loader: [src/Markup/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs)
 - Content control composition: [src/Avalonia.Controls/ContentControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ContentControl.cs)
 - User controls and name scopes: [src/Avalonia.Controls/UserControl.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/UserControl.cs)
@@ -664,7 +686,7 @@ While the app runs:
 - Data template implementation: [src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/Templates/DataTemplate.cs)
 - Value converters: [src/Avalonia.Base/Data/Converters](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Data/Converters)
 
-## Check yourself
+### Check yourself
 - How do XAML namespaces (`xmlns`) relate to CLR namespaces and assemblies?
 - What is the difference between the logical and visual tree, and why does it matter for bindings?
 - How do `ContentControl` and `UserControl` differ and when would you choose each?
@@ -679,7 +701,7 @@ What's next
 \newpage
 ```
 
-# 4. Application startup: AppBuilder and lifetimes
+## 4. Application startup: AppBuilder and lifetimes
 
 Goal
 - Trace the full AppBuilder pipeline from `Program.Main` to the first window or view.
@@ -697,7 +719,7 @@ Prerequisites
 - You have completed Chapter 2 and can build/run a template project.
 - You are comfortable editing `Program.cs`, `App.axaml`, and `App.axaml.cs`.
 
-## 1. Follow the AppBuilder pipeline step by step
+### 1. Follow the AppBuilder pipeline step by step
 
 `Program.cs` (or `Program.fs` in F#) is the entry point. A typical template looks like this:
 
@@ -728,7 +750,7 @@ Each call returns the builder so you can chain configuration. Relevant source:
 - Skia configuration: [`src/Skia/Avalonia.Skia/SkiaOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Skia/Avalonia.Skia/SkiaOptions.cs)
 - Desktop helpers (`StartWithClassicDesktopLifetime`): [`src/Avalonia.Desktop/AppBuilderDesktopExtensions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Desktop/AppBuilderDesktopExtensions.cs)
 
-### Builder pipeline diagram (mental map)
+#### Builder pipeline diagram (mental map)
 ```
 Program.Main
   `--- BuildAvaloniaApp()
@@ -741,7 +763,7 @@ Program.Main
 
 If anything in the pipeline throws, the process exits before UI renders. Log early to catch those cases.
 
-## 2. Lifetimes in detail
+### 2. Lifetimes in detail
 
 | Lifetime type | Purpose | Typical targets | Key members |
 | --- | --- | --- | --- |
@@ -756,18 +778,18 @@ Key interfaces and classes to read:
 - Browser lifetime: [`BrowserSingleViewLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserSingleViewLifetime.cs)
 - Headless lifetime: [`AvaloniaHeadlessApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/AvaloniaHeadlessApplicationLifetime.cs)
 
-### Desktop lifetime flow
+#### Desktop lifetime flow
 - `MainWindow` must be assigned before `base.OnFrameworkInitializationCompleted()` or no window will appear.
 - `ShutdownMode` controls when the app exits (`OnLastWindowClose`, `OnMainWindowClose`, or `OnExplicitShutdown`).
 - Subscribe to `ShutdownRequested` to cancel shutdown (e.g., unsaved document prompt). Call `e.Cancel = true` to keep the app running.
 - Additional windows can be opened by tracking them in a collection and calling `Show()` / `Close()`.
 
-### Single view and browser lifetimes
+#### Single view and browser lifetimes
 - Provide a root `Control` via `MainView`. Navigation stacks switch the child content instead of opening new windows.
 - For Android/iOS, the host platform handles navigation/back events; forward them to view models via commands.
 - Browser lifetime initialises asynchronously—await long-running startup logic before assigning `MainView`.
 
-### Headless lifetime notes
+#### Headless lifetime notes
 - `StartWithHeadless` disables rendering but still runs the dispatcher. Use it for integration tests.
 - Combine with `Avalonia.Headless.XUnit` or `Avalonia.Headless.NUnit` to drive UI interactions programmatically.
 
@@ -784,7 +806,7 @@ Key interfaces and classes to read:
 - Browser lifetime: [`BrowserSingleViewLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserSingleViewLifetime.cs)
 - Headless lifetime: [`src/Headless/Avalonia.Headless/AvaloniaHeadlessApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/AvaloniaHeadlessApplicationLifetime.cs)
 
-## 3. Wiring lifetimes in `App.OnFrameworkInitializationCompleted`
+### 3. Wiring lifetimes in `App.OnFrameworkInitializationCompleted`
 
 `App.axaml.cs` is the right place to react once the framework is ready:
 
@@ -842,7 +864,7 @@ Notes:
 - Use dependency injection (any container) to share views/view models. Avalonia does not ship a DI container, so you control the lifetime.
 - For headless tests, your `App` still runs but you typically return `SingleView` or host view models manually.
 
-## 4. Handling exceptions and logging
+### 4. Handling exceptions and logging
 
 Important logging points:
 - `AppBuilder.LogToTrace()` uses Avalonia's logging infrastructure (see [`src/Avalonia.Base/Logging`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Logging)). For production apps, plug in `Serilog`, `Microsoft.Extensions.Logging`, or your preferred provider.
@@ -878,7 +900,7 @@ public static void Main(string[] args)
 
 `ClassicDesktopStyleApplicationLifetime` exposes `ShutdownMode`, `ShutdownRequested`, and `Shutdown()` so you can decide whether to exit on last window close, on main window close, or only when you call `Shutdown()` explicitly.
 
-## 5. Switching lifetimes inside one project
+### 5. Switching lifetimes inside one project
 
 You can provide different entry points or compile-time switches:
 
@@ -898,7 +920,7 @@ public static void Main(string[] args)
 - `SetupBrowserApp` is defined in [`BrowserAppBuilder.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserAppBuilder.cs) and attaches the app to a DOM element.
 - `Start` (with `AppMain`) lets you provide your own lifetime, often used in headless/integration tests.
 
-## 6. Headless/testing scenarios
+### 6. Headless/testing scenarios
 
 Avalonia's headless assemblies let you boot an app without rendering:
 
@@ -920,7 +942,7 @@ public static class Program
 - `Avalonia.Headless` lives under [`src/Headless`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless) and powers automated UI tests (`Avalonia.Headless.XUnit`, `Avalonia.Headless.NUnit`).
 - You can pump the dispatcher manually to run asynchronous UI logic in tests (`HeadlessUnitTestSession.Run` displays an example).
 
-## 7. Putting it together: desktop + single-view sample
+### 7. Putting it together: desktop + single-view sample
 
 `Program.cs`:
 
@@ -946,14 +968,14 @@ public static void Main(string[] args)
 
 `App.axaml.cs` sets up both `MainWindow` and `MainView` (as shown earlier). At runtime, you can switch lifetimes via command-line or compile condition.
 
-## Troubleshooting
+### Troubleshooting
 - **Black screen on startup**: check `UsePlatformDetect()`; on Linux you might need extra packages (mesa, libwebkit) or use `UseSkia` explicitly.
 - **No window appearing**: ensure `desktop.MainWindow` is assigned before calling `base.OnFrameworkInitializationCompleted()`.
 - **Single view renders but inputs fail**: confirm you used the right lifetime (`StartWithSingleViewLifetime`) and that your root view is a `Control` with focusable children.
 - **DI container disposed too early**: if you `using` the provider, keep it alive for the app lifetime and dispose in `Exit`.
 - **Unhandled exception after closing last window**: check `ShutdownMode`. Default is `OnLastWindowClose`; switch to `OnMainWindowClose` or call `Shutdown()` to exit on demand.
 
-## Practice and validation
+### Practice and validation
 1. Modify your project so the same `App` supports both desktop and single-view lifetimes. Use a command-line switch (`--mobile`) to select `StartWithSingleViewLifetime` and verify your `MainView` renders inside a mobile head (Android emulator or `dotnet run -- --mobile` + `SingleView` desktop simulation).
 2. Register a logging provider using `Microsoft.Extensions.Logging`. Log the current lifetime type inside `OnFrameworkInitializationCompleted`, subscribe to `ShutdownRequested`, and record when the app exits.
 3. Add a simple DI container (as shown) and resolve `MainWindow`/`MainView` through it. Confirm disposal happens when the app exits.
@@ -961,7 +983,7 @@ public static void Main(string[] args)
 5. Wire `Dispatcher.UIThread.UnhandledException` and verify that handled exceptions keep the app alive while unhandled ones terminate.
 6. Intentionally throw inside `OnFrameworkInitializationCompleted` and observe how logging captures the stack. Then add a `try/catch` to show a fallback dialog or log and exit gracefully.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - `AppBuilder` internals: [`src/Avalonia.Controls/AppBuilder.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/AppBuilder.cs)
 - Desktop startup helpers: [`src/Avalonia.Desktop/AppBuilderDesktopExtensions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Desktop/AppBuilderDesktopExtensions.cs)
 - Desktop lifetime implementation: [`src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs)
@@ -971,7 +993,7 @@ public static void Main(string[] args)
 - Controlled lifetime interface (`IControlledApplicationLifetime`): [`src/Avalonia.Controls/ApplicationLifetimes/IControlledApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/IControlledApplicationLifetime.cs)
 - Dispatcher unhandled exception hook: [`src/Avalonia.Base/Threading/Dispatcher.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Threading/Dispatcher.cs)
 
-## Check yourself
+### Check yourself
 - What steps does `BuildAvaloniaApp()` perform before choosing a lifetime?
 - Which lifetime would you use for Windows/macOS, Android/iOS, browser, and automated tests?
 - Where should you place dependency injection setup and where should you dispose the container?
@@ -981,12 +1003,24 @@ public static void Main(string[] args)
 What's next
 - Next: [Chapter 5](Chapter05.md)
 
+```{=latex}
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{Part II — Building beautiful and useful UIs}
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+{\Huge\bfseries Part II — Building beautiful and useful UIs}
+\end{center}
+\vspace*{\fill}
+\clearpage
+```
 
 ```{=latex}
 \newpage
 ```
 
-# 5. Layout system without mystery
+## 5. Layout system without mystery
 
 Goal
 - Understand Avalonia's layout pass (`Measure` then `Arrange`) and how `Layoutable` and `LayoutManager` orchestrate it.
@@ -1004,7 +1038,7 @@ Prerequisites
 - You can run a basic Avalonia app and edit XAML (Chapters 2-4).
 - You have DevTools (F12) available to inspect layout rectangles.
 
-## 1. Mental model: measure and arrange
+### 1. Mental model: measure and arrange
 
 Every control inherits from `Layoutable` ([Layoutable.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/Layoutable.cs)). The layout pass runs in two stages:
 
@@ -1013,14 +1047,14 @@ Every control inherits from `Layoutable` ([Layoutable.cs](https://github.com/Ava
 
 The `LayoutManager` ([LayoutManager.cs](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/LayoutManager.cs)) schedules layout passes when controls invalidate measure or arrange (`InvalidateMeasure`, `InvalidateArrange`).
 
-## 2. Layout invalidation and diagnostics
+### 2. Layout invalidation and diagnostics
 - Call `InvalidateMeasure()` when a control's desired size changes (for example, text content updates).
 - Call `InvalidateArrange()` when position changes but desired size remains the same. Panels do this when children move without resizing.
 - `LayoutManager` batches these requests; inspect timings via [`LayoutPassTiming`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/LayoutPassTiming.cs) or DevTools -> Layout tab.
 - Enable DevTools layout overlays (F12 -> Layout) to visualise measure/arrange bounds. Combine with `RendererDebugOverlays.LayoutTimeGraph` to profile layout costs.
 - For custom panels, avoid calling `InvalidateMeasure` from inside `MeasureOverride`; schedule work via `Dispatcher` if you must recalc asynchronously.
 
-## 3. Start a layout playground project
+### 3. Start a layout playground project
 
 ```bash
 dotnet new avalonia.app -o LayoutPlayground
@@ -1093,16 +1127,16 @@ Replace `MainWindow.axaml` with an experiment playground that demonstrates the c
 
 Run the app and resize the window. Observe how StackPanel, DockPanel, Grid, and WrapPanel distribute space.
 
-## 4. Alignment and sizing toolkit recap
+### 4. Alignment and sizing toolkit recap
 
 - `Margin` vs `Padding`: Margin adds space around a control; Padding adds space inside a container.
 - `HorizontalAlignment`/`VerticalAlignment`: `Stretch` makes controls fill available space; `Center`, `Start`, `End` align within the assigned slot.
 - `Width`/`Height`: fixed sizes; use sparingly. Prefer `MinWidth`, `MaxWidth`, `MinHeight`, `MaxHeight` for adaptive layouts.
 - Grid sizing: `Auto` (size to content), `*` (take remaining space), `2*` (take twice the share). Column/row definitions can mix Auto, star, and pixel values.
 
-## 5. Advanced layout tools
+### 5. Advanced layout tools
 
-### Grid with `SharedSizeGroup`
+#### Grid with `SharedSizeGroup`
 
 `SharedSizeGroup` lets multiple grids share sizes within a scope. Mark the parent with `Grid.IsSharedSizeScope="True"`:
 
@@ -1125,7 +1159,7 @@ Run the app and resize the window. Observe how StackPanel, DockPanel, Grid, and 
 
 All label columns share the same width. Source: [`Grid.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Grid.cs) and [`DefinitionBase.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/DefinitionBase.cs).
 
-### `GridSplitter`
+#### `GridSplitter`
 
 ```xml
 <Grid ColumnDefinitions="3*,Auto,2*">
@@ -1137,7 +1171,7 @@ All label columns share the same width. Source: [`Grid.cs`](https://github.com/A
 
 `GridSplitter` lets users resize star-sized columns/rows. Implementation: [`GridSplitter.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/GridSplitter.cs).
 
-### `Viewbox` and `LayoutTransformControl`
+#### `Viewbox` and `LayoutTransformControl`
 
 - `Viewbox` scales its child proportionally to fit the available space.
 - `LayoutTransformControl` applies transforms (rotate, scale, skew) while preserving layout.
@@ -1159,7 +1193,7 @@ All label columns share the same width. Source: [`Grid.cs`](https://github.com/A
 
 Sources: [`Viewbox.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Viewbox.cs), [`LayoutTransformControl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/LayoutTransformControl.cs).
 
-### `Panel.ZIndex`
+#### `Panel.ZIndex`
 
 Controls inside the same panel respect `Panel.ZIndex` for stacking order. Higher ZIndex renders above lower values.
 
@@ -1170,7 +1204,7 @@ Controls inside the same panel respect `Panel.ZIndex` for stacking order. Higher
 </Canvas>
 ```
 
-## 6. Scrolling and LogicalScroll
+### 6. Scrolling and LogicalScroll
 
 `ScrollViewer` wraps content to provide scrolling. When the child implements `ILogicalScrollable` (e.g., `ItemsPresenter` with virtualization), the scrolling is smoother and can skip measurement of offscreen content.
 
@@ -1185,7 +1219,7 @@ Controls inside the same panel respect `Panel.ZIndex` for stacking order. Higher
 - For virtualization, panels may implement `ILogicalScrollable` (see [`LogicalScroll.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/LogicalScroll.cs)).
 - `ScrollViewer` triggers layout when viewports change.
 
-## 7. Custom panels (when the built-ins aren't enough)
+### 7. Custom panels (when the built-ins aren't enough)
 
 Derive from `Panel` and override `MeasureOverride`/`ArrangeOverride` to create custom layout logic. Example: a simplified `UniformGrid`:
 
@@ -1244,7 +1278,7 @@ public class UniformGridPanel : Panel
 - This panel ignores child desired sizes for simplicity; real panels usually respect `child.DesiredSize` from `Measure`.
 - Read `Layoutable` and `Panel` sources to understand helper methods like `ArrangeRect`.
 
-## 8. Layout diagnostics with DevTools
+### 8. Layout diagnostics with DevTools
 
 While running the app press **F12** -> Layout tab:
 - Inspect the measurement and arrange rectangles for each control.
@@ -1262,7 +1296,7 @@ AppBuilder.Configure<App>()
 
 `LogArea.Layout` logs measure/arrange operations to the console.
 
-## 9. Practice scenarios
+### 9. Practice scenarios
 
 1. **Shared field labels**: Use `Grid.IsSharedSizeScope` and `SharedSizeGroup` across multiple form sections so labels align perfectly, even when collapsed sections are toggled.
 2. **Resizable master-detail**: Combine `GridSplitter` with a two-column layout; ensure minimum sizes keep content readable.
@@ -1271,7 +1305,7 @@ AppBuilder.Configure<App>()
 5. **Scroll diagnostics**: Place a long list inside `ScrollViewer`, enable DevTools Layout overlay, and observe how viewport size changes the arrange rectangles.
 6. **Layout logging**: Enable `LogArea.Layout` and capture a trace of `Measure`/`Arrange` calls when resizing. Inspect `LayoutManager.Instance.LayoutPassTiming.LastLayoutTime` to correlate with DevTools overlays.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Base layout contract: [`Layoutable.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/Layoutable.cs)
 - Layout manager: [`LayoutManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/LayoutManager.cs)
 - Layout pass timing & diagnostics: [`LayoutPassTiming.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Layout/LayoutPassTiming.cs), [`RendererDebugOverlays.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)
@@ -1280,7 +1314,7 @@ AppBuilder.Configure<App>()
 - Scroll infrastructure: [`ScrollViewer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ScrollViewer.cs), [`LogicalScroll.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/LogicalScroll.cs)
 - Custom panels inspiration: [`VirtualizingStackPanel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/VirtualizingStackPanel.cs)
 
-## Check yourself
+### Check yourself
 - What two steps does the layout system run for every control, and which classes coordinate them?
 - How does `SharedSizeGroup` influence multiple grids? What property enables shared sizing?
 - When would you use `LayoutTransformControl` instead of a render transform?
@@ -1295,7 +1329,7 @@ What's next
 \newpage
 ```
 
-# 6. Controls tour you'll actually use
+## 6. Controls tour you'll actually use
 
 Goal
 - Build confidence with Avalonia's everyday controls grouped by scenario: text input, selection, navigation, editing, and feedback.
@@ -1311,7 +1345,7 @@ Why this matters
 Prerequisites
 - You have built layouts (Chapter 5) and can bind data (Chapter 3's data templates). Chapter 8 will deepen bindings further.
 
-## 1. Set up a sample project
+### 1. Set up a sample project
 
 ```bash
 dotnet new avalonia.mvvm -o ControlsShowcase
@@ -1320,7 +1354,7 @@ cd ControlsShowcase
 
 We will extend `Views/MainWindow.axaml` with multiple sections backed by `MainWindowViewModel`.
 
-## 2. Control overview matrix
+### 2. Control overview matrix
 
 | Scenario | Key controls | Highlights | Source snapshot |
 | --- | --- | --- | --- |
@@ -1334,7 +1368,7 @@ We will extend `Views/MainWindow.axaml` with multiple sections backed by `MainWi
 
 Use this table as a map while exploring ControlCatalog; each section below dives into exemplars from these categories.
 
-## 3. Form inputs and validation basics
+### 3. Form inputs and validation basics
 
 ```xml
 <StackPanel Spacing="16">
@@ -1363,7 +1397,7 @@ Notes:
 - `NumericUpDown` (from [`NumericUpDown.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/NumericUpDown/NumericUpDown.cs)) provides spinner buttons and numeric formatting.
 - Accessibility: provide spoken labels via `AutomationProperties.Name` or `HelpText` on inputs so screen readers identify the fields correctly.
 
-## 4. Toggles, options, and commands
+### 4. Toggles, options, and commands
 
 ```xml
 <GroupBox Header="Plan options" Padding="12">
@@ -1389,7 +1423,7 @@ Notes:
 - `ToggleSwitch` gives a Fluent-styled toggle. Implementation: [`ToggleSwitch.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ToggleSwitch.cs).
 - RadioButtons share state via `GroupName` or `IsChecked` bindings.
 
-## 5. Selection lists with templating
+### 5. Selection lists with templating
 
 ```xml
 <GroupBox Header="Teams" Padding="12">
@@ -1409,7 +1443,7 @@ Notes:
 - `ListBox` supports selection out of the box. For custom selection logic, use `SelectionModel` (see [`SelectionModel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Selection/SelectionModel.cs)).
 - Consider `ListBox.SelectionMode="Multiple"` for multi-select.
 
-### Virtualization tip
+#### Virtualization tip
 
 Large lists should virtualize. Use `ListBox` with the default `VirtualizingStackPanel` or switch panels:
 
@@ -1419,7 +1453,7 @@ Large lists should virtualize. Use `ListBox` with the default `VirtualizingStack
 
 Controls for virtualization: [`VirtualizingStackPanel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/VirtualizingStackPanel.cs).
 
-## 6. Hierarchical data with `TreeView`
+### 6. Hierarchical data with `TreeView`
 
 ```xml
 <TreeView Items="{Binding Departments}" SelectedItems="{Binding SelectedDepartments}">
@@ -1439,7 +1473,7 @@ Controls for virtualization: [`VirtualizingStackPanel.cs`](https://github.com/Av
 - `TreeView` uses `TreeDataTemplate` to describe hierarchical data. Each template can reference a property (`Teams`) for child items.
 - Source implementation: [`TreeView.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TreeView.cs).
 
-## 7. Navigation controls (`TabControl`, `SplitView`, `Expander`)
+### 7. Navigation controls (`TabControl`, `SplitView`, `Expander`)
 
 ```xml
 <TabControl SelectedIndex="{Binding SelectedTab}">
@@ -1477,8 +1511,8 @@ Controls for virtualization: [`VirtualizingStackPanel.cs`](https://github.com/Av
 - `SplitView` (from [`SplitView.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/SplitView/SplitView.cs)) provides collapsible navigation, useful for sidebars.
 - `Expander` collapses/expands content. Implementation: [`Expander.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Expander.cs).
 
-## 8. Auto-complete, pickers, and dialogs
-## 9. Command surfaces and flyouts
+### 8. Auto-complete, pickers, and dialogs
+### 9. Command surfaces and flyouts
 
 ```xml
 <StackPanel Spacing="12">
@@ -1540,7 +1574,7 @@ Notes:
 - `ColorPicker` shows palettes, sliders, and input fields (see [`ColorPicker.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls.ColorPicker/ColorPicker.cs)).
 - File pickers will use `IStorageProvider` (Chapter 16).
 
-## 10. Refresh gestures and feedback
+### 10. Refresh gestures and feedback
 
 ```xml
 <Window xmlns:ptr="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls"
@@ -1599,7 +1633,7 @@ notifications.Show(new Notification("Update available", "Restart to apply update
 
 - `StatusBar` hosts persistent indicators (connection status, progress). Implementation: [`StatusBar`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/StatusBar/StatusBar.cs).
 
-## 11. Styling, classes, and visual states
+### 11. Styling, classes, and visual states
 
 Use classes (`Classes="primary"`) or pseudo-classes (`:pointerover`, `:pressed`, `:checked`) to style stateful controls:
 
@@ -1620,7 +1654,7 @@ Use classes (`Classes="primary"`) or pseudo-classes (`:pointerover`, `:pressed`,
 
 Styles live in `App.axaml` or separate resource dictionaries. Control templates are defined under [`src/Avalonia.Themes.Fluent`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent/Controls). Inspect `Button.xaml`, `ListBox.xaml`, etc., to understand structure and visual states.
 
-## 12. ControlCatalog treasure hunt
+### 12. ControlCatalog treasure hunt
 
 1. Clone the Avalonia repository and run the ControlCatalog (Desktop) sample: `dotnet run --project samples/ControlCatalog.Desktop/ControlCatalog.Desktop.csproj`.
 2. Use the built-in search to find controls. Explore the `Source` tab to jump to relevant XAML or C# files.
@@ -1629,7 +1663,7 @@ Styles live in `App.axaml` or separate resource dictionaries. Control templates 
    - Collections and virtualization demos map to [`VirtualizingStackPanel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/VirtualizingStackPanel.cs).
    - Navigation samples map to [`SplitView.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/SplitView/SplitView.cs) and `TabControl` templates.
 
-## 13. Practice exercises
+### 13. Practice exercises
 
 1. Create a "dashboard" page mixing text input, selection lists, tabs, a `SplitButton`, and a collapsible filter panel. Bind every control to a view model.
 2. Add an `AutoCompleteBox` that filters as you type. Use DevTools to inspect the generated `ListBox` inside the control and verify automation names.
@@ -1639,7 +1673,7 @@ Styles live in `App.axaml` or separate resource dictionaries. Control templates 
 6. Customise button states by adding pseudo-class styles and confirm they match the ControlCatalog defaults.
 7. Swap the `WrapPanel` for an `ItemsRepeater` (Chapter 14) to prepare for virtualization scenarios.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Core controls: [`src/Avalonia.Controls`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls)
 - Specialized controls: [`src/Avalonia.Controls.ColorPicker`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls.ColorPicker), [`src/Avalonia.Controls.NumericUpDown`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls/NumericUpDown), [`src/Avalonia.Controls.AutoCompleteBox`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls/AutoCompleteBox)
 - Command & navigation surfaces: [`src/Avalonia.Controls/SplitButton`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls/SplitButton), [`src/Avalonia.Controls/SplitView`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls/SplitView)
@@ -1647,7 +1681,7 @@ Styles live in `App.axaml` or separate resource dictionaries. Control templates 
 - Selection framework: [`src/Avalonia.Controls/Selection`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls/Selection)
 - Styles and templates: [`src/Avalonia.Themes.Fluent/Controls`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent/Controls)
 
-## Check yourself
+### Check yourself
 - Which controls would you choose for numeric input, masked input, and auto-completion?
 - How do you template `ListBox` items and enable virtualization for large datasets?
 - Where do you look to customise the appearance of a `ToggleSwitch`?
@@ -1662,7 +1696,7 @@ What's next
 \newpage
 ```
 
-# 7. Fluent theming and styles made simple
+## 7. Fluent theming and styles made simple
 
 Goal
 - Understand Avalonia's Fluent theme architecture, theme variants, and how theme resources flow through your app.
@@ -1680,7 +1714,7 @@ Prerequisites
 - Comfort editing `App.axaml`, windows, and user controls (Chapters 3-6).
 - Basic understanding of data binding and commands (Chapters 3, 6).
 
-## 1. Fluent theme in a nutshell
+### 1. Fluent theme in a nutshell
 
 Avalonia ships with Fluent 2 based resources and templates. The theme lives under [`src/Avalonia.Themes.Fluent`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent). Templates reference resource keys (brushes, thicknesses, typography) that resolve per theme variant.
 
@@ -1700,7 +1734,7 @@ Avalonia ships with Fluent 2 based resources and templates. The theme lives unde
 - `RequestedThemeVariant` controls the global variant (`ThemeVariant.Light`, `ThemeVariant.Dark`, `ThemeVariant.HighContrast`).
 - `FluentTheme` can be configured with `Mode="Light"`, `Mode="Dark"`, or `Mode="Default"` (auto based on OS hints). Source: [`FluentTheme.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/FluentTheme.cs).
 
-## 2. Structure resources into dictionaries
+### 2. Structure resources into dictionaries
 
 Split large resource sets into dedicated files. Create `Styles/Colors.axaml`:
 
@@ -1751,7 +1785,7 @@ Include them in `App.axaml`:
 - `StyleInclude` expects `Styles` (or a single `Style`) and registers selectors. Use `avares://Assembly/Path.axaml` URIs to include styles from other assemblies (for example, `avares://Avalonia.Themes.Fluent/Controls/Button.xaml`).
 - When you rename assemblies or move resource files, update the `Source` URI; missing includes surface as `XamlLoadException` during startup.
 
-## 3. Static vs dynamic resources
+### 3. Static vs dynamic resources
 
 - `StaticResource` resolves once during load. Use it for values that never change (fonts, corner radius constants).
 - `DynamicResource` re-evaluates when the resource is replaced at runtime--essential for theme switching.
@@ -1770,8 +1804,8 @@ Resource lookup order:
 
 The implementation lives in [`ResourceDictionary.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Resources/ResourceDictionary.cs). DevTools -> Resources panel shows the chain and which dictionary satisfied a lookup.
 
-## 4. Theme variant scope (local theming)
-## 5. Migrating and overriding Fluent resources
+### 4. Theme variant scope (local theming)
+### 5. Migrating and overriding Fluent resources
 
 When you need to change Fluent defaults globally (for example, switch accent colors or typography), supply variant-specific dictionaries. Place these under `Application.Resources` with a `ThemeVariant` attribute so they override the theme-provided value only for matching variants.
 
@@ -1807,7 +1841,7 @@ When you need to change Fluent defaults globally (for example, switch accent col
 
 Everything inside the scope resolves resources as if the app were using `ThemeVariant.Dark`. Useful for popovers or modal sheets.
 
-## 6. Runtime theme switching
+### 6. Runtime theme switching
 
 Add a toggle to your main view:
 
@@ -1840,7 +1874,7 @@ public sealed class ShellViewModel : ObservableObject
 
 Because button styles use `DynamicResource`, they respond immediately. For per-window overrides set `RequestedThemeVariant` on the window itself or wrap content in `ThemeVariantScope`.
 
-## 7. Customizing control templates with `ControlTheme`
+### 7. Customizing control templates with `ControlTheme`
 
 `ControlTheme` lets you replace a control's default template and resources without subclassing. Source: [`ControlTheme.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/ControlTheme.cs).
 
@@ -1875,7 +1909,7 @@ Apply it:
 
 To inherit Fluent visual states, you can base your theme on existing resources by referencing `themes:ToggleButtonTheme`. Inspect templates in [`src/Avalonia.Themes.Fluent/Controls`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent/Controls) for structure and named parts.
 
-## 8. Working with pseudo-classes and classes
+### 8. Working with pseudo-classes and classes
 
 Use pseudo-classes to target interaction states. Example for `ToggleSwitch`:
 
@@ -1900,7 +1934,7 @@ Use pseudo-classes to target interaction states. Example for `ToggleSwitch`:
 
 Pseudo-class documentation lives in [`Selectors.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/docs/styles/selectors.md) and runtime code under [`Selector.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Styling/Selector.cs). Combine pseudo-classes with style classes (e.g., `Button.primary:pointerover`) to keep state-specific visuals consistent and accessible.
 
-## 9. Accessibility and high contrast themes
+### 9. Accessibility and high contrast themes
 
 Fluent ships high contrast resources. Switch by setting `RequestedThemeVariant="HighContrast"`.
 
@@ -1920,7 +1954,7 @@ Example dictionary addition:
 
 `ThemeVariant`-specific dictionaries override defaults when the variant matches.
 
-## 10. Debugging styles with DevTools
+### 10. Debugging styles with DevTools
 
 Press **F12** to open DevTools -> Styles panel:
 - Inspect applied styles, pseudo-classes, and resources.
@@ -1936,7 +1970,7 @@ AppBuilder.Configure<App>()
     .StartWithClassicDesktopLifetime(args);
 ```
 
-## 11. Practice exercises
+### 11. Practice exercises
 
 1. **Create a brand palette**: define primary and secondary brushes with theme-specific overrides (light/dark/high contrast) and apply them to buttons and toggles.
 2. **Scope a sub-view**: wrap a settings pane in `ThemeVariantScope RequestedThemeVariant="Dark"` to preview dual-theme experiences.
@@ -1944,14 +1978,14 @@ AppBuilder.Configure<App>()
 4. **Runtime theme switching**: wire a `ToggleSwitch` or menu command to flip between Light/Dark; ensure all custom brushes use `DynamicResource`.
 5. **DevTools audit**: use DevTools to inspect pseudo-classes on a `ToggleSwitch` and verify your custom styles apply in `:checked` and `:focus` states.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Theme variant scoping: [`ThemeVariantScope.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ThemeVariantScope.cs)
 - Control themes and styles: [`ControlTheme.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/ControlTheme.cs), [`Style.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/Style.cs)
 - Selector engine & pseudo-classes: [`Selector.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Styling/Selector.cs)
 - Fluent resources and templates: [`src/Avalonia.Themes.Fluent/Controls`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Themes.Fluent/Controls)
 - Theme variant definitions: [`ThemeVariant.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Styling/ThemeVariant.cs)
 
-## Check yourself
+### Check yourself
 - How do `ResourceInclude` and `StyleInclude` differ, and what root elements do they expect?
 - When should you use `ThemeVariantScope` versus changing `RequestedThemeVariant` on the application?
 - What advantages does `ControlTheme` give over subclassing a control?
@@ -1966,7 +2000,7 @@ What's next
 \newpage
 ```
 
-# 8. Data binding basics you'll use every day
+## 8. Data binding basics you'll use every day
 
 Goal
 - Understand the binding engine (DataContext, binding paths, inheritance) and when to use different binding modes.
@@ -1984,7 +2018,7 @@ Prerequisites
 - You can create a project and run it (Chapters 2-7).
 - You've seen basic controls and templates (Chapters 3 & 6).
 
-## 1. The binding engine at a glance
+### 1. The binding engine at a glance
 
 Avalonia's binding engine lives under [`src/Avalonia.Base/Data`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Data). Key pieces:
 - `DataContext`: inherited down the logical tree. Most bindings resolve relative to the current element's DataContext.
@@ -2002,7 +2036,7 @@ Bindings resolve in this order:
 
 `BindingOperations.SetBinding` mirrors WPF/WinUI and is useful when you need to create bindings from code (for dynamic property names or custom controls). `BindingOperations.ClearBinding` removes them safely, keeping reference tracking intact.
 
-## 2. Binding scopes and source selection
+### 2. Binding scopes and source selection
 
 Binding sources are resolved differently depending on the binding type:
 
@@ -2052,7 +2086,7 @@ var subscription = textStream.Subscribe(text => ViewModel.TextLength = text.Leng
 `AvaloniaPropertyObservable` lives in [`AvaloniaPropertyObservable.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Reactive/AvaloniaPropertyObservable.cs) and bridges the binding system with `IObservable<T>` pipelines.
 Dispose the subscription in `OnDetachedFromVisualTree` (or your view's `Dispose` pattern) to avoid leaks.
 
-## 3. Set up the sample project
+### 3. Set up the sample project
 
 ```bash
 dotnet new avalonia.mvvm -o BindingPlayground
@@ -2061,7 +2095,7 @@ cd BindingPlayground
 
 We'll expand `MainWindow.axaml` and `MainWindowViewModel.cs`.
 
-## 4. Core bindings (OneWay, TwoWay, OneTime)
+### 4. Core bindings (OneWay, TwoWay, OneTime)
 
 View model implementing `INotifyPropertyChanged`:
 
@@ -2124,7 +2158,7 @@ In `MainWindow.axaml` set the DataContext:
 
 `Design.DataContext` provides design-time data in the previewer.
 
-## 5. Binding modes in action
+### 5. Binding modes in action
 
 ```xml
 <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,*" Padding="16" RowSpacing="16" ColumnSpacing="24">
@@ -2162,9 +2196,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
 }
 ```
 
-## 6. ElementName and RelativeSource
+### 6. ElementName and RelativeSource
 
-### ElementName binding
+#### ElementName binding
 
 ```xml
 <StackPanel Margin="0,24,0,0" Spacing="6">
@@ -2175,7 +2209,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
 `#VolumeSlider` targets the element with `x:Name="VolumeSlider"`.
 
-### RelativeSource binding
+#### RelativeSource binding
 
 Use `RelativeSource` to bind to ancestors:
 
@@ -2187,7 +2221,7 @@ This binds to the window's DataContext even if the local control has its own Dat
 
 Relative source syntax also supports `Self` (`RelativeSource={RelativeSource Self}`) and `TemplatedParent` for control templates.
 
-### Binding to attached properties
+#### Binding to attached properties
 
 Avalonia registers attached properties (e.g., `ScrollViewer.HorizontalScrollBarVisibilityProperty`) as `AvaloniaProperty`. Bind to them by wrapping the property name in parentheses:
 
@@ -2206,7 +2240,7 @@ Avalonia registers attached properties (e.g., `ScrollViewer.HorizontalScrollBarV
 
 Attached property syntax also works inside `Binding` or `MultiBinding`. When setting them from code, use the generated static accessor (e.g., `ScrollViewer.SetHorizontalScrollBarVisibility(listBox, ScrollBarVisibility.Disabled);`).
 
-## 7. Compiled bindings
+### 7. Compiled bindings
 
 Compiled bindings (`CompiledBinding`) produce strongly-typed accessors with better performance. Require `x:DataType` or `CompiledBindings` namespace:
 
@@ -2227,9 +2261,9 @@ xmlns:vm="clr-namespace:BindingPlayground.ViewModels"
 
 If `x:DataType` is set, `CompiledBinding` uses compile-time checking and generates binding code. Source: [`CompiledBindingExtension.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/MarkupExtensions/CompiledBindingExtension.cs).
 
-## 8. MultiBinding and PriorityBinding
+### 8. MultiBinding and PriorityBinding
 
-### MultiBinding
+#### MultiBinding
 
 Combine multiple values into one target:
 
@@ -2268,7 +2302,7 @@ Use it:
 </TextBlock>
 ```
 
-### PriorityBinding
+#### PriorityBinding
 
 Priority bindings try sources in order and use the first that yields a value:
 
@@ -2287,7 +2321,7 @@ Priority bindings try sources in order and use the first that yields a value:
 
 Source: [`PriorityBinding.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup/Data/PriorityBinding.cs).
 
-## 9. Lists, selection, and templates
+### 9. Lists, selection, and templates
 
 `MainWindowViewModel` exposes collections:
 
@@ -2326,7 +2360,7 @@ Template the list:
 
 Inside the details pane, bind to `SelectedPerson` safely using null-conditional binding (C#) or triggers. XAML automatically handles null (shows blank). Use `x:DataType` for compile-time checks.
 
-### `SelectionModel`
+#### `SelectionModel`
 
 For advanced selection (multi-select, range), use `SelectionModel<T>` from [`SelectionModel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Selection/SelectionModel.cs). Example:
 
@@ -2340,7 +2374,7 @@ Bind it:
 <ListBox Items="{Binding People}" Selection="{Binding PeopleSelection}"/>
 ```
 
-## 10. Validation with `INotifyDataErrorInfo`
+### 10. Validation with `INotifyDataErrorInfo`
 
 Implement `INotifyDataErrorInfo` for asynchronous validation.
 
@@ -2407,7 +2441,7 @@ Bind the validation feedback automatically:
 
 Avalonia surfaces validation errors via attached properties. For a full pattern see [`Validation`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Validation).
 
-## 11. Asynchronous bindings
+### 11. Asynchronous bindings
 
 Use `Task`-returning properties with `Binding` and `BindingPriority.AsyncLocalValue`. Example view model property:
 
@@ -2435,7 +2469,7 @@ Bind with fallback until the value arrives:
 
 You can also bind directly to `Task` results using `TaskObservableCollection` or reactive extensions (Chapter 17 covers background work).
 
-## 12. Binding diagnostics
+### 12. Binding diagnostics
 
 - **DevTools**: press F12 -> Diagnostics -> Binding Errors tab. Inspect live errors (missing properties, converters failing).
 - **Binding logging**: enable via `BindingDiagnostics`.
@@ -2460,7 +2494,7 @@ Source: [`BindingDiagnostics.cs`](https://github.com/AvaloniaUI/Avalonia/blob/ma
 
 Use `TraceBindingFailures` extension to log failures for specific bindings.
 
-## 13. Practice exercises
+### 13. Practice exercises
 
 1. **Compiled binding sweep**: add `x:DataType` to each data template and replace `Binding` with `CompiledBinding` where possible. Observe compile-time errors when property names are mistyped.
 2. **MultiBinding formatting**: create a multi binding that formats `FirstName`, `LastName`, and `Age` into a sentence like "Ada Lovelace is 36 years old." Add a converter parameter for custom formats.
@@ -2470,7 +2504,7 @@ Use `TraceBindingFailures` extension to log failures for specific bindings.
 6. **Observable probes**: pipe `TextBox.TextProperty` through `AvaloniaPropertyObservable.Observe` and surface the text length in the UI.
 7. **Diagnostics drill**: intentionally break a binding (typo) and use DevTools and `BindingDiagnostics` to find it. Fix the binding and confirm logs clear.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Binding implementation: [`Binding.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/Binding.cs), [`BindingExpression.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/BindingExpression.cs)
 - Binding helpers: [`BindingOperations.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/BindingOperations.cs), [`ExpressionObserver.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/ExpressionObserver.cs)
 - Compiled bindings: [`CompiledBindingExtension.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Markup/Avalonia.Markup.Xaml/MarkupExtensions/CompiledBindingExtension.cs)
@@ -2480,7 +2514,7 @@ Use `TraceBindingFailures` extension to log failures for specific bindings.
 - Validation: [`Validation.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Validation/Validation.cs)
 - Diagnostics: [`BindingDiagnostics.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/BindingDiagnostics.cs)
 
-## Check yourself
+### Check yourself
 - When would you choose `CompiledBinding` over `Binding`, and what prerequisites does it have?
 - How do `ElementName`, `RelativeSource`, and attached property syntax change the binding source?
 - Which scenarios call for `MultiBinding`, `PriorityBinding`, or programmatic calls to `BindingOperations.SetBinding`?
@@ -2495,7 +2529,7 @@ What's next
 \newpage
 ```
 
-# 9. Commands, events, and user input
+## 9. Commands, events, and user input
 
 Goal
 - Understand how routed events flow through `InputElement` and how gesture recognizers, commands, and keyboard navigation fit together.
@@ -2513,7 +2547,7 @@ Prerequisites
 - Chapters 3-8 (layouts, controls, binding, theming).
 - Basic MVVM knowledge and an `INotifyPropertyChanged` view model.
 
-## 1. Input building blocks
+### 1. Input building blocks
 
 Avalonia input pieces live under:
 - Routed events: [`Avalonia.Interactivity`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Interactivity) defines `RoutedEvent`, event descriptors, and routing strategies.
@@ -2545,7 +2579,7 @@ public event EventHandler<RoutedEventArgs> DragStarted
 
 `RoutingStrategies` live in [`RoutedEvent.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Interactivity/RoutedEvent.cs); each handler chooses whether the event should travel from root to leaf (tunnel) or leaf to root (bubble).
 
-## 2. Input playground setup
+### 2. Input playground setup
 
 ```bash
 dotnet new avalonia.mvvm -o InputPlayground
@@ -2638,7 +2672,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
 Supporting command classes (`RelayCommand`, `AsyncRelayCommand`) go in `Commands` folder. You may reuse the ones from CommunityToolkit.Mvvm or ReactiveUI.
 
-## 3. Commands vs events cheat sheet
+### 3. Commands vs events cheat sheet
 
 | Use command when... | Use event when... |
 | --- | --- |
@@ -2649,7 +2683,7 @@ Supporting command classes (`RelayCommand`, `AsyncRelayCommand`) go in `Commands
 
 Most real views mix both: commands for operations, events for gestures.
 
-## 4. Binding commands in XAML
+### 4. Binding commands in XAML
 
 ```xml
 <StackPanel Spacing="12">
@@ -2668,9 +2702,9 @@ Most real views mix both: commands for operations, events for gestures.
 
 Buttons disable automatically when `SaveCommand.CanExecute` returns false.
 
-## 5. Keyboard shortcuts, KeyGesture, and HotKeyManager
+### 5. Keyboard shortcuts, KeyGesture, and HotKeyManager
 
-### KeyBinding / KeyGesture
+#### KeyBinding / KeyGesture
 
 ```xml
 <Window ...>
@@ -2686,7 +2720,7 @@ Buttons disable automatically when `SaveCommand.CanExecute` returns false.
 
 `KeyGesture` parsing is handled by [`KeyGesture`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyGesture.cs) and [`KeyGestureConverter`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyGestureConverter.cs). For multiple gestures, add more `KeyBinding` entries on the relevant `InputElement`.
 
-### `HotKeyManager` attached property
+#### `HotKeyManager` attached property
 
 `KeyBinding` only fires while the owning control is focused. To register process-wide hotkeys that stay active as long as a control is in the visual tree, attach a `KeyGesture` via `HotKeyManager.HotKey`:
 
@@ -2702,7 +2736,7 @@ Buttons disable automatically when `SaveCommand.CanExecute` returns false.
 
 Bring `Avalonia.Input` into scope when assigning gestures programmatically so `KeyGesture` and `KeyModifiers` resolve.
 
-### Access keys (mnemonics)
+#### Access keys (mnemonics)
 
 Use `_` to define an access key in headers (e.g., `_Save`). Access keys work when Alt is pressed.
 
@@ -2716,7 +2750,7 @@ Use `_` to define an access key in headers (e.g., `_Save`). Access keys work whe
 
 Access keys are processed via `AccessKeyHandler` ([`AccessKeyHandler.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/AccessKeyHandler.cs)). Combine them with `HotKeyManager` to offer both menu accelerators and global commands.
 
-## 6. Pointer gestures, capture, and drag initiation
+### 6. Pointer gestures, capture, and drag initiation
 
 Avalonia ships gesture recognizers derived from [`GestureRecognizer`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/GestureRecognizers/GestureRecognizer.cs). Attach them via `GestureRecognizers` to translate raw pointer data into commands:
 
@@ -2765,7 +2799,7 @@ private void Card_PointerReleased(object? sender, PointerReleasedEventArgs e)
 
 To cancel capture, call `e.Pointer.Capture(null)` or use `Pointer.Captured`. See [`PointerDevice.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/Pointer/PointerDevice.cs) and [`PointerEventArgs.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/PointerEventArgs.cs) for details.
 
-## 7. Text input pipeline (IME & composition)
+### 7. Text input pipeline (IME & composition)
 
 Text entry flows through `TextInput` events. For IME (Asian languages), Avalonia raises `TextInput` with composition events. To hook into the pipeline, subscribe to `TextInput` or implement `ITextInputMethodClient` in custom controls. Source: [`TextInputMethodClient.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputMethodClient.cs).
 
@@ -2782,7 +2816,7 @@ private void TextBox_TextInput(object? sender, TextInputEventArgs e)
 
 In most MVVM apps you rely on `TextBox` handling IME; implement this only when creating custom text editors.
 
-## 8. Keyboard focus management and navigation
+### 8. Keyboard focus management and navigation
 
 - Call `Focus()` to move input programmatically. `InputElement.Focus()` delegates to [`FocusManager`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/FocusManager.cs).
 - Use `Focusable="False"` on decorative elements so they are skipped in traversal.
@@ -2809,7 +2843,7 @@ public void FocusSecond()
 
 For MVVM-safe focus changes, expose an interaction request (event or `Interaction<T>` from ReactiveUI) and let the view handle it. Keyboard navigation services live under [`IKeyboardNavigationHandler`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/IKeyboardNavigationHandler.cs).
 
-## 9. Bridging commands with MVVM frameworks
+### 9. Bridging commands with MVVM frameworks
 
 - **CommunityToolkit.Mvvm** – `RelayCommand`/`AsyncRelayCommand` implement `ICommand` and expose `CanExecuteChanged`. Use `[RelayCommand]` attributes to generate commands and wrap business logic in partial classes.
 - **ReactiveUI** – `ReactiveCommand` exposes `IObservable` execution pipelines, throttling, and cancellation. Bind with `{Binding SaveCommand}` just like any other `ICommand`.
@@ -2834,7 +2868,7 @@ The example uses `ReactiveUI.Interaction` and `Avalonia.Input.PointerPoint`; ada
 
 In XAML, use `Interaction` behaviors (`<interactions:Interaction.Triggers>` or toolkit `EventToCommandBehavior`) to connect events such as `PointerPressed` to `ReactiveCommand`s without writing code-behind. This keeps event routing logic discoverable while leaving testable command logic in the view model.
 
-## 10. Routed commands and command routing
+### 10. Routed commands and command routing
 
 Avalonia supports routed commands similar to WPF. Define a `RoutedCommand` (`RoutedCommandLibrary.Save`, etc.) and attach handlers via `CommandBinding`.
 
@@ -2861,7 +2895,7 @@ Routed commands bubble up the tree if not handled, allowing menu items and toolb
 
 Source: [`RoutedCommand.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Interactivity/Input/RoutedCommand.cs).
 
-## 11. Asynchronous command patterns
+### 11. Asynchronous command patterns
 
 Avoid blocking the UI thread. Use `AsyncRelayCommand` or custom `ICommand` that runs `Task`.
 
@@ -2903,7 +2937,7 @@ public sealed class AsyncRelayCommand : ICommand
 }
 ```
 
-## 12. Diagnostics: watch input live
+### 12. Diagnostics: watch input live
 
 DevTools (F12) -> **Events** tab let you monitor events (PointerPressed, KeyDown). Select an element, toggle events to watch.
 
@@ -2918,7 +2952,7 @@ AppBuilder.Configure<App>()
 
 `LogArea.Input` (source: [`LogArea.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Logging/LogArea.cs)) emits detailed input information.
 
-## 13. Practice exercises
+### 13. Practice exercises
 
 1. Extend InputPlayground with a routed event logger: call `AddHandler` for `PointerPressedEvent`/`KeyDownEvent`, display bubbling order, and compare to the DevTools Events tab.
 2. Register a global `Ctrl+Shift+S` gesture with `HotKeyManager.HotKey` (in XAML or via `HotKeyManager.SetHotKey`), then toggle the button’s `IsEnabled` state and confirm `CanExecute` updates propagate.
@@ -2926,7 +2960,7 @@ AppBuilder.Configure<App>()
 4. Integrate a `ReactiveCommand` or toolkit `AsyncRelayCommand` with a drag `Interaction<T>` so the view model decides when async work starts.
 5. Configure `KeyboardNavigation.TabNavigation="Cycle"` on a popup and verify focus returns to the launcher when it closes.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Routed events: [`RoutedEvent.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Interactivity/RoutedEvent.cs), [`RoutingStrategies`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Interactivity/RoutingStrategies.cs)
 - Commands: [`ButtonBase.Command`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Primitives/ButtonBase.cs), [`MenuItem.Command`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/MenuItem.cs), [`KeyBinding`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Input/KeyBinding.cs)
 - Hotkeys: [`KeyGesture.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyGesture.cs), [`HotkeyManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/HotkeyManager.cs)
@@ -2934,7 +2968,7 @@ AppBuilder.Configure<App>()
 - Focus: [`FocusManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/FocusManager.cs), [`IKeyboardNavigationHandler`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/IKeyboardNavigationHandler.cs)
 - Text input pipeline: [`TextInputMethodClient.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputMethodClient.cs)
 
-## Check yourself
+### Check yourself
 - What advantages do commands offer over events in MVVM architectures?
 - When would you choose `KeyBinding` vs registering a gesture with `HotKeyManager`?
 - Which API captures `PointerPoint` data during drag initiation and why does it matter?
@@ -2949,7 +2983,7 @@ What's next
 \newpage
 ```
 
-# 10. Working with resources, images, and fonts
+## 10. Working with resources, images, and fonts
 
 Goal
 - Master `avares://` URIs, `AssetLoader`/`IAssetLoader`, and `ResourceDictionary` lookup so you can bundle assets cleanly.
@@ -2966,7 +3000,7 @@ Prerequisites
 - You can edit `App.axaml`, views, and bind data (Ch. 3-9).
 - Familiarity with MVVM and theming (Ch. 7) helps when wiring assets dynamically.
 
-## 1. `avares://` URIs and project structure
+### 1. `avares://` URIs and project structure
 
 Assets live under your project (e.g., `Assets/Images`, `Assets/Fonts`). Include them as `AvaloniaResource` in the `.csproj`:
 
@@ -2982,7 +3016,7 @@ Example: `avares://InputPlayground/Assets/Images/logo.png`.
 
 `avares://` references the compiled resource stream (not the file system). Use it consistently even within the same assembly to avoid issues with resource lookups.
 
-## 2. Resource dictionaries and lookup order
+### 2. Resource dictionaries and lookup order
 
 `ResourceDictionary` derives from [`ResourceProvider`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Controls/ResourceProvider.cs) and implements [`IResourceProvider`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Controls/IResourceProvider.cs). When you request `{StaticResource}` or call `TryGetResource`, Avalonia walks this chain:
 
@@ -3016,16 +3050,16 @@ Merge dictionaries to break assets into reusable packs:
 
 Each merged dictionary is loaded lazily via `IAssetLoader`, so make sure the referenced file is marked as `AvaloniaResource`.
 
-## 3. Loading assets in XAML and code
+### 3. Loading assets in XAML and code
 
-### XAML
+#### XAML
 
 ```xml
 <Image Source="avares://AssetsDemo/Assets/Images/logo.png"
        Stretch="Uniform" Width="160"/>
 ```
 
-### Code using `AssetLoader`
+#### Code using `AssetLoader`
 
 ```csharp
 using Avalonia;
@@ -3043,7 +3077,7 @@ LogoImage.Source = new Bitmap(stream);
 
 Need to probe for optional assets? Use `assetLoader.TryOpen(uri)` or `AssetLoader.Exists(uri)` to avoid exceptions.
 
-### Resource dictionaries
+#### Resource dictionaries
 
 ```xml
 <ResourceDictionary xmlns="https://github.com/avaloniaui">
@@ -3053,7 +3087,7 @@ Need to probe for optional assets? Use `assetLoader.TryOpen(uri)` or `AssetLoade
 
 You can then `StaticResource` expose `LogoBitmap`. Bitmaps created this way are cached.
 
-## 4. Raster images, decoders, and caching
+### 4. Raster images, decoders, and caching
 
 `Image` renders `Avalonia.Media.Imaging.Bitmap`. Decode streams once and keep the bitmap alive when the pixels are reused, instead of calling `new Bitmap(stream)` for every render. Performance tips:
 - Set `Stretch` to avoid unexpected distortions (Uniform, UniformToFill, Fill, None).
@@ -3077,7 +3111,7 @@ PhotoImage.Source = decoded;
 
 `Bitmap` and decoder helpers live in [`Bitmap.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/Imaging/Bitmap.cs). Avalonia picks the right codec (PNG, JPEG, WebP, BMP, GIF) using Skia; for unsupported formats supply a custom `IBitmapDecoder`.
 
-## 5. ImageBrush and tiled backgrounds
+### 5. ImageBrush and tiled backgrounds
 
 `ImageBrush` paints surfaces:
 
@@ -3105,11 +3139,11 @@ Tile backgrounds:
 
 `ImageBrush` documentation: [`ImageBrush.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/ImageBrush.cs).
 
-## 6. Vector graphics
+### 6. Vector graphics
 
 Vector art scales with DPI, can adapt to theme colors, and stays crisp.
 
-### Inline geometry
+#### Inline geometry
 
 ```xml
 <Path Data="M2 12 L9 19 L22 4"
@@ -3128,7 +3162,7 @@ Store geometry in resources for reuse:
 
 Vector classes live under [`Avalonia.Media`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Media).
 
-### `StreamGeometryContext` for programmatic icons
+#### `StreamGeometryContext` for programmatic icons
 
 Generate vector shapes in code when you need to compose icons dynamically or reuse geometry logic:
 
@@ -3148,7 +3182,7 @@ IconPath.Data = geometry;
 
 `StreamGeometry` and `StreamGeometryContext` live in [`StreamGeometryContext.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/StreamGeometryContext.cs). Remember to freeze geometry instances or share them via resources to reduce allocations.
 
-### SVG support
+#### SVG support
 
 Install the `Avalonia.Svg.Skia` package to render SVG assets natively:
 
@@ -3160,7 +3194,7 @@ Install the `Avalonia.Svg.Skia` package to render SVG assets natively:
 
 SVGs stay sharp at any DPI and can adapt colors if you parameterize them (e.g., replace fill attributes at build time). For simple icons, converting the path data into XAML keeps dependencies minimal.
 
-## 7. Fonts and typography
+### 7. Fonts and typography
 
 Place fonts in `Assets/Fonts`. Register them in `App.axaml` via `Global::Avalonia` URI and specify the font face after `#`:
 
@@ -3182,7 +3216,7 @@ Use the font in styles:
 </Application.Styles>
 ```
 
-### FontManager options
+#### FontManager options
 
 Configure global font settings in `AppBuilder`:
 
@@ -3199,11 +3233,11 @@ AppBuilder.Configure<App>()
 
 `FontManagerOptions` lives in [`FontManagerOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/FontManagerOptions.cs).
 
-### Multi-weight fonts
+#### Multi-weight fonts
 
 If fonts include multiple weights, specify them with `FontWeight`. If you ship multiple font files (Regular, Bold), ensure the `#Family` name is consistent.
 
-### Runtime font swaps and custom collections
+#### Runtime font swaps and custom collections
 
 You can inject fonts at runtime without restarting the app. Register an embedded collection and update resources:
 
@@ -3221,7 +3255,7 @@ Application.Current!.Resources["BodyFont"] = new FontFamily("fonts:brand#Brand S
 
 `EmbeddedFontCollection` pulls all font files under the provided URI using `IAssetLoader`. Removing the collection via `FontManager.Current.RemoveFontCollection(new Uri("fonts:brand"))` detaches it again.
 
-## 8. DPI scaling, caching, and performance
+### 8. DPI scaling, caching, and performance
 
 Avalonia measures layout in DIPs (1 DIP = 1/96 inch). High DPI monitors scale automatically.
 
@@ -3231,7 +3265,7 @@ Avalonia measures layout in DIPs (1 DIP = 1/96 inch). High DPI monitors scale au
 
 `RenderTargetBitmap` and `WriteableBitmap` under [`Avalonia.Media.Imaging`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Base/Media/Imaging).
 
-## 9. Dynamic resources, theme variants, and runtime updates
+### 9. Dynamic resources, theme variants, and runtime updates
 
 Bind brushes via `DynamicResource` so assets respond to theme changes. When a dictionary entry changes, `ResourceDictionary.ResourcesChanged` notifies every subscriber and controls update automatically:
 
@@ -3262,7 +3296,7 @@ To scope variants, wrap content in a `ThemeVariantScope` and supply dictionaries
 
 `ThemeVariantScope` relies on `IResourceHost` to merge dictionaries in order (scope → parent scope → application). To inspect all merged resources in DevTools, open **Resources** and observe how `RequestedThemeVariant` switches dictionaries.
 
-## 10. Diagnostics
+### 10. Diagnostics
 
 - DevTools -> Resources shows resolved resources.
 - Missing asset? Check the output logs (`RenderOptions` area) for "not found" messages.
@@ -3275,7 +3309,7 @@ if (!AssetLoader.Exists(uri))
 
 - Subscribe to `Application.Current.Resources.ResourcesChanged` (or scope-specific hosts) to log when dictionaries update, especially when debugging `DynamicResource` refreshes.
 
-## 11. Sample "asset gallery"
+### 11. Sample "asset gallery"
 
 ```xml
 <Grid ColumnDefinitions="Auto,24,Auto" RowDefinitions="Auto,12,Auto">
@@ -3305,7 +3339,7 @@ if (!AssetLoader.Exists(uri))
 </Grid>
 ```
 
-## 12. Practice exercises
+### 12. Practice exercises
 
 1. Move brand colors into `Assets/Brand.axaml`, include it with `<ResourceInclude Source="avares://AssetsDemo/Assets/Brand.axaml"/>`, and verify lookups succeed from a control in another assembly.
 2. Build an image component that prefers SVG (`SvgImage`) but falls back to a PNG `Bitmap` on platforms where the SVG package is missing.
@@ -3313,7 +3347,7 @@ if (!AssetLoader.Exists(uri))
 4. Register an `EmbeddedFontCollection` at runtime and swap your typography resources by updating `Application.Current.Resources["BodyFont"]`.
 5. Toggle `ThemeVariantScope.RequestedThemeVariant` at runtime and confirm `DynamicResource`-bound brushes and images update without recreating controls.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Resource system: [`ResourceProvider.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Controls/ResourceProvider.cs), [`ResourceDictionary.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Controls/ResourceDictionary.cs)
 - Asset loader and URIs: [`AssetLoader.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/AssetLoader.cs), [`ResourceInclude.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Markup/ResourceInclude.cs)
 - Bitmap and imaging: [`Bitmap.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/Imaging/Bitmap.cs)
@@ -3322,7 +3356,7 @@ if (!AssetLoader.Exists(uri))
 - Theme variants and resources: [`ThemeVariantScope.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/ThemeVariantScope.cs), [`ResourcesChangedHelper.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Controls/ResourcesChangedHelper.cs)
 - Render options and DPI: [`RenderOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/RenderOptions.cs)
 
-## Check yourself
+### Check yourself
 - What order does Avalonia search when resolving `{StaticResource}` and `{DynamicResource}`?
 - When do you reach for `IAssetLoader` instead of the static `AssetLoader` helper?
 - How would you build a responsive icon pipeline that prefers `StreamGeometry`/SVG but falls back to a bitmap?
@@ -3332,12 +3366,24 @@ if (!AssetLoader.Exists(uri))
 What's next
 - Next: [Chapter 11](Chapter11.md)
 
+```{=latex}
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{Part III — Application patterns that scale}
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+{\Huge\bfseries Part III — Application patterns that scale}
+\end{center}
+\vspace*{\fill}
+\clearpage
+```
 
 ```{=latex}
 \newpage
 ```
 
-# 11. MVVM in depth (with or without ReactiveUI)
+## 11. MVVM in depth (with or without ReactiveUI)
 
 Goal
 - Build production-ready MVVM layers using classic `INotifyPropertyChanged`, CommunityToolkit.Mvvm helpers, or ReactiveUI.
@@ -3353,7 +3399,7 @@ Prerequisites
 - Binding basics (Chapter 8) and commands/input (Chapter 9).
 - Familiarity with resource organization (Chapter 7) for styles and data templates.
 
-## 1. MVVM recap
+### 1. MVVM recap
 
 | Layer | Role | Contains |
 | --- | --- | --- |
@@ -3363,9 +3409,9 @@ Prerequisites
 
 Focus on keeping business logic in view models/models; views remain thin.
 
-## 2. Classic MVVM (manual or CommunityToolkit.Mvvm)
+### 2. Classic MVVM (manual or CommunityToolkit.Mvvm)
 
-### 2.1 Property change base class
+#### 2.1 Property change base class
 
 ```csharp
 using System.ComponentModel;
@@ -3389,7 +3435,7 @@ public abstract class ObservableObject : INotifyPropertyChanged
 
 CommunityToolkit.Mvvm offers `ObservableObject`, `ObservableProperty` attribute, and `RelayCommand` out of the box. If you prefer built-in solutions, install `CommunityToolkit.Mvvm` and inherit from `ObservableObject` there.
 
-### 2.2 Commands (`RelayCommand`)
+#### 2.2 Commands (`RelayCommand`)
 
 ```csharp
 public sealed class RelayCommand : ICommand
@@ -3411,7 +3457,7 @@ public sealed class RelayCommand : ICommand
 }
 ```
 
-### 2.3 Sample: People view model
+#### 2.3 Sample: People view model
 
 ```csharp
 using System.Collections.ObjectModel;
@@ -3497,7 +3543,7 @@ public sealed class PeopleViewModel : ObservableObject
 
 `IPersonService` represents data access. Inject it via DI in `App.axaml.cs` (see Section 3).
 
-### 2.4 Binding notifications and validation
+#### 2.4 Binding notifications and validation
 
 Bindings surface both conversion errors and validation failures through `BindingNotification` and the `DataValidationException` payload. Listening to those notifications helps you surface validation summaries in the UI and quickly diagnose binding issues during development.
 
@@ -3544,7 +3590,7 @@ DataValidationErrors.GetObservable(EmailBox)
 
 `BindingNotification` distinguishes between binding errors and data validation errors (`BindingErrorType`). Validation failures arrive as `DataValidationException` instances on the notification, exposing the offending property and message. Use Avalonia's `DataValidationErrors` helper to observe validation changes and feed a summary control or toast.
 
-### 2.5 Value converters and formatting
+#### 2.5 Value converters and formatting
 
 When view and view model types differ, implement `IValueConverter` or `IBindingTypeConverter` to keep view models POCO-friendly.
 
@@ -3571,7 +3617,7 @@ Register converters in resources and reuse them across DataTemplates:
 
 Converters keep view models focused on domain types while views shape presentation. For complex pipelines, combine converters with `Binding.ConverterParameter` or chained bindings.
 
-### 2.6 Mapping view models to views via DataTemplates
+#### 2.6 Mapping view models to views via DataTemplates
 
 ```xml
 
@@ -3617,7 +3663,7 @@ public sealed class AppDataTemplates : IGlobalDataTemplates
 
 Register the implementation in `App` or DI container so Avalonia uses it when resolving content.
 
-### 2.7 Navigation service (classic MVVM)
+#### 2.7 Navigation service (classic MVVM)
 
 ```csharp
 public interface INavigationService
@@ -3651,9 +3697,9 @@ public sealed class NavigationService : ObservableObject, INavigationService
 
 Register navigation service via dependency injection (next section). View models call `navigationService.NavigateTo<PeopleViewModel>()` to swap views.
 
-## 3. Composition and state management
+### 3. Composition and state management
 
-### 3.1 Dependency injection and view model factories
+#### 3.1 Dependency injection and view model factories
 
 Use your favorite DI container. Example with Microsoft.Extensions.DependencyInjection in `App.axaml.cs`:
 
@@ -3697,7 +3743,7 @@ public partial class App : Application
 
 Inject `INavigationService` (or a more opinionated router) into view models to drive navigation. Supplying `IGlobalDataTemplates` from the service provider keeps view discovery aligned with DI—views can request their own dependencies on construction.
 
-### 3.2 State orchestration with observables
+#### 3.2 State orchestration with observables
 
 Centralize shared state in dedicated services so view models remain focused on UI coordination:
 
@@ -3757,7 +3803,7 @@ public sealed class UndoRedoManager
 
 Subscribe to `INotifyPropertyChanged` or use `Observable.FromEventPattern` to capture state snapshots whenever important properties change. This approach works equally well for manual MVVM, CommunityToolkit, or ReactiveUI view models.
 
-### 3.3 Bridging other MVVM frameworks
+#### 3.3 Bridging other MVVM frameworks
 
 - **Prism**: Register `ViewModelLocator.AutoWireViewModel` in XAML and let Prism resolve view models via Avalonia DI. Use Prism's region navigation on top of `ContentControl`-based shells.
 - **Caliburn.Micro / Stylet**: Hook their view locator into Avalonia by implementing `IGlobalDataTemplates` or setting `ViewLocator.LocateForModelType` to the framework's resolver.
@@ -3765,7 +3811,7 @@ Subscribe to `INotifyPropertyChanged` or use `Observable.FromEventPattern` to ca
 
 The key is to treat Avalonia's property system as the integration point: as long as view models raise property change notifications, you can plug in different MVVM toolkits without rewriting view code.
 
-## 4. Testing classic MVVM view models
+### 4. Testing classic MVVM view models
 
 A unit test using xUnit:
 
@@ -3786,11 +3832,11 @@ public void RemovePerson_Disables_When_No_Selection()
 
 Testing ensures command states and property changes behave correctly.
 
-## 5. ReactiveUI approach
+### 5. ReactiveUI approach
 
 ReactiveUI provides `ReactiveObject`, `ReactiveCommand`, `WhenAnyValue`, and routing/interaction helpers. Source: [`Avalonia.ReactiveUI`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.ReactiveUI).
 
-### 5.1 Reactive object and derived state
+#### 5.1 Reactive object and derived state
 
 ```csharp
 using ReactiveUI;
@@ -3826,7 +3872,7 @@ public sealed class PersonViewModelRx : ReactiveObject
 
 `WhenAnyValue` observes properties and recomputes derived values.
 
-### 5.2 ReactiveCommand and async workflows
+#### 5.2 ReactiveCommand and async workflows
 
 ```csharp
 using System.Reactive;
@@ -3880,7 +3926,7 @@ public sealed class PeopleViewModelRx : ReactiveObject
 
 `ReactiveCommand` exposes `IsExecuting`, `ThrownExceptions`, and ensures asynchronous flows stay on the UI thread.
 
-### 5.3 `ReactiveUserControl` and activation
+#### 5.3 `ReactiveUserControl` and activation
 
 ```csharp
 using ReactiveUI;
@@ -3905,7 +3951,7 @@ public partial class PeopleViewRx : ReactiveUserControl<PeopleViewModelRx>
 
 `WhenActivated` manages subscriptions. `Bind`/`BindCommand` reduce boilerplate. Source: [`ReactiveUserControl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.ReactiveUI/ReactiveUserControl.cs).
 
-### 5.4 View locator
+#### 5.4 View locator
 
 ReactiveUI auto resolves views via naming conventions. Register `IViewLocator` in DI or implement your own to map view models to views. Avalonia.ReactiveUI includes `ViewLocator` class you can override.
 
@@ -3927,13 +3973,13 @@ Register it:
 services.AddSingleton<IViewLocator, AppViewLocator>();
 ```
 
-### 5.5 Routing and navigation
+#### 5.5 Routing and navigation
 
 Routers manage stacks of `IRoutableViewModel` instances. Example shell view model shown earlier. Use `<rxui:RoutedViewHost Router="{Binding Router}"/>` to display the current view.
 
 ReactiveUI navigation supports back/forward, parameter passing, and async transitions.
 
-### 5.6 Avalonia.ReactiveUI helpers
+#### 5.6 Avalonia.ReactiveUI helpers
 
 `Avalonia.ReactiveUI` ships opinionated base classes such as `ReactiveWindow<TViewModel>`, `ReactiveContentControl<TViewModel>`, and extension methods that bridge Avalonia's property system with ReactiveUI's `IObservable` pipelines.
 
@@ -3964,7 +4010,7 @@ Locator.CurrentMutable.RegisterConstant(new AvaloniaActivationForViewFetcher(), 
 
 These helpers keep Avalonia bindings, routing, and interactions in sync with ReactiveUI conventions.
 
-## 6. Interactions and dialogs
+### 6. Interactions and dialogs
 
 Use `Interaction<TInput,TOutput>` to request UI interactions from view models.
 
@@ -3996,7 +4042,7 @@ this.WhenActivated(d =>
 });
 ```
 
-## 7. Testing ReactiveUI view models
+### 7. Testing ReactiveUI view models
 
 Use `TestScheduler` from `ReactiveUI.Testing` to control time:
 
@@ -4017,7 +4063,7 @@ public void LoadCommand_PopulatesPeople()
 }
 ```
 
-## 8. Choosing between toolkits
+### 8. Choosing between toolkits
 
 | Toolkit | Pros | Cons |
 | --- | --- | --- |
@@ -4026,7 +4072,7 @@ public void LoadCommand_PopulatesPeople()
 
 Mixing is common: use classic MVVM for most pages; ReactiveUI for reactive-heavy screens.
 
-## 9. Practice exercises
+### 9. Practice exercises
 
 1. Compose a multi-view shell that swaps `HomeViewModel`/`SettingsViewModel` via DI-backed `IGlobalDataTemplates` and an `INavigationService`.
 2. Extend the account form to surface a validation summary by listening to `DataValidationErrors.GetObservable` and logging `BindingNotification` errors.
@@ -4034,7 +4080,7 @@ Mixing is common: use classic MVVM for most pages; ReactiveUI for reactive-heavy
 4. Implement an async load pipeline with `ReactiveCommand`, binding `IsExecuting` to a progress indicator and asserting behaviour with `TestScheduler`.
 5. Add undo/redo support to the People sample by capturing `INotifyPropertyChanged` via `Observable.FromEventPattern` and replaying changes.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Binding diagnostics: [`BindingNotification.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/BindingNotification.cs)
 - Data validation surfaces: [`DataValidationErrors.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/DataValidationErrors.cs)
 - Avalonia + ReactiveUI integration: [`Avalonia.ReactiveUI`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.ReactiveUI)
@@ -4043,7 +4089,7 @@ Mixing is common: use classic MVVM for most pages; ReactiveUI for reactive-heavy
 - Reactive command implementation: [`ReactiveCommand.cs`](https://github.com/reactiveui/ReactiveUI/blob/main/src/ReactiveUI/ReactiveCommand.cs)
 - Interaction pattern: [`Interaction.cs`](https://github.com/reactiveui/ReactiveUI/blob/main/src/ReactiveUI/Interaction.cs)
 
-## Check yourself
+### Check yourself
 - What benefits does a view locator provide compared to manual view creation?
 - How do `BindingNotification` and `DataValidationErrors` help diagnose problems during binding?
 - How do `ReactiveCommand` and classic `RelayCommand` differ in async handling?
@@ -4059,7 +4105,7 @@ What's next
 \newpage
 ```
 
-# 12. Navigation, windows, and lifetimes
+## 12. Navigation, windows, and lifetimes
 
 Goal
 - Understand how Avalonia lifetimes (desktop, single-view, browser) drive app startup and shutdown.
@@ -4075,7 +4121,7 @@ Why this matters
 Prerequisites
 - Chapter 4 (AppBuilder and lifetimes), Chapter 11 (MVVM patterns), Chapter 16 (storage) is referenced later.
 
-## 1. Lifetimes recap
+### 1. Lifetimes recap
 
 | Lifetime | Use case | Entry method |
 | --- | --- | --- |
@@ -4112,9 +4158,9 @@ public override void OnFrameworkInitializationCompleted()
 
 When targeting browser, use `BrowserAppBuilder` with `SetupBrowserApp`.
 
-## 2. Desktop windows in depth
+### 2. Desktop windows in depth
 
-### 2.1 Creating a main window with MVVM
+#### 2.1 Creating a main window with MVVM
 
 ```csharp
 public partial class MainWindow : Window
@@ -4151,7 +4197,7 @@ public partial class MainWindow : Window
 
 `LocalSettings` is a simple persistence helper (file or user settings). Persisting placement keeps UX consistent.
 
-### 2.2 Owned windows, modal vs modeless
+#### 2.2 Owned windows, modal vs modeless
 
 ```csharp
 public sealed class AboutWindow : Window
@@ -4180,7 +4226,7 @@ tool.Show();
 
 Always set `Owner` so modal blocks correctly and centering works.
 
-### 2.3 Multiple screens & placement
+#### 2.3 Multiple screens & placement
 
 Use `Screens` service from `TopLevel`:
 
@@ -4208,7 +4254,7 @@ screens.Changed += (_, _) =>
 
 `WindowBase.Screens` always maps to the platform's latest monitor topology, so you can reposition tool windows or popups when displays change.
 
-### 2.4 Prevent closing with unsaved changes
+#### 2.4 Prevent closing with unsaved changes
 
 ```csharp
 Closing += async (sender, e) =>
@@ -4224,7 +4270,7 @@ Closing += async (sender, e) =>
 
 Implement `MessageBox` yourself or using Avalonia.MessageBox community package.
 
-### 2.5 Window lifecycle events (`WindowBase`)
+#### 2.5 Window lifecycle events (`WindowBase`)
 
 `WindowBase` is the shared base type for `Window` and other top-levels. It raises events that fire before layout runs, letting you respond to activation, resizing, and positioning at the window layer:
 
@@ -4245,7 +4291,7 @@ public partial class ToolWindow : Window
 
 `WindowBase.Resized` reports the reason the platform resized your window (user drag, system DPI change, maximize). Distinguish it from `Control.SizeChanged`, which fires after layout completes. Use `WindowBase.IsActive` to trigger focus-sensitive behaviour such as pausing animations when the window moves to the background.
 
-### 2.6 Platform-specific window features
+#### 2.6 Platform-specific window features
 
 Avalonia exposes chrome customisation through `TopLevel` properties:
 
@@ -4265,7 +4311,7 @@ Combine those settings with platform options to unlock OS-specific effects:
 
 Always test transparency fallbacks—older GPUs may fall back to `Opaque`. Query `ActualTransparencyLevel` at runtime to reflect final behaviour in the UI.
 
-### 2.7 Coordinating shutdown with `ShutdownRequestedEventArgs`
+#### 2.7 Coordinating shutdown with `ShutdownRequestedEventArgs`
 
 `IClassicDesktopStyleApplicationLifetime` exposes a `ShutdownRequested` event. Cancel it when critical work is in progress or when you must prompt the user:
 
@@ -4285,9 +4331,9 @@ if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
 
 Return `true` from `ConfirmShutdown()` only after persisting state or when the user explicitly approves. Pair this with `ShutdownMode` to decide whether closing the main window exits the entire application.
 
-## 3. Navigation patterns
+### 3. Navigation patterns
 
-### 3.1 Content control navigation (shared for desktop & mobile)
+#### 3.1 Content control navigation (shared for desktop & mobile)
 
 ```csharp
 public sealed class NavigationService : INavigationService
@@ -4348,7 +4394,7 @@ Bind in view:
 
 `TransitioningContentControl` (from `Avalonia.Controls`) adds page transitions. Source: [`TransitioningContentControl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TransitioningContentControl.cs).
 
-### 3.2 View mapping via DataTemplates
+#### 3.2 View mapping via DataTemplates
 
 Register view-model-to-view templates (Chapter 11 showed details). Example snippet:
 
@@ -4363,7 +4409,7 @@ Register view-model-to-view templates (Chapter 11 showed details). Example snipp
 </Application.DataTemplates>
 ```
 
-### 3.3 SplitView shell navigation
+#### 3.3 SplitView shell navigation
 
 For sidebars or hamburger menus, wrap the navigation service in a `SplitView` so content and commands share a host:
 
@@ -4388,7 +4434,7 @@ For sidebars or hamburger menus, wrap the navigation service in a `SplitView` so
 
 Expose `NavigationItems` as view-model descriptors (title + command). Pair with `SplitView.PanePlacement` to adapt between desktop (left rail) and mobile (bottom sheet). Listen to `TopLevel.BackRequested` to collapse the pane when the host (Android, browser, web view) signals a system back gesture.
 
-### 3.4 Dialog service abstraction
+#### 3.4 Dialog service abstraction
 
 Expose a dialog API from view models without referencing `Window`:
 
@@ -4413,7 +4459,7 @@ public sealed class DialogService : IDialogService
 
 Register a per-window dialog service in DI. For single-view scenarios, use `TopLevel.GetTopLevel(control)` to retrieve the root and use `StorageProvider` or custom dialogs.
 
-## 4. Single-view navigation (mobile/web)
+### 4. Single-view navigation (mobile/web)
 
 For `ISingleViewApplicationLifetime`, use a root `UserControl` (e.g., `ShellView`) with the same `TransitioningContentControl` pattern. Keep navigation inside that control.
 
@@ -4425,11 +4471,11 @@ For `ISingleViewApplicationLifetime`, use a root `UserControl` (e.g., `ShellView
 
 From view models, use `INavigationService` as before; the lifetime determines whether a window or root view hosts the content.
 
-## 5. TopLevel services: clipboard, storage, screens
+### 5. TopLevel services: clipboard, storage, screens
 
 `TopLevel.GetTopLevel(control)` returns the hosting top-level (Window or root). Useful for services.
 
-### 5.1 Clipboard
+#### 5.1 Clipboard
 
 ```csharp
 var topLevel = TopLevel.GetTopLevel(control);
@@ -4441,7 +4487,7 @@ if (topLevel?.Clipboard is { } clipboard)
 
 Clipboard API defined in [`IClipboard`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/Platform/IClipboard.cs).
 
-### 5.2 Storage provider
+#### 5.2 Storage provider
 
 Works in both desktop and single-view (browser has OS limitations):
 
@@ -4457,11 +4503,11 @@ if (topLevel?.StorageProvider is { } sp)
 }
 ```
 
-### 5.3 Screens info
+#### 5.3 Screens info
 
 `topLevel!.Screens` provides monitor layout. Use for placing dialogs on active monitor or respecting working area.
 
-### 5.4 System back navigation
+#### 5.4 System back navigation
 
 `TopLevel.BackRequested` bubbles up hardware or browser navigation gestures through Avalonia's `ISystemNavigationManagerImpl`. Subscribe to it when embedding in Android, browser, or platform WebView hosts:
 
@@ -4479,7 +4525,7 @@ if (topLevel is { })
 
 Mark the event as handled when your navigation stack consumes the back action; otherwise Avalonia lets the host perform its default behaviour (e.g., browser history navigation).
 
-## 6. Browser (WebAssembly) considerations
+### 6. Browser (WebAssembly) considerations
 
 Use `BrowserAppBuilder` and `BrowserSingleViewLifetime`:
 
@@ -4491,7 +4537,7 @@ public static void Main(string[] args)
 Use `TopLevel.StorageProvider` for limited file access (via JavaScript APIs). Use JS interop for features missing from storage provider.
 `TopLevel.BackRequested` maps to the browser's history stack—handle it to keep SPA navigation in sync with the host's back button.
 
-## 7. Practice exercises
+### 7. Practice exercises
 
 1. Spawn a secondary tool window from the shell, handle `WindowBase.Resized`/`PositionChanged`, and persist placement per monitor.
 2. Hook `ShutdownRequested` to prompt about unsaved documents, cancelling the shutdown when the user declines.
@@ -4499,14 +4545,14 @@ Use `TopLevel.StorageProvider` for limited file access (via JavaScript APIs). Us
 4. Build a `SplitView` navigation shell that collapses in response to `TopLevel.BackRequested` on Android or the browser.
 5. Toggle `TransparencyLevelHint` and `SystemDecorations` per platform and display the resulting `ActualTransparencyLevel` in the UI.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Window management: [`Window.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Window.cs), [`WindowBase.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/WindowBase.cs)
 - Lifetimes & shutdown: [`ClassicDesktopStyleApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs), [`ShutdownRequestedEventArgs.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ShutdownRequestedEventArgs.cs)
 - Navigation surfaces: [`TopLevel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TopLevel.cs), [`SplitView.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/SplitView.cs), [`SystemNavigationManagerImpl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/SystemNavigationManagerImpl.cs)
 - Screens API: [`Screens.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Screens.cs)
 - Transitioning content: [`TransitioningContentControl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TransitioningContentControl.cs)
 
-## Check yourself
+### Check yourself
 - How does `ClassicDesktopStyleApplicationLifetime` differ from `SingleViewApplicationLifetime` when showing windows?
 - When should you use `Show` vs `ShowDialog`? Why set `Owner`?
 - Which `WindowBase` events fire before layout, and how do they differ from `SizeChanged`?
@@ -4522,7 +4568,7 @@ What's next
 \newpage
 ```
 
-# 13. Menus, dialogs, tray icons, and system features
+## 13. Menus, dialogs, tray icons, and system features
 
 Goal
 - Wire desktop menus, context menus, and native menu bars using `Menu`, `MenuItem`, `ContextMenu`, and `NativeMenu`.
@@ -4547,9 +4593,9 @@ Key namespaces
 - [`SystemDialog.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/SystemDialog.cs)
 - [`ManagedFileChooser.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Dialogs/ManagedFileChooser.cs)
 
-## 1. Menu surfaces at a glance
+### 1. Menu surfaces at a glance
 
-### 1.1 In-window menus (`Menu`/`MenuItem`)
+#### 1.1 In-window menus (`Menu`/`MenuItem`)
 
 ```xml
 <Window xmlns="https://github.com/avaloniaui"
@@ -4591,7 +4637,7 @@ Key namespaces
 </Window.InputBindings>
 ```
 
-### 1.2 Native menus and the macOS menu bar
+#### 1.2 Native menus and the macOS menu bar
 
 `NativeMenu` exports menu metadata to the host OS when available (macOS, some Linux environments). Attach it to the `TopLevel` so Avalonia’s native exporters keep it in sync with window focus.
 
@@ -4653,11 +4699,11 @@ private static NativeMenu BuildNativeMenu()
 </native:NativeMenuBar>
 ```
 
-### 1.3 Command state and routing
+#### 1.3 Command state and routing
 
 `MenuItem` observes `ICommand.CanExecute`. Use commands that publish notifications (`ReactiveCommand`, `DelegateCommand`) and call `RaiseCanExecuteChanged()` whenever state changes. Keep command instances long-lived (registered in DI or a singleton `AppCommands` class) so every menu, toolbar, context menu, and tray icon reflects the same enable/disable state.
 
-## 2. Context menus and flyouts
+### 2. Context menus and flyouts
 
 Attach `ContextMenu` to items directly or via styles so each container gets the same commands:
 
@@ -4684,9 +4730,9 @@ Attach `ContextMenu` to items directly or via styles so each container gets the 
 - For richer layouts (toggles, sliders, forms) use `Flyout` or `MenuFlyout` – both live in `Avalonia.Controls` and share placement logic with context menus.
 - Remember accessibility: set `MenuItem.InputGestureText` or `HotKey` so screen readers announce shortcuts.
 
-## 3. Dialog pipelines
+### 3. Dialog pipelines
 
-### 3.1 Define a dialog service interface
+#### 3.1 Define a dialog service interface
 
 ```csharp
 public interface IFileDialogService
@@ -4701,7 +4747,7 @@ public record FilePickResult(string Path, IStorageItem? Handle);
 
 Expose the service through dependency injection so view models request it instead of referencing `Window` or `TopLevel`.
 
-### 3.2 Choose between `IStorageProvider`, `SystemDialog`, and `ManagedFileChooser`
+#### 3.2 Choose between `IStorageProvider`, `SystemDialog`, and `ManagedFileChooser`
 
 `TopLevel.StorageProvider` supplies the native picker implementation (`IStorageProvider`). When it is unavailable (custom hosts, limited backends), fall back to the managed dialog stack built on `ManagedFileChooser`. The extension method `OpenFileDialog.ShowManagedAsync` renders the managed UI and is enabled automatically when you call `AppBuilder.UseManagedSystemDialogs()` during startup.
 
@@ -4784,7 +4830,7 @@ public sealed class FileDialogService : IFileDialogService
 - `AppBuilder.UseManagedSystemDialogs()` configures Avalonia to instantiate `ManagedFileChooser` by default whenever a native dialog is unavailable.
 - Treat `FilePickResult.Handle` as optional: on browser/mobile targets you might only receive virtual URIs, while desktop gives full file system access.
 
-## 4. Tray icons, notifications, and app commands
+### 4. Tray icons, notifications, and app commands
 
 The tray API exports icons through the `Application`. Add them during application initialization so they follow the application lifetime automatically.
 
@@ -4833,7 +4879,7 @@ var manager = new WindowNotificationManager(_desktopLifetime.MainWindow!)
 manager.Show(new Notification("Saved", "Document saved successfully", NotificationType.Success));
 ```
 
-## 5. Top-level services and system integrations
+### 5. Top-level services and system integrations
 
 `TopLevel` exposes cross-platform services you should wrap behind interfaces for testability:
 
@@ -4859,7 +4905,7 @@ Other helpful services on `TopLevel`:
 - `DragDrop` helpers (covered in Chapter 16) for integrating system drag-and-drop.
 - `TryGetFeature<T>` for platform-specific features (`ITrayIconImpl`, `IPlatformThemeVariant`).
 
-## 6. Platform notes
+### 6. Platform notes
 
 - **Windows** – In-window `Menu` is standard. Tray icons appear in the notification area and expect `.ico` assets with multiple sizes. Native system dialogs are available; managed dialogs appear only if you opt in.
 - **macOS** – Use `NativeMenu`/`NativeMenuBar` so menu items land in the global menu bar. Provide monochrome template tray icons via `MacOSProperties.SetIsTemplateIcon`.
@@ -4867,7 +4913,7 @@ Other helpful services on `TopLevel`:
 - **Mobile (Android/iOS)** – Skip menu bars and tray icons. Replace them with toolbars, flyouts, and platform navigation. Storage providers surface document pickers that may not expose local file paths.
 - **Browser** – No native menus or tray. Use in-app overlays and rely on the browser storage APIs (`BrowserStorageProvider`). Managed dialogs are not available.
 
-## 7. Practice exercises
+### 7. Practice exercises
 
 1. Build a shared `AppCommands` class that drives in-window menus, a `NativeMenu`, and a toolbar, verifying that `CanExecute` disables items everywhere.
 2. Implement the dialog service above and log whether each operation used `IStorageProvider`, `SystemDialog`, or `ManagedFileChooser`. Run it on Windows, macOS, and Linux to compare behaviour.
@@ -4875,7 +4921,7 @@ Other helpful services on `TopLevel`:
 4. Provide context menus for list items that reuse the same commands as the main menu. Confirm command parameters work for both entry points.
 5. Surface toast notifications for long-running operations using `WindowNotificationManager`, and ensure they disappear automatically when the user navigates away.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Menus and native export: [`Menu.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Menu.cs), [`NativeMenu.Export.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/NativeMenu.Export.cs)
 - Context menus & flyouts: [`ContextMenu.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ContextMenu.cs), [`FlyoutBase.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Flyouts/FlyoutBase.cs)
 - Dialog infrastructure: [`SystemDialog.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/SystemDialog.cs), [`ManagedFileChooser.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Dialogs/ManagedFileChooser.cs)
@@ -4883,7 +4929,7 @@ Other helpful services on `TopLevel`:
 - Tray icons: [`TrayIcon.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TrayIcon.cs)
 - Notifications: [`WindowNotificationManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls.Notifications/WindowNotificationManager.cs)
 
-## Check yourself
+### Check yourself
 - How do `MenuItem` and `NativeMenuItem` share the same command instances, and why does that matter for `CanExecute`?
 - When would you enable `UseManagedSystemDialogs`, and what UX differences should you anticipate compared to native dialogs?
 - Which `TopLevel` services help you access storage, clipboard, and screens without referencing `Window` in view models?
@@ -4898,7 +4944,7 @@ What's next
 \newpage
 ```
 
-# 14. Lists, virtualization, and performance
+## 14. Lists, virtualization, and performance
 
 Goal
 - Choose the right items control (`ItemsControl`, `ListBox`, `TreeView`, `DataGrid`, `ItemsRepeater`) for the data shape and user interactions you need.
@@ -4923,7 +4969,7 @@ Key namespaces
 - [`SelectionModel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Selection/SelectionModel.cs)
 - [`ItemsRepeater`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Avalonia.Controls/ItemsRepeater)
 
-## 1. ItemsControl pipeline overview
+### 1. ItemsControl pipeline overview
 
 Every items control follows the same data flow:
 
@@ -4959,7 +5005,7 @@ Customize the items presenter when you need a different panel:
 
 `ItemsPresenter` can also be styled to add headers, footers, or empty-state placeholders while still respecting virtualization.
 
-## 2. VirtualizingStackPanel in practice
+### 2. VirtualizingStackPanel in practice
 
 `VirtualizingStackPanel` implements `ILogicalScrollable`, creating visuals only for the viewport (plus a configurable buffer). Keep virtualization intact by:
 
@@ -5001,7 +5047,7 @@ Customize the items presenter when you need a different panel:
 - `ItemContainerGenerator.Materialized` events confirm virtualization: the count should remain small even with large data sets.
 - Use `CompiledBinding` to avoid runtime reflection overhead when recycling containers.
 
-## 3. Optimising item containers
+### 3. Optimising item containers
 
 Container recycling reuses realized `ListBoxItem` instances. Keep containers lightweight:
 
@@ -5016,7 +5062,7 @@ Container recycling reuses realized `ListBoxItem` instances. Keep containers lig
 
 When you need to interact with containers manually, use `ItemContainerGenerator.ContainerFromIndex`/`IndexFromContainer` rather than walking the visual tree.
 
-## 4. ItemsRepeater for custom layouts
+### 4. ItemsRepeater for custom layouts
 
 `ItemsRepeater` separates data virtualization from layout so you can design custom grids or timelines.
 
@@ -5042,7 +5088,7 @@ When you need to interact with containers manually, use `ItemContainerGenerator.
 - `ItemsRepeater.ItemsSourceView` exposes the same API as `ItemsControl`, so you can layer grouping or filtering on top.
 - Implement a custom `VirtualizingLayout` when you need masonry or staggered layouts that still recycle elements.
 
-## 5. Selection with `SelectionModel`
+### 5. Selection with `SelectionModel`
 
 `SelectionModel<T>` tracks selection without relying on realized containers, making it virtualization-friendly.
 
@@ -5063,7 +5109,7 @@ Bind directly:
 - Hook `SelectionModel.SelectionChanged` to synchronize selection with other views or persisted state.
 - For custom surfaces (e.g., an `ItemsRepeater` dashboard), set `selectionModel.Source = repeater.ItemsSourceView` and drive selection manually.
 
-## 6. Incremental loading patterns
+### 6. Incremental loading patterns
 
 Load data in pages to keep virtualization responsive. The view model owns the collection and exposes an async method that appends new items.
 
@@ -5126,7 +5172,7 @@ private async void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
 
 While loading, display lightweight placeholders (e.g., skeleton rows) bound to `IsLoading` flags; keep them inside the same template so virtualization still applies.
 
-## 7. Diagnosing virtualization issues
+### 7. Diagnosing virtualization issues
 
 When scrolling stutters or memory spikes:
 
@@ -5144,7 +5190,7 @@ AppBuilder.Configure<App>()
 - Verify the scroll host is the list’s immediate parent; wrappers like `StackPanel` or `Grid` can disable virtualization.
 - Profile templates with `dotnet-trace` or `dotnet-counters` to spot expensive bindings or allocations while scrolling.
 
-## 8. Practice exercises
+### 8. Practice exercises
 
 1. Inspect `ItemsControl.ItemsSourceView` for a dashboard list and log the current item index whenever selection changes. Explain how it differs from binding directly to `ItemsSource`.
 2. Convert a slow `ItemsControl` to a virtualized `ListBox` with `VirtualizingStackPanel` and record container creation counts before/after.
@@ -5152,14 +5198,14 @@ AppBuilder.Configure<App>()
 4. Replace `SelectedItems` with `SelectionModel` in a multi-select list, then synchronize the selection with a detail pane while keeping virtualization intact.
 5. Implement the incremental log viewer above, including skeleton placeholders during fetch, and capture frame-time metrics before and after the optimization.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Pipeline internals: [`ItemsControl.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ItemsControl.cs), [`ItemContainerGenerator.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Generators/ItemContainerGenerator.cs)
 - Data views: [`ItemsSourceView.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ItemsSourceView.cs), [`CollectionView.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Data/Core/CollectionView.cs)
 - Virtualization core: [`VirtualizingStackPanel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/VirtualizingStackPanel.cs), [`VirtualizingLayout.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ItemsRepeater/Layout/VirtualizingLayout.cs)
 - Selection infrastructure: [`SelectionModel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Selection/SelectionModel.cs)
 - Diagnostics tooling: [`LayoutDiagnosticBridge.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/LayoutDiagnosticBridge.cs)
 
-## Check yourself
+### Check yourself
 - What distinguishes `ItemsSource` from `ItemsSourceView`, and when would you inspect the latter?
 - How does `VirtualizingStackPanel` decide which containers to recycle, and what breaks that logic?
 - Why does `SelectionModel` survive virtualization better than `SelectedItems`?
@@ -5174,7 +5220,7 @@ What's next
 \newpage
 ```
 
-# 15. Accessibility and internationalization
+## 15. Accessibility and internationalization
 
 Goal
 - Deliver interfaces that are usable with keyboard, screen readers, and high-contrast themes.
@@ -5199,9 +5245,9 @@ Key namespaces
 - [`FontManagerOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/FontManagerOptions.cs)
 - [`FlowDirection.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Visuals/FlowDirection.cs)
 
-## 1. Keyboard accessibility
+### 1. Keyboard accessibility
 
-### 1.1 Focus order and tab navigation
+#### 1.1 Focus order and tab navigation
 
 ```xml
 <StackPanel Spacing="8" KeyboardNavigation.TabNavigation="Cycle">
@@ -5228,14 +5274,14 @@ Key namespaces
 - Use `AccessText` or `RecognizesAccessKey="True"` to expose mnemonic keys.
 - Disable focus for decorative elements via `IsTabStop="False"` or `Focusable="False"`.
 
-### 1.2 Keyboard navigation helpers
+#### 1.2 Keyboard navigation helpers
 
 `KeyboardNavigation` (source: [`KeyboardNavigation.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyboardNavigation.cs)) provides:
 - `DirectionalNavigation="Cycle"` for arrow-key traversal in menus/panels.
 - `TabNavigation` modes (`Continue`, `Once`, `Local`, `Cycle`, `None`).
 - `Control.IsTabStop` per element when you need to skip items like labels or icons.
 
-## 2. Screen reader semantics
+### 2. Screen reader semantics
 
 Attach `AutomationProperties` to expose names, help text, and relationships:
 
@@ -5260,7 +5306,7 @@ Attach `AutomationProperties` to expose names, help text, and relationships:
 
 `AutomationProperties` map to automation peers. The base `ControlAutomationPeer` inspects properties and pseudo-classes to expose state.
 
-## 3. Custom automation peers
+### 3. Custom automation peers
 
 Create peers when you author custom controls so assistive technology can identify them correctly.
 
@@ -5293,7 +5339,7 @@ public sealed class ProgressBadgeAutomationPeer : ControlAutomationPeer
 - Override `PatternInterfaces` (e.g., `IRangeValueProvider`, `IValueProvider`) when your control supports specific automation patterns.
 - Use `AutomationProperties.AccessibilityView` to control whether a control appears in the content vs. control view.
 
-## 4. High contrast and theme variants
+### 4. High contrast and theme variants
 
 Avalonia supports theme variants (`Light`, `Dark`, `HighContrast`). Bind colors to resources instead of hard-coding values.
 
@@ -5318,7 +5364,7 @@ Application.Current!.RequestedThemeVariant = ThemeVariant.HighContrast;
 
 Provide clear focus visuals using pseudo-classes (`:focus`, `:pointerover`) and ensure contrast ratios meet WCAG (4.5:1 for body text). For Windows, respect system accent colors by reading `RequestedThemeVariant` and `SystemBarColor` (Chapter 7).
 
-## 5. Text input, IME, and text services
+### 5. Text input, IME, and text services
 
 IME support matters for CJK languages and handwriting. `TextInputMethodClient` is the bridge between your control and platform IME surfaces. Text controls in Avalonia already implement it; custom text editors should derive from `TextInputMethodClient` (or reuse `TextPresenter`).
 
@@ -5364,9 +5410,9 @@ Configure text options with the attached `TextInputOptions` properties:
 
 When you detect IME-specific behaviour, test on Windows (IMM32), macOS, Linux (IBus/Fcitx), Android, and iOS — each backend surfaces slightly different capabilities.
 
-## 6. Localization workflow
+### 6. Localization workflow
 
-### 6.1 Resource management
+#### 6.1 Resource management
 
 Use RESX resources or a localization service that surfaces culture-specific strings.
 
@@ -5407,13 +5453,13 @@ CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = culture;
 ((Loc)Application.Current!.Resources["Loc"]).SetCulture(culture);
 ```
 
-### 6.2 Formatting and layout direction
+#### 6.2 Formatting and layout direction
 
 - Use binding `StringFormat` or `string.Format` with the current culture for dates, numbers, and currency.
 - Set `FlowDirection="RightToLeft"` for RTL languages and override back to `LeftToRight` for controls that must remain LTR (e.g., numeric fields).
 - Mirror icons and layout padding when mirrored (use `ScaleTransform` or `LayoutTransform`).
 
-## 7. Fonts and fallbacks
+### 7. Fonts and fallbacks
 
 Ensure glyph coverage with `FontManagerOptions`:
 
@@ -5436,7 +5482,7 @@ AppBuilder.Configure<App>()
 - Test scripts that require surrogate pairs (emoji, rare CJK ideographs) to ensure fallbacks load.
 - On Windows, consider `TextRenderingMode` for clarity vs. smoothness.
 
-## 8. Testing accessibility
+### 8. Testing accessibility
 
 Tips for a repeatable test loop:
 
@@ -5448,7 +5494,7 @@ Tips for a repeatable test loop:
 
 Document gaps (e.g., missing peers, insufficient contrast) and track them like any other defect.
 
-## 9. Practice exercises
+### 9. Practice exercises
 
 1. Annotate a settings page with `AutomationProperties.Name`, `HelpText`, and `AutomationId`; inspect the automation tree with DevTools and NVDA.
 2. Derive a custom `AutomationPeer` for a progress pill control, exposing live updates and value patterns, then verify announcements in a screen reader.
@@ -5456,7 +5502,7 @@ Document gaps (e.g., missing peers, insufficient contrast) and track them like a
 4. Localize UI strings into two additional cultures (e.g., es-ES, ar-SA), toggle `FlowDirection`, and confirm mirrored layouts do not break focus order.
 5. Set up `FontManagerOptions` with script-specific fallbacks and validate that Arabic, Cyrillic, and CJK text render without tofu glyphs.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Keyboard navigation: [`KeyboardNavigation.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/KeyboardNavigation.cs)
 - Automation metadata: [`AutomationProperties.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/AutomationProperties.cs), [`ControlAutomationPeer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/Peers/ControlAutomationPeer.cs)
 - Text input & IME: [`TextInputMethodClient.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputMethodClient.cs), [`TextInputOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputOptions.cs)
@@ -5464,7 +5510,7 @@ Document gaps (e.g., missing peers, insufficient contrast) and track them like a
 - Font management: [`FontManagerOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/FontManagerOptions.cs)
 - Flow direction: [`FlowDirection.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Visuals/FlowDirection.cs)
 
-## Check yourself
+### Check yourself
 - How do `AutomationProperties.LabeledBy` and `AutomationId` improve automated testing and screen reader output?
 - When should you implement a custom `AutomationPeer`, and which patterns do you need to expose for value-based controls?
 - Which `TextInputOptions` settings influence IME behaviour and soft keyboard layouts across platforms?
@@ -5479,7 +5525,7 @@ What's next
 \newpage
 ```
 
-# 16. Files, storage, drag/drop, and clipboard
+## 16. Files, storage, drag/drop, and clipboard
 
 Goal
 - Use Avalonia's storage provider to open, save, and enumerate files/folders across desktop, mobile, and browser.
@@ -5494,7 +5540,7 @@ Why this matters
 Prerequisites
 - Chapter 9 (commands/input), Chapter 11 (MVVM), Chapter 12 (TopLevel services).
 
-## 1. Storage provider fundamentals
+### 1. Storage provider fundamentals
 
 All pickers live on `TopLevel.StorageProvider` (Window, control, etc.). The storage provider is an abstraction over native dialogs and sandbox rules.
 
@@ -5510,7 +5556,7 @@ If `StorageProvider` is null, ensure the control is attached (e.g., call after `
 
 `IStorageProvider` exposes capability flags such as `CanOpen`, `CanSave`, and `CanPickFolder`. Check them before presenting commands so sandboxed targets (browser/mobile) can hide unsupported options. Dialog methods accept option records (`FilePickerOpenOptions`, `FolderPickerOpenOptions`, etc.) that describe filters, suggested locations, and tokens for continuing previous sessions.
 
-### 1.1 Service abstraction for MVVM
+#### 1.1 Service abstraction for MVVM
 
 ```csharp
 public interface IFileDialogService
@@ -5543,7 +5589,7 @@ public sealed class FileDialogService : IFileDialogService
 
 Register the service per window (in DI) so view models request dialogs via `IFileDialogService` without touching UI types.
 
-### 1.2 Launching files and URIs
+#### 1.2 Launching files and URIs
 
 `TopLevel.Launcher` gives access to `ILauncher`, which opens files, folders, or URIs using the platform shell (Finder, Explorer, default browser, etc.). Combine it with storage results to let users reveal files after saving.
 
@@ -5558,7 +5604,7 @@ if (topLevel?.Launcher is { } launcher && file is not null)
 
 Return values indicate whether the launch succeeded; fall back to in-app viewers when it returns false.
 
-## 2. Opening files (async streams)
+### 2. Opening files (async streams)
 
 ```csharp
 public async Task<string?> ReadTextFileAsync(IStorageFile file, CancellationToken ct)
@@ -5573,11 +5619,11 @@ public async Task<string?> ReadTextFileAsync(IStorageFile file, CancellationToke
 - Pass `CancellationToken` to long operations.
 - For binary files, use `BinaryReader` or direct `Stream` APIs.
 
-### 2.1 Remote or sandboxed locations
+#### 2.1 Remote or sandboxed locations
 
 On Android/iOS/Browser the returned stream might be virtual (no direct file path). Always rely on stream APIs; avoid `LocalPath` if `Path` is null.
 
-### 2.2 File type filters
+#### 2.2 File type filters
 
 ```csharp
 var options = new FilePickerOpenOptions
@@ -5597,7 +5643,7 @@ var options = new FilePickerOpenOptions
 
 `TryGetWellKnownFolderAsync` returns common directories when supported (desktop/mobile). Source: [`WellKnownFolder.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/WellKnownFolder.cs).
 
-## 3. Saving files
+### 3. Saving files
 
 ```csharp
 var saveOptions = new FilePickerSaveOptions
@@ -5626,7 +5672,7 @@ if (file is not null)
 - `OpenWriteAsync` truncates the existing file. Use `OpenReadWriteAsync` for editing.
 - Some platforms prompt for confirmation when writing to previously granted locations.
 
-## 4. Enumerating folders
+### 4. Enumerating folders
 
 ```csharp
 var folder = await storage.TryGetFolderFromPathAsync(new Uri("file:///C:/Logs"));
@@ -5649,7 +5695,7 @@ if (folder is not null)
 
 `GetItemsAsync()` returns an async sequence; iterate with `await foreach` on .NET 7+. Use `GetFilesAsync`/`GetFoldersAsync` to filter.
 
-## 5. Bookmarks and persisted access
+### 5. Bookmarks and persisted access
 
 Some platforms revoke file permissions when your app suspends. If an `IStorageItem` reports `CanBookmark`, call `SaveBookmarkAsync()` and store the returned string (e.g., in preferences). Later, reopen it via `IStorageProvider.OpenFileBookmarkAsync`/`OpenFolderBookmarkAsync`.
 
@@ -5670,7 +5716,7 @@ Keep bookmarks updated when users revoke access. iOS and Android can throw when 
 
 `IStorageItem.GetBasicPropertiesAsync()` exposes metadata (size, modified time) without opening streams—use it when building file browsers.
 
-## 6. Platform notes
+### 6. Platform notes
 
 | Platform | Storage provider | Considerations |
 | --- | --- | --- |
@@ -5680,7 +5726,7 @@ Keep bookmarks updated when users revoke access. iOS and Android can throw when 
 
 Wrap storage calls in try/catch to handle permission denials or canceled dialogs gracefully.
 
-## 7. Drag-and-drop: receiving data
+### 7. Drag-and-drop: receiving data
 
 ```xml
 <Border AllowDrop="True"
@@ -5724,7 +5770,7 @@ private async void OnDrop(object? sender, DragEventArgs e)
 - `GetFilesAsync()` returns storage items; check for `IStorageFile`.
 - Inspect `e.KeyModifiers` to adjust behavior (e.g., Ctrl for copy).
 
-### 7.1 Initiating drag-and-drop
+#### 7.1 Initiating drag-and-drop
 
 ```csharp
 private async void DragSource_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -5745,7 +5791,7 @@ private async void DragSource_PointerPressed(object? sender, PointerPressedEvent
 
 `DataObject` supports multiple formats (text, files, custom types). For custom data, both source and target must agree on a format string.
 
-### 7.2 Custom visuals and adorners
+#### 7.2 Custom visuals and adorners
 
 Wrap your layout in an `AdornerDecorator` and render drop cues while a drag is in progress. Toggle overlays in `DragEnter`/`DragLeave` handlers to show hit targets or counts.
 
@@ -5763,7 +5809,7 @@ private void OnDragLeave(object? sender, RoutedEventArgs e)
 
 You can also inspect `e.DragEffects` to switch icons (copy vs move) or reject unsupported formats with a custom message. For complex scenarios create a lightweight `Window` as a drag adorner so the pointer stays responsive on multi-monitor setups.
 
-## 8. Clipboard operations
+### 8. Clipboard operations
 
 ```csharp
 public interface IClipboardService
@@ -5786,7 +5832,7 @@ public sealed class ClipboardService : IClipboardService
 }
 ```
 
-### 8.1 Multi-format clipboard payload
+#### 8.1 Multi-format clipboard payload
 
 ```csharp
 var dataObject = new DataObject();
@@ -5800,7 +5846,7 @@ var formats = await clipboardService.GetFormatsAsync();
 
 Browser restrictions: clipboard APIs require user gesture and may only allow text formats.
 
-## 9. Error handling & async patterns
+### 9. Error handling & async patterns
 
 - Wrap storage operations in try/catch for `IOException`, `UnauthorizedAccessException`.
 - Offload heavy parsing to background threads with `Task.Run` (keep UI thread responsive).
@@ -5811,13 +5857,13 @@ var progress = new Progress<int>(value => ImportProgress = value);
 await _importService.ImportAsync(file, progress, cancellationToken);
 ```
 
-## 10. Diagnostics
+### 10. Diagnostics
 
 - Log storage/drag errors with `LogArea.Platform` or custom logger.
 - DevTools -> Events tab shows drag/drop events.
 - On Linux portals (Flatpak/Snap), check console logs for portal errors.
 
-## 11. Practice exercises
+### 11. Practice exercises
 
 1. Implement `IFileDialogService` and expose commands for Open, Save, and Pick Folder; update the UI with results.
 2. Build a file manager pane that enumerates folders asynchronously, persists bookmarks for sandboxed platforms, and mirrors changes via drag/drop.
@@ -5825,7 +5871,7 @@ await _importService.ImportAsync(file, progress, cancellationToken);
 4. Add drag support from a list to the OS shell (export files) with a custom adorner overlay showing the item count.
 5. Implement cancellation for long-running file imports and confirm resources are disposed when canceled.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Storage provider: [`IStorageProvider`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/IStorageProvider.cs)
 - File/folder abstractions: [`IStorageFile`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FileIO/IStorageFile.cs), [`IStorageFolder`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/FileIO/IStorageFolder.cs)
 - Bookmarks & metadata: [`IStorageItem`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/IStorageItem.cs)
@@ -5834,7 +5880,7 @@ await _importService.ImportAsync(file, progress, cancellationToken);
 - Clipboard: [`IClipboard`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/IClipboard.cs)
 - Launcher: [`ILauncher`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Platform/Storage/ILauncher.cs)
 
-## Check yourself
+### Check yourself
 - How do you obtain an `IStorageProvider` when you only have a view model?
 - What are the advantages of using asynchronous streams (`await using`) when reading/writing files?
 - How can you detect which drag/drop formats are available during a drop event?
@@ -5849,7 +5895,7 @@ What's next
 \newpage
 ```
 
-# 17. Background work and networking
+## 17. Background work and networking
 
 Goal
 - Keep the UI responsive while doing heavy or long-running tasks using async/await, Task.Run, and progress reporting.
@@ -5864,7 +5910,7 @@ Why this matters
 Prerequisites
 - Chapters 8-9 (binding & commands), Chapter 11 (MVVM), Chapter 16 (file IO).
 
-## 1. The UI thread and Dispatcher
+### 1. The UI thread and Dispatcher
 
 Avalonia has a single UI thread managed by `Dispatcher.UIThread`. UI elements and bound properties must be updated on this thread.
 
@@ -5877,7 +5923,7 @@ Rules of thumb:
 await Dispatcher.UIThread.InvokeAsync(() => Status = "Ready");
 ```
 
-### 1.1 Dispatcher priorities
+#### 1.1 Dispatcher priorities
 
 `DispatcherPriority` controls when queued work runs relative to layout, input, and rendering. Use `Dispatcher.UIThread.Post` with an explicit priority when you want work to wait until after animations or to run ahead of rendering.
 
@@ -5893,7 +5939,7 @@ Dispatcher.UIThread.Post(
 
 Avoid defaulting everything to `DispatcherPriority.Send` (synchronous) because it can starve input processing.
 
-### 1.2 SynchronizationContext awareness
+#### 1.2 SynchronizationContext awareness
 
 `DispatcherSynchronizationContext` is installed on the UI thread; async continuations captured there automatically hop back to Avalonia when you `await`. When running background tasks (e.g., unit tests or hosted services) ensure you resume on the UI thread by capturing the context:
 
@@ -5909,7 +5955,7 @@ await Task.Run(async () =>
 
 When you intentionally want to stay on a background thread, use `ConfigureAwait(false)` to avoid marshaling back.
 
-## 2. Async workflow pattern (ViewModel)
+### 2. Async workflow pattern (ViewModel)
 
 ```csharp
 public sealed class WorkViewModel : ObservableObject
@@ -5977,7 +6023,7 @@ public sealed class WorkViewModel : ObservableObject
 
 `Task.Run` offloads CPU work to the thread pool; `ConfigureAwait(false)` keeps the inner loop on the background thread. `Progress<T>` marshals results back to UI thread automatically.
 
-## 3. UI binding (XAML)
+### 3. UI binding (XAML)
 
 ```xml
 <StackPanel Spacing="12">
@@ -5990,9 +6036,9 @@ public sealed class WorkViewModel : ObservableObject
 </StackPanel>
 ```
 
-## 4. HTTP networking patterns
+### 4. HTTP networking patterns
 
-### 4.1 HttpClient lifetime
+#### 4.1 HttpClient lifetime
 
 Reuse HttpClient (per host/service) to avoid socket exhaustion. Inject or hold static instance.
 
@@ -6006,7 +6052,7 @@ public static class ApiClient
 }
 ```
 
-### 4.2 GET + JSON
+#### 4.2 GET + JSON
 
 ```csharp
 public async Task<T?> GetJsonAsync<T>(string url, CancellationToken ct)
@@ -6018,7 +6064,7 @@ public async Task<T?> GetJsonAsync<T>(string url, CancellationToken ct)
 }
 ```
 
-### 4.3 POST JSON with retry
+#### 4.3 POST JSON with retry
 
 ```csharp
 public async Task PostWithRetryAsync<T>(string url, T payload, CancellationToken ct)
@@ -6038,7 +6084,7 @@ public async Task PostWithRetryAsync<T>(string url, T payload, CancellationToken
 
 Use `Polly` or custom retry logic. Timeouts and cancellation tokens help stop hanging requests.
 
-### 4.4 Download with progress
+#### 4.4 Download with progress
 
 ```csharp
 public async Task DownloadAsync(Uri uri, IStorageFile destination, IProgress<double> progress, CancellationToken ct)
@@ -6063,7 +6109,7 @@ public async Task DownloadAsync(Uri uri, IStorageFile destination, IProgress<dou
 }
 ```
 
-## 5. Connectivity awareness
+### 5. Connectivity awareness
 
 Avalonia doesn't ship built-in connectivity events; rely on platform APIs or ping endpoints.
 
@@ -6097,7 +6143,7 @@ public sealed class NetworkStatusService : INetworkStatusService
 
 Register different implementations per target in DI (`#if` or platform-specific partial classes). On mobile, back the observable with platform connectivity APIs; on WebAssembly, bridge to `navigator.onLine` via JS interop. View models can subscribe once and stay platform-agnostic.
 
-## 6. Background services & scheduled work
+### 6. Background services & scheduled work
 
 For periodic tasks, use `DispatcherTimer` on UI thread or `Task.Run` loops with delays.
 
@@ -6108,7 +6154,7 @@ timer.Start();
 
 Long-running background work should check `CancellationToken` frequently, especially when app might suspend (mobile).
 
-### 6.1 Orchestrating services across targets
+#### 6.1 Orchestrating services across targets
 
 For cross-platform apps, wrap periodic or startup work in services that plug into each lifetime. Example using `IHostedService` semantics:
 
@@ -6152,7 +6198,7 @@ public static class BackgroundTaskExtensions
 
 Desktop lifetimes expose `Startup`/`Exit`; single-view/mobile lifetimes expose `FrameworkInitializationCompleted`/`OnStopped`. Provide adapters per lifetime so the task implementation stays portable, and inject platform helpers (connectivity, storage) through interfaces.
 
-## 7. Reactive event streams
+### 7. Reactive event streams
 
 `Observable.FromEventPattern` converts callbacks into composable streams. Combine it with `DispatcherScheduler.Current` (from System.Reactive) so observations switch back to the UI thread.
 
@@ -6171,7 +6217,7 @@ Disposables.Add(pointerStream);
 This pattern keeps heavy processing (`Throttle`, network calls) off the UI thread while delivering results back in order. For view models, expose `IObservable<T>` properties and let the view subscribe using `ReactiveUI.WhenAnyValue` or manual subscriptions.
 `Disposables` here is a `CompositeDisposable` that you dispose when the view/control unloads.
 
-## 8. Testing background code
+### 8. Testing background code
 
 Use `Task.Delay` injection or `ITestScheduler` (ReactiveUI) to control time. For plain async code, wrap delays in an interface to mock in tests.
 
@@ -6189,13 +6235,13 @@ public sealed class DelayProvider : IDelayProvider
 
 Inject and replace with deterministic delays in tests.
 
-## 9. Browser (WebAssembly) considerations
+### 9. Browser (WebAssembly) considerations
 
 - HttpClient uses fetch; CORS applies.
 - WebSockets available via `ClientWebSocket` when allowed by browser.
 - Long-running loops should yield frequently (`await Task.Yield()`) to avoid blocking JS event loop.
 
-## 10. Practice exercises
+### 10. Practice exercises
 
 1. Build a data sync command that fetches JSON from an API, parses it, and updates view models without freezing UI.
 2. Add cancellation and progress reporting to a file import feature (Chapter 16) using `IProgress<double>`.
@@ -6204,7 +6250,7 @@ Inject and replace with deterministic delays in tests.
 5. Transform pointer move events into an `Observable` pipeline with throttling and verify updates stay on the UI thread.
 6. Write a unit test that confirms cancellation stops a long-running operation before completion.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Dispatcher & UI thread: [`Dispatcher.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Threading/Dispatcher.cs)
 - Priorities & timers: [`DispatcherPriority.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Threading/DispatcherPriority.cs), [`DispatcherTimer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Threading/DispatcherTimer.cs)
 - Lifetimes: [`IClassicDesktopStyleApplicationLifetime`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs), [`ISingleViewApplicationLifetime`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/ISingleViewApplicationLifetime.cs)
@@ -6212,7 +6258,7 @@ Inject and replace with deterministic delays in tests.
 - HttpClient guidance: [.NET HttpClient docs](https://learn.microsoft.com/dotnet/fundamentals/networking/http/httpclient)
 - Cancellation tokens: [.NET cancellation docs](https://learn.microsoft.com/dotnet/standard/threading/cancellation-in-managed-threads)
 
-## Check yourself
+### Check yourself
 - Why does blocking the UI thread freeze the app? How do you keep it responsive?
 - How do you propagate cancellation through nested async calls?
 - Which HttpClient features help prevent hung requests?
@@ -6222,12 +6268,24 @@ Inject and replace with deterministic delays in tests.
 What's next
 - Next: [Chapter 18](Chapter18.md)
 
+```{=latex}
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{Part IV — Cross‑platform deployment without headaches}
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+{\Huge\bfseries Part IV — Cross‑platform deployment without headaches}
+\end{center}
+\vspace*{\fill}
+\clearpage
+```
 
 ```{=latex}
 \newpage
 ```
 
-# 18. Desktop targets: Windows, macOS, Linux
+## 18. Desktop targets: Windows, macOS, Linux
 
 Goal
 - Master Avalonia's desktop-specific features: window chrome, transparency, DPI/multi-monitor handling, platform capabilities, and packaging essentials.
@@ -6240,7 +6298,7 @@ Why this matters
 Prerequisites
 - Chapter 4 (lifetimes), Chapter 12 (window navigation), Chapter 13 (menus/dialogs), Chapter 16 (storage).
 
-## 1. Desktop backends at a glance
+### 1. Desktop backends at a glance
 
 Avalonia ships multiple desktop backends; `AppBuilder.UsePlatformDetect()` selects the correct platform at runtime. Understanding the differences helps when you tweak options or debug native interop.
 
@@ -6277,7 +6335,7 @@ AppBuilder.Configure<App>()
 
 These options map to platform implementations in `Avalonia.Win32`, `Avalonia.Native`, and `Avalonia.X11`. Tune them when enabling extended client area, portals, or GPU interop.
 
-## 2. Window fundamentals
+### 2. Window fundamentals
 
 ```xml
 <Window xmlns="https://github.com/avaloniaui"
@@ -6329,7 +6387,7 @@ protected override void OnClosing(WindowClosingEventArgs e)
 }
 ```
 
-## 3. Custom title bars and chrome
+### 3. Custom title bars and chrome
 
 `SystemDecorations="None"` removes native chrome; use extend-client-area hints for custom title bars.
 
@@ -6371,7 +6429,7 @@ private void CloseButton_PointerPressed(object? sender, PointerPressedEventArgs 
 - Provide hover/pressed styles for buttons.
 - Add keyboard/screen reader support (AutomationProperties).
 
-## 4. Window transparency & effects
+### 4. Window transparency & effects
 
 ```xml
 <Window TransparencyLevelHint="Mica, AcrylicBlur, Blur, Transparent">
@@ -6399,7 +6457,7 @@ Platform support summary (subject to OS version, composition mode):
 
 Design for fallback: ActualTransparencyLevel may be `None`--ensure backgrounds look good without blur.
 
-## 5. Screens, DPI, and scaling
+### 5. Screens, DPI, and scaling
 
 - `Screens`: enumerate monitors (`Screens.All`, `Screens.Primary`).
 - `Screen.WorkingArea`: available area excluding taskbar/dock.
@@ -6432,9 +6490,9 @@ ScalingChanged += (_, _) =>
 };
 ```
 
-## 6. Platform integration
+### 6. Platform integration
 
-### 6.1 Windows
+#### 6.1 Windows
 
 - Taskbar/dock menus: use Jump Lists via `System.Windows.Shell` interop or community packages.
 - Notifications: `WindowNotificationManager` or Windows toast (via WinRT APIs).
@@ -6443,7 +6501,7 @@ ScalingChanged += (_, _) =>
 - `Win32PlatformOptions` exposes rendering toggles (`RenderingMode`, `CompositionMode`, `OverlayPopups`). Keep `Software` in the list as a fallback for Remote Desktop.
 - Use `TryGetPlatformHandle()` to retrieve HWNDs when integrating with native libraries; avoid depending on internal `WindowImpl` types.
 
-### 6.2 macOS
+#### 6.2 macOS
 
 - Menu bar: use `NativeMenuBar` (Chapter 13).
 - Dock menu: `NativeMenuBar.Menu` can include items that appear in dock menu.
@@ -6452,7 +6510,7 @@ ScalingChanged += (_, _) =>
 - `MacOSPlatformOptions` lets you hide dock icons, disable the default menu items, or reuse an existing `NSApplication` delegate.
 - Pair `AvaloniaNativeRenderingMode` with a `UseSkia` configuration so you always include `Software` fallback alongside `Metal`/`OpenGl` for older GPUs.
 
-### 6.3 Linux
+#### 6.3 Linux
 
 - Variety of window managers; test SystemDecorations/ExtendClientArea on GNOME/KDE.
 - Transparency requires compositor (e.g., Mutter, KWin). Provide fallback.
@@ -6461,7 +6519,7 @@ ScalingChanged += (_, _) =>
 - `X11PlatformOptions` controls GLX/EGL fallbacks, DBus menus, and IME support; pair it with Avalonia's FreeDesktop portal helpers when running inside Flatpak/Snap.
 - Use `WmClass` (on `X11PlatformOptions`) to integrate with desktop launchers and icon themes.
 
-## 7. Rendering & GPU selection
+### 7. Rendering & GPU selection
 
 Avalonia renders through Skia; each backend exposes toggles for GPU acceleration and composition. Tune them to balance visuals versus compatibility.
 
@@ -6494,7 +6552,7 @@ if (TryGetPlatformHandle() is { Handle: var hwnd, HandleDescriptor: "HWND" })
 
 Log area `Avalonia.Rendering.Platform` reports which backend was selected; capture it during startup when debugging GPU-related issues.
 
-## 8. Packaging & deployment overview
+### 8. Packaging & deployment overview
 
 - Windows: `dotnet publish -r win-x64 --self-contained` or MSIX via `dotnet publish /p:PublishTrimmed=false /p:WindowsPackageType=msix`. Bundle ANGLE DLLs (`libEGL.dll`, `libGLESv2.dll`) and `d3dcompiler_47.dll` when using GPU composition; ship `vc_redist` prerequisites for older OS versions.
 - macOS: `.app` bundle; codesign and notarize for distribution (`dotnet publish -r osx-x64 --self-contained` followed by bundle packaging via Avalonia templates or scripts). Include `libAvaloniaNative.dylib`, ensure `Info.plist` declares `NSHighResolutionCapable`, and register custom URL schemes if you rely on `ILauncher`.
@@ -6502,14 +6560,14 @@ Log area `Avalonia.Rendering.Platform` reports which backend was selected; captu
 
 Reference docs: Avalonia publishing guide ([docs/publish.md](https://github.com/AvaloniaUI/Avalonia/blob/master/docs/publish.md)).
 
-## 9. Multiple window management tips
+### 9. Multiple window management tips
 
 - Track open windows via `ApplicationLifetime.Windows` (desktop only).
 - Use `IClassicDesktopStyleApplicationLifetime.Exit` to exit the app.
 - Owner/child relationships ensure modality, centering, and Z-order (Chapter 12).
 - Provide "Move to Next Monitor" command by cycling through `Screens.All` and setting `Position` accordingly.
 
-## 10. Troubleshooting
+### 10. Troubleshooting
 
 | Issue | Fix |
 | --- | --- |
@@ -6519,7 +6577,7 @@ Reference docs: Avalonia publishing guide ([docs/publish.md](https://github.com/
 | Incorrect monitor on startup | Set `WindowStartupLocation` or compute position using `Screens` before showing window |
 | Linux packaging fails | Include `libAvaloniaNative.so` dependencies; use Avalonia Debian/RPM packaging scripts |
 
-## 11. Practice exercises
+### 11. Practice exercises
 
 1. Build a window with custom title bar, including minimize, maximize, close, and move/resize handles.
 2. Request Mica/Acrylic, detect fallback, and apply theme-specific backgrounds for each transparency level.
@@ -6528,7 +6586,7 @@ Reference docs: Avalonia publishing guide ([docs/publish.md](https://github.com/
 5. Log which backend (`Win32RenderingMode`, `X11RenderingMode`, etc.) starts under different option combinations and document the impact on transparency and input latency.
 6. Create deployment artifacts: MSIX (Windows), .app (macOS), and AppImage/Flatpak (Linux) for a simple app.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Window & TopLevel: [`Window.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Window.cs), [`TopLevel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/TopLevel.cs)
 - Transparency enums: [`WindowTransparencyLevel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/WindowTransparencyLevel.cs)
 - Screens API: [`Screens.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Screens.cs)
@@ -6537,7 +6595,7 @@ Reference docs: Avalonia publishing guide ([docs/publish.md](https://github.com/
 - Backend options: [`Win32PlatformOptions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Windows/Avalonia.Win32/Win32PlatformOptions.cs), [`AvaloniaNativePlatformExtensions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Native/AvaloniaNativePlatformExtensions.cs), [`X11Platform.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.X11/X11Platform.cs)
 - Skia configuration: [`SkiaOptions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Skia/Avalonia.Skia/SkiaOptions.cs)
 
-## Check yourself
+### Check yourself
 - How do you request and detect the achieved transparency level on each platform?
 - What steps are needed to build a custom title bar that supports drag and resize?
 - How do you center a window on the active monitor using `Screens` and scaling info?
@@ -6552,7 +6610,7 @@ What's next
 \newpage
 ```
 
-# 19. Mobile targets: Android and iOS
+## 19. Mobile targets: Android and iOS
 
 Goal
 - Configure, build, and run Avalonia apps on Android and iOS using the single-project workflow.
@@ -6566,18 +6624,18 @@ Why this matters
 Prerequisites
 - Chapter 12 (lifetimes/navigation), Chapter 16 (storage provider), Chapter 17 (async/networking).
 
-## 1. Projects and workload setup
+### 1. Projects and workload setup
 
 Install .NET workloads and mobile SDKs:
 
 ```bash
-# Android
+## Android
 sudo dotnet workload install android
 
-# iOS (macOS only)
+## iOS (macOS only)
 sudo dotnet workload install ios
 
-# Optional: wasm-tools for browser
+## Optional: wasm-tools for browser
 sudo dotnet workload install wasm-tools
 ```
 
@@ -6601,7 +6659,7 @@ Keep trimming/linker settings in `Directory.Build.props` so shared code doesn't 
 
 Use `TrimmerRootAssembly` or `DynamicDependency` attributes if you depend on reflection-heavy frameworks (e.g., ReactiveUI). Test Release builds on devices early to catch linker issues.
 
-## 2. Single-view lifetime
+### 2. Single-view lifetime
 
 `ISingleViewApplicationLifetime` hosts one root view. Configure in `App.OnFrameworkInitializationCompleted` (Chapter 4 showed desktop branch).
 
@@ -6627,7 +6685,7 @@ public override void OnFrameworkInitializationCompleted()
 
 Hot reload: on Android, Rider/Visual Studio can use .NET Hot Reload against `MyApp.Android`. For XAML hot reload in Previewer, add `<ItemGroup><XamlIlAssemblyInfo>true</XamlIlAssemblyInfo></ItemGroup>` to the shared project and keep the head running via `dotnet build -t:Run`.
 
-## 3. Mobile navigation patterns
+### 3. Mobile navigation patterns
 
 Use view-model-first navigation (Chapter 12) but ensure a visible Back control.
 
@@ -6647,7 +6705,7 @@ Use view-model-first navigation (Chapter 12) but ensure a visible Back control.
 
 `ShellViewModel` keeps a stack of view models and implements `BackCommand`/`NavigateTo`. Hook Android back button (Next section) to `BackCommand` and mirror the same logic inside `AvaloniaAppDelegate` to react to swipe-back gestures on iOS.
 
-## 4. Safe areas and input insets
+### 4. Safe areas and input insets
 
 Phones have notches and OS-controlled bars. Use `IInsetsManager` to apply safe-area padding.
 
@@ -6692,9 +6750,9 @@ if (pane is not null)
 
 Touch input specifics: prefer gesture recognizers (`Tapped`, `DoubleTapped`, `PointerGestureRecognizer`) over mouse events, and test with real hardware—emulators may not surface haptics or multi-touch.
 
-## 5. Platform head customization
+### 5. Platform head customization
 
-### 5.1 Android head (MyApp.Android)
+#### 5.1 Android head (MyApp.Android)
 
 - `MainActivity.cs` inherits from `AvaloniaActivity`. Override `AppBuilder CustomizeAppBuilder(AppBuilder builder)` to inject logging or DI.
 - `MyApplication.cs` can inherit from `AvaloniaApplication` to bootstrap services before the activity creates the view.
@@ -6713,7 +6771,7 @@ public override void OnBackPressed()
 
 `TryGoBack` calls into shared navigation service and returns true if you consumed the event. To embed Avalonia inside an existing native activity, host `AvaloniaView` inside a layout and call `AvaloniaView.Initialize(this, AppBuilder.Configure<App>()...)`.
 
-### 5.2 iOS head (MyApp.iOS)
+#### 5.2 iOS head (MyApp.iOS)
 
 - `AppDelegate.cs` inherits from `AvaloniaAppDelegate`. Override `CustomizeAppBuilder` to inject services or register platform-specific singletons.
 - `Program.cs` wraps `UIApplication.Main(args, null, typeof(AppDelegate))` so the delegate boots Avalonia.
@@ -6723,11 +6781,11 @@ public override void OnBackPressed()
 
 Handle universal links or background tasks by bridging to shared services in `AppDelegate`. For swipe-back gestures, implement `TryGoBack` inside `AvaloniaNavigationController` or intercept `UINavigationControllerDelegate` callbacks.
 
-### 5.3 Sharing services across heads
+#### 5.3 Sharing services across heads
 
 Inject platform implementations for `IClipboard`, `IStorageProvider`, notifications, and share targets via dependency injection. Register them in `AvaloniaLocator.CurrentMutable` inside `CustomizeAppBuilder` to keep shared code unaware of head-specific services.
 
-## 6. Permissions & storage
+### 6. Permissions & storage
 
 - StorageProvider works but returns sandboxed streams. Request platform permissions:
   - Android: declare `<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>` and use runtime requests.
@@ -6736,50 +6794,50 @@ Inject platform implementations for `IClipboard`, `IStorageProvider`, notificati
 - Use `EssentialsPermissions` helper libraries carefully—Release builds with trimming must preserve permission classes. Validate by running `dotnet publish -c Release` on device/emulator.
 - Push notifications and background fetch require platform services: expose custom interfaces (e.g., `IPushNotificationService`) that platform heads implement and inject into shared locator.
 
-## 7. Touch and gesture design
+### 7. Touch and gesture design
 
 - Ensure controls are at least 44x44 DIP.
 - Provide ripple/highlight states for buttons (Fluent theme handles this). Avoid hover-only interactions.
 - Use `Tapped`/`DoubleTapped` events for simple gestures; `PointerGestureRecognizer` for advanced ones.
 - Keep layout responsive: use `TopLevel.Screen` to detect orientation/size classes and expose them via your view models.
 
-## 8. Performance & profiling
+### 8. Performance & profiling
 
 - Keep navigation stacks small; heavy animations may impact lower-end devices.
 - Profile with Android Studio's profiler / Xcode Instruments for CPU, memory, GPU.
 - When using `Task.Run`, consider battery impact; use async I/O where possible.
 - Enable GPU frame stats with `adb shell dumpsys gfxinfo` or Xcode's Metal throughput counters to detect rendering bottlenecks.
 
-## 9. Packaging and deployment
+### 9. Packaging and deployment
 
-### Android
+#### Android
 
 ```bash
 cd MyApp.Android
-# Debug build to device
+## Debug build to device
 msbuild /t:Run /p:Configuration=Debug
 
-# Release APK/AAB
+## Release APK/AAB
 msbuild /t:Publish /p:Configuration=Release /p:AndroidPackageFormat=aab
 ```
 
 Sign with keystore for app store.
 
-### iOS
+#### iOS
 
 - Use Xcode to build and deploy to simulator/device. `dotnet build -t:Run -f net8.0-ios` works on macOS with Xcode installed.
 - Provisioning profiles & certificates required for devices/app store.
 - Linker errors often show up only in Release; enable `--warnaserror` on linker warnings to catch missing assemblies early.
 
-### Optional: Tizen
+#### Optional: Tizen
 
 Avalonia's Tizen backend (`Avalonia.Tizen`) targets smart TVs/wearables. The structure mirrors Android/iOS: implement a Tizen `Program.cs` that calls `AppBuilder.Configure<App>().UseTizen<TizenApplication>()` and handles platform storage/permissions via Tizen APIs.
 
-## 10. Browser compatibility (bonus)
+### 10. Browser compatibility (bonus)
 
 Mobile code often reuses single-view logic for WebAssembly. Check `ApplicationLifetime` for `BrowserSingleViewLifetime` and swap to a `ShellView`. Storage/clipboard behave like Chapter 16 with browser limitations.
 
-## 11. Practice exercises
+### 11. Practice exercises
 
 1. Configure the Android/iOS heads and run the app on emulator/simulator with a shared `ShellView`.
 2. Implement a navigation service with back stack and wire Android back button to it.
@@ -6788,7 +6846,7 @@ Mobile code often reuses single-view logic for WebAssembly. Check `ApplicationLi
 5. Package a release build (.aab for Android, .ipa for iOS), validate icons/splash screens, and confirm Release trimming did not strip services.
 6. (Stretch) Embed Avalonia inside a native screen (`AvaloniaView` on Android, `AvaloniaViewController` on iOS) and pass data between native and Avalonia layers.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Android hosting: [`AvaloniaActivity`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Android/Avalonia.Android/AvaloniaActivity.cs), [`AvaloniaApplication`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Android/Avalonia.Android/AvaloniaApplication.cs)
 - iOS hosting: [`AvaloniaAppDelegate`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/iOS/Avalonia.iOS/AvaloniaAppDelegate.cs), [`AvaloniaViewController`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/iOS/Avalonia.iOS/AvaloniaViewController.cs)
 - Single-view lifetime: [`SingleViewApplicationLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/ApplicationLifetimes/SingleViewApplicationLifetime.cs)
@@ -6797,7 +6855,7 @@ Mobile code often reuses single-view logic for WebAssembly. Check `ApplicationLi
 - Tizen backend: [`Avalonia.Tizen`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Tizen)
 - Mobile samples: [`samples/ControlCatalog.Android`](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog.Android), [`samples/ControlCatalog.iOS`](https://github.com/AvaloniaUI/Avalonia/tree/master/samples/ControlCatalog.iOS)
 
-## Check yourself
+### Check yourself
 - How does the navigation pattern differ between desktop and mobile? How do you surface back navigation?
 - How do you ensure inputs remain visible when the on-screen keyboard appears?
 - What permission declarations are required for file access on Android/iOS?
@@ -6811,7 +6869,7 @@ What's next
 \newpage
 ```
 
-# 20. Browser (WebAssembly) target
+## 20. Browser (WebAssembly) target
 
 Goal
 - Run your Avalonia app in the browser using WebAssembly (WASM) with minimal changes to shared code.
@@ -6825,7 +6883,7 @@ Why this matters
 Prerequisites
 - Chapter 19 (single-view navigation), Chapter 16 (storage provider), Chapter 17 (async/networking).
 
-## 1. Project structure and setup
+### 1. Project structure and setup
 
 Install `wasm-tools` workload:
 
@@ -6841,7 +6899,7 @@ Avalonia template (`dotnet new avalonia.app --multiplatform`) can create the bro
 
 When adding the head manually, target `net8.0-browserwasm`, configure `<WasmMainJSPath>wwwroot/main.js</WasmMainJSPath>`, and keep trimming hints (e.g., `<InvariantGlobalization>true</InvariantGlobalization>`). Browser heads use the NativeAOT toolchain; Release builds can set `<PublishAot>true</PublishAot>` for faster startup and smaller payloads.
 
-## 2. Start the browser app
+### 2. Start the browser app
 
 `StartBrowserAppAsync` attaches Avalonia to a DOM element by ID.
 
@@ -6878,7 +6936,7 @@ await BrowserAppBuilder.Configure<App>()
 
 `SetupBrowserAppAsync` lets you delay instantiation (wait for configuration, auth, etc.) or mount multiple roots in different DOM nodes.
 
-## 3. Single view lifetime
+### 3. Single view lifetime
 
 Browser uses `ISingleViewApplicationLifetime` (same as mobile). Configure in `App.OnFrameworkInitializationCompleted`:
 
@@ -6896,7 +6954,7 @@ public override void OnFrameworkInitializationCompleted()
 
 Navigation patterns from Chapter 19 apply (content control with back stack).
 
-## 4. Rendering options
+### 4. Rendering options
 
 Configure `BrowserPlatformOptions` to choose rendering mode and polyfills.
 
@@ -6925,7 +6983,7 @@ await BuildAvaloniaApp().StartBrowserAppAsync(
 - `PreferManagedThreadDispatcher`: run dispatcher on worker thread when WASM threading enabled (requires server sending COOP/COEP headers).
 - `PreferFileDialogPolyfill`: toggle between File System Access API and download/upload fallback for unsupported browsers.
 
-## 5. Storage and file dialogs
+### 5. Storage and file dialogs
 
 `IStorageProvider` uses the File System Access API when available; otherwise a polyfill (service worker + download anchor) handles saves.
 
@@ -6936,7 +6994,7 @@ Limitations:
 
 Example save using polyfill-friendly code (Chapter 16 shows full pattern). Test with/without service worker to ensure both paths work.
 
-## 6. Clipboard & drag-drop
+### 6. Clipboard & drag-drop
 
 Clipboard operations require user gestures and may only support text formats.
 - `Clipboard.SetTextAsync` works after user interaction (button click).
@@ -6944,14 +7002,14 @@ Clipboard operations require user gestures and may only support text formats.
 
 Drag/drop from browser to app is supported, but dragging files out of the app is limited by browser APIs.
 
-## 7. Networking & CORS
+### 7. Networking & CORS
 
 - HttpClient uses `fetch`. All requests obey CORS. Configure server with correct `Access-Control-Allow-*` headers.
 - WebSockets supported via `ClientWebSocket` if server enables them.
 - HTTPS recommended; some APIs (clipboard, file access) require secure context.
 - `HttpClient` respects browser caching rules. Adjust `Cache-Control` headers or add cache-busting query parameters during development to avoid stale responses.
 
-## 8. JavaScript interop
+### 8. JavaScript interop
 
 Call JS via `window.JSObject` or `JSRuntime` helpers (Avalonia.Browser exposes interop helpers). Example:
 
@@ -6972,11 +7030,11 @@ var host = new BrowserNativeControlHost { Handle = handle };
 
 This enables hybrid UI scenarios (rich HTML editors, video elements) while keeping sizing/layout under Avalonia control.
 
-## 9. Hosting in Blazor (optional)
+### 9. Hosting in Blazor (optional)
 
 `Avalonia.Browser.Blazor` lets you embed Avalonia controls in a Blazor app. Example sample: `ControlCatalog.Browser.Blazor`. Use when you need Blazor's routing/layout but Avalonia UI inside components.
 
-## 10. Hosting strategies
+### 10. Hosting strategies
 
 - Static hosting: publish bundle to `AppBundle` and serve from any static host (GitHub Pages, S3 + CloudFront, Azure Static Web Apps). Ensure service worker scope matches site root.
 - ASP.NET Core: use `MapFallbackToFile("index.html")` or `UseBlazorFrameworkFiles()` to serve the bundle from a Minimal API or MVC backend.
@@ -6984,7 +7042,7 @@ This enables hybrid UI scenarios (rich HTML editors, video elements) while keepi
 
 During development, `dotnet run` on the browser head launches a Kestrel server with live reload and proxies console logs back to the terminal.
 
-## 11. Debugging and diagnostics
+### 11. Debugging and diagnostics
 
 - Inspector: use browser devtools (F12). Evaluate DOM, watch console logs.
 - Source maps: publish with `dotnet publish -c Debug` to get wasm debugging symbols for supported browsers.
@@ -6993,22 +7051,22 @@ During development, `dotnet run` on the browser head launches a Kestrel server w
 - Pass `--logger:WebAssembly` to `dotnet run` for runtime messages (assembly loading, exception details).
 - Use `wasm-tools wasm-strip` or `wasm-tools wasm-opt` (installed via `dotnet wasm build-tools --install`) to analyze and reduce bundle sizes.
 
-## 12. Performance tips
+### 12. Performance tips
 
 - Measure download size: inspect `AppBundle`, track `.wasm`, `.dat`, and compressed assets.
 - Prefer compiled bindings and avoid reflection-heavy converters to keep the IL linker effective.
 - Enable multithreading (COOP/COEP headers) when animations or background tasks stutter; Avalonia will schedule the render loop on a dedicated worker thread.
 - Integrate `BrowserSystemNavigationManager` with your navigation service so browser back/forward controls work as expected.
 
-## 13. Deployment
+### 13. Deployment
 
 Publish the browser head:
 
 ```bash
 cd MyApp.Browser
-# Debug
+## Debug
 dotnet run
-# Release bundle
+## Release bundle
 dotnet publish -c Release
 ```
 
@@ -7016,7 +7074,7 @@ Output under `bin/Release/net8.0/browser-wasm/AppBundle`. Serve via static web s
 
 Remember to enable compression (Brotli) for faster load times.
 
-## 14. Platform limitations
+### 14. Platform limitations
 
 | Feature | Browser behavior |
 | --- | --- |
@@ -7029,7 +7087,7 @@ Remember to enable compression (Brotli) for faster load times.
 
 Design for progressive enhancement: provide alternative flows if feature unsupported.
 
-## 15. Practice exercises
+### 15. Practice exercises
 
 1. Add a browser head and run the app in Chrome/Firefox, verifying rendering fallbacks.
 2. Implement file export via `IStorageProvider` and test save polyfill with service worker enabled/disabled.
@@ -7038,7 +7096,7 @@ Design for progressive enhancement: provide alternative flows if feature unsuppo
 5. Publish a release build and deploy to a static host (GitHub Pages or local web server), verifying service worker scope and COOP/COEP headers.
 6. Use `wasm-tools wasm-strip` (or `wasm-opt`) to inspect bundle size before/after trimming and record the change.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Browser app builder: [`BrowserAppBuilder.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserAppBuilder.cs)
 - DOM interop: [`JSObjectControlHandle.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/Interop/JSObjectControlHandle.cs)
 - Browser lifetime: [`BrowserSingleViewLifetime.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserSingleViewLifetime.cs)
@@ -7048,7 +7106,7 @@ Design for progressive enhancement: provide alternative flows if feature unsuppo
 - Input pane & insets: [`BrowserInputPane.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserInputPane.cs), [`BrowserInsetsManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Browser/Avalonia.Browser/BrowserInsetsManager.cs)
 - Blazor integration: [`Avalonia.Browser.Blazor`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Browser/Avalonia.Browser.Blazor)
 
-## Check yourself
+### Check yourself
 - How do you configure rendering fallbacks for the browser target?
 - What limitations exist for file access and how does the polyfill help?
 - Which headers or hosting requirements enable WASM multi-threading? Why might you set `PreferManagedThreadDispatcher`?
@@ -7063,7 +7121,7 @@ What's next
 \newpage
 ```
 
-# 21. Headless and testing
+## 21. Headless and testing
 
 Goal
 - Test Avalonia UI components without a display server using `Avalonia.Headless` (`AvaloniaHeadlessPlatformExtensions.UseHeadless`).
@@ -7077,14 +7135,14 @@ Why this matters
 Prerequisites
 - Chapter 11 (MVVM patterns), Chapter 17 (async patterns), Chapter 16 (storage) for file-based assertions.
 
-## 1. Packages and setup
+### 1. Packages and setup
 
 Add packages to your test project:
 - `Avalonia.Headless`
 - `Avalonia.Headless.XUnit` or `Avalonia.Headless.NUnit`
 - `Avalonia.Skia` (only if you need rendered frames)
 
-### xUnit setup (`AssemblyInfo.cs`)
+#### xUnit setup (`AssemblyInfo.cs`)
 
 ```csharp
 using Avalonia;
@@ -7107,11 +7165,11 @@ public sealed class TestApp : Application
 
 `UseHeadlessDrawing = true` skips Skia (fast). For pixel tests, set false and call `.UseSkia()`.
 
-### NUnit setup
+#### NUnit setup
 
 Use `[AvaloniaTestApp]` attribute (from `Avalonia.Headless.NUnit`) and the provided `AvaloniaTestFixture` base.
 
-## 2. Writing a simple headless test
+### 2. Writing a simple headless test
 
 ```csharp
 public class TextBoxTests
@@ -7136,7 +7194,7 @@ public class TextBoxTests
 
 Helpers from `Avalonia.Headless` add extension methods to `TopLevel`/`Window` (`KeyTextInput`, `KeyPress`, `MouseDown`, etc.). Always call `ForceRenderTimerTick()` after inputs to flush layout/bindings.
 
-## 3. Simulating pointer input
+### 3. Simulating pointer input
 
 ```csharp
 [ AvaloniaFact ]
@@ -7165,7 +7223,7 @@ public async Task Button_Click_Executes_Command()
 
 `Bounds.Center` obtains center point from `Control.Bounds`. For container-based coordinates, offset appropriately.
 
-## 4. Frame capture & visual regression
+### 4. Frame capture & visual regression
 
 Configure Skia rendering in test app builder:
 
@@ -7209,14 +7267,14 @@ Compare pixels to baseline image using e.g., `ImageMagick` or custom diff with t
 
 If you need Avalonia to drive the render loop before reading pixels, call `CaptureRenderedFrame()` instead of `GetLastRenderedFrame()`—it schedules a composition pass and forces a render tick. This mirrors what desktop renderers do when they flush the `CompositionTarget`, keeping the snapshot pipeline close to production.
 
-## 5. Organizing tests
+### 5. Organizing tests
 
 - **ViewModel tests**: no Avalonia dependencies; test commands and property changes (fastest).
 - **Control tests**: headless platform; simulate inputs to verify states.
 - **Visual regression**: limited number; capture frames and compare.
 - **Integration/E2E**: run full app with navigation; keep few due to complexity.
 
-## 6. Custom fixtures and automation hooks
+### 6. Custom fixtures and automation hooks
 
 - Build reusable fixtures around `HeadlessUnitTestSession.StartNew(typeof(App))` when you need deterministic startup logic outside the provided xUnit/NUnit attributes. Wrap it in `IAsyncLifetime` so tests share a dispatcher loop safely.
 - Register platform services for tests inside the session by entering an `AvaloniaLocator` scope and injecting fakes (e.g., mock `IClipboard`, stub `IStorageProvider`).
@@ -7224,9 +7282,9 @@ If you need Avalonia to drive the render loop before reading pixels, call `Captu
 - For automation cues, use Avalonia's UI automation peers: call `AutomationPeer.CreatePeerForElement(control)` and assert patterns (`InvokePattern`, `ValuePattern`) without relying on visual tree traversal.
 - Study the headless unit tests in `external/Avalonia/tests/Avalonia.Headless.UnitTests` for patterns that wrap `AppBuilder` and expose helpers for reuse across cases.
 
-## 7. Advanced headless scenarios
+### 7. Advanced headless scenarios
 
-### 7.1 VNC mode
+#### 7.1 VNC mode
 
 For debugging, you can run headless with a VNC server and observe the UI.
 
@@ -7238,15 +7296,15 @@ AppBuilder.Configure<App>()
 
 Connect with a VNC client to view frames and interact.
 
-### 7.2 Simulating time & timers
+#### 7.2 Simulating time & timers
 
 Use `AvaloniaHeadlessPlatform.ForceRenderTimerTick()` to advance timers. For `DispatcherTimer` or animations, call it repeatedly.
 
-### 7.3 File system in tests
+#### 7.3 File system in tests
 
 For file-based assertions, use in-memory streams or temp directories. Avoid writing to the repo path; tests should be self-cleaning.
 
-## 8. Testing async flows
+### 8. Testing async flows
 
 - Use `Dispatcher.UIThread.InvokeAsync` for UI updates.
 - Await tasks; avoid `.Result` or `.Wait()`.
@@ -7266,14 +7324,14 @@ async Task WaitForAsync(Func<bool> condition, TimeSpan timeout)
 }
 ```
 
-## 9. CI integration
+### 9. CI integration
 
 - Headless tests run under `dotnet test` in GitHub Actions/Azure Pipelines/GitLab.
 - On Linux CI, no display server required (no `Xvfb`).
 - Provide environment variables or test-specific configuration as needed.
 - Collect snapshots as build artifacts when tests fail (optional).
 
-## 10. Practice exercises
+### 10. Practice exercises
 
 1. Write a headless test that types into a TextBox, presses Enter, and asserts a command executed.
 2. Simulate a drag-and-drop using `DragDrop` helpers and confirm target list received data.
@@ -7282,14 +7340,14 @@ async Task WaitForAsync(Func<bool> condition, TimeSpan timeout)
 5. Add headless tests to CI and configure the pipeline to upload snapshot diffs for failing cases.
 6. Write an automation-focused test that inspects `AutomationPeer` patterns (Invoke/Value) to validate accessibility contracts alongside visual assertions.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Headless platform setup: [`AvaloniaHeadlessPlatform.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/AvaloniaHeadlessPlatform.cs)
 - Session control: [`HeadlessUnitTestSession.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/HeadlessUnitTestSession.cs)
 - Input helpers: [`HeadlessWindowExtensions`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs)
 - Test adapters: [`Avalonia.Headless.XUnit`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.XUnit), [`Avalonia.Headless.NUnit`](https://github.com/AvaloniaUI/Avalonia/tree/master/src/Headless/Avalonia.Headless.NUnit)
 - Samples: [`tests/Avalonia.Headless.UnitTests`](https://github.com/AvaloniaUI/Avalonia/tree/master/tests/Avalonia.Headless.UnitTests), [`tests/Avalonia.Headless.XUnit.UnitTests`](https://github.com/AvaloniaUI/Avalonia/tree/master/tests/Avalonia.Headless.XUnit.UnitTests)
 
-## Check yourself
+### Check yourself
 - How do you initialize the headless platform for xUnit? Which attribute is required?
 - How do you simulate keyboard and pointer input in headless tests?
 - What steps are needed to capture rendered frames? Why might you use them sparingly?
@@ -7300,12 +7358,24 @@ async Task WaitForAsync(Func<bool> condition, TimeSpan timeout)
 What's next
 - Next: [Chapter 22](Chapter22.md)
 
+```{=latex}
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{Part V — Rendering, tooling, optimization, and contributing}
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+{\Huge\bfseries Part V — Rendering, tooling, optimization, and contributing}
+\end{center}
+\vspace*{\fill}
+\clearpage
+```
 
 ```{=latex}
 \newpage
 ```
 
-# 22. Rendering pipeline in plain words
+## 22. Rendering pipeline in plain words
 
 Goal
 - Understand how Avalonia turns your visual tree into frames across every backend.
@@ -7319,7 +7389,7 @@ Why this matters
 Prerequisites
 - Chapter 17 (async/background) for thread awareness, Chapter 18/19 (platform differences).
 
-## 1. Mental model
+### 1. Mental model
 
 1. **UI thread** builds and updates the visual tree (`Visual`s/`Control`s). When properties change, visuals mark themselves dirty (e.g., via `InvalidateVisual`).
 2. **Scene graph** represents visuals and draw operations in a batched form (`SceneGraph.cs`).
@@ -7330,13 +7400,13 @@ Prerequisites
 
 Avalonia uses two main threads: UI thread and render thread. Keep the UI thread free of long-running work so animations, input dispatch, and composition stay responsive.
 
-## 2. UI thread: creating and invalidating visuals
+### 2. UI thread: creating and invalidating visuals
 
 - `Visual`s have properties (`Bounds`, `Opacity`, `Transform`, etc.) that trigger redraw when changed.
 - `InvalidateVisual()` marks a visual dirty. Most controls call this automatically when a property changes.
 - Layout changes may also mark visuals dirty (e.g., size change).
 
-## 3. Render thread and renderer pipeline
+### 3. Render thread and renderer pipeline
 
 - `IRenderer` (see [`IRenderer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/IRenderer.cs)) exposes methods:
   - `AddDirty(Visual visual)` — mark dirty region.
@@ -7346,15 +7416,15 @@ Avalonia uses two main threads: UI thread and render thread. Keep the UI thread 
 
 Avalonia ships both `CompositingRenderer` (default) and `DeferredRenderer`. The renderer uses dirty rectangles to redraw minimal regions and produces scene graph nodes consumed by Skia.
 
-### CompositionTarget
+#### CompositionTarget
 
 `CompositionTarget` abstracts the surface being rendered. It holds references to swapchains, frame buffers, and frame timing metrics. You usually observe it through `IRenderer.Diagnostics` (frame times, dirty rect counts) or via DevTools/remote diagnostics rather than accessing the object directly.
 
-### Immediate renderer
+#### Immediate renderer
 
 `ImmediateRenderer` renders a visual subtree synchronously into a `DrawingContext`. Used for `RenderTargetBitmap`, `VisualBrush`, etc. Not used for normal window presentation.
 
-## 4. Compositor and render loop
+### 4. Compositor and render loop
 
 The compositor orchestrates UI → render thread updates (see [`Compositor.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/Composition/Compositor.cs)).
 
@@ -7362,21 +7432,21 @@ The compositor orchestrates UI → render thread updates (see [`Compositor.cs`](
 - `RenderLoop` ticks at platform-defined cadence (vsync/animation timers). When there's dirty content or `CompositionTarget` animations, it schedules a frame.
 - Render loop ensures frames draw at stable cadence even if the UI thread is momentarily busy.
 
-### Render timers
+#### Render timers
 
 - `IRenderTimer` (see [`IRenderTimer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/IRenderTimer.cs)) abstracts ticking. Implementations include `DefaultRenderTimer`, `DispatcherRenderTimer`, and headless timers used in tests.
 - Customize via `AppBuilder.UseRenderLoop(new RenderLoop(new DispatcherRenderTimer()))` to integrate external timing sources (e.g., game loops).
 - Timers raise `Tick` on the render thread. Avoid heavy work in handlers: queue work through the UI thread if necessary.
 
-### Scene graph commits
+#### Scene graph commits
 
 Each `RenderLoop` tick calls `Compositor.CommitScenes`. The compositor transforms dirty visuals into render passes, prunes unchanged branches, and tracks retained GPU resources for reuse across frames.
 
-## 5. Backend selection and GPU interfaces
+### 5. Backend selection and GPU interfaces
 
 Avalonia targets multiple render interfaces via `IRenderInterface`. Skia is the default implementation and chooses GPU versus CPU paths per platform.
 
-### Backend selection logic
+#### Backend selection logic
 
 - Desktop defaults to GPU (OpenGL/ANGLE on Windows, OpenGL/Vulkan on Linux, Metal on macOS).
 - Mobile uses OpenGL ES (Android) or Metal (iOS/macOS Catalyst).
@@ -7385,19 +7455,19 @@ Avalonia targets multiple render interfaces via `IRenderInterface`. Skia is the 
 
 Force a backend with `UseSkia(new SkiaOptions { RenderMode = RenderMode.Software })` or by setting `AVALONIA_RENDERER` environment variable (e.g., `software`, `open_gl`). Always pair overrides with tests on target hardware.
 
-### GPU resource management
+#### GPU resource management
 
 - `SkiaOptions` exposes GPU cache limits and toggles like `UseOpacitySaveLayer`.
 - `IRenderSurface` implementations (swapchains, framebuffers) own platform handles; leaks appear as rising `RendererDiagnostics.SceneGraphDirtyRectCount`.
 
-### Skia configuration
+#### Skia configuration
 
 Avalonia uses Skia for cross-platform drawing:
 - GPU or CPU rendering depending on platform capabilities.
 - GPU backend chosen automatically (OpenGL, ANGLE, Metal, Vulkan, WebGL, etc.).
 - `UseSkia(new SkiaOptions { ... })` in `AppBuilder` to tune.
 
-### SkiaOptions
+#### SkiaOptions
 
 ```csharp
 AppBuilder.Configure<App>()
@@ -7413,7 +7483,7 @@ AppBuilder.Configure<App>()
 - `MaxGpuResourceSizeBytes`: limit Skia resource cache.
 - `UseOpacitySaveLayer`: forces Skia to use save layers for opacity stacking (accuracy vs performance).
 
-## 6. RenderOptions (per Visual)
+### 6. RenderOptions (per Visual)
 
 `RenderOptions` attached properties influence interpolation and text rendering:
 - `BitmapInterpolationMode`: Low/Medium/High quality vs default.
@@ -7431,7 +7501,7 @@ RenderOptions.SetTextRenderingMode(smallText, TextRenderingMode.Aliased);
 
 RenderOptions apply to a visual and flow down to children unless overridden.
 
-## 7. When does a frame render?
+### 7. When does a frame render?
 
 - Property changes on visuals (brush, text, transform).
 - Layout updates affecting size/position.
@@ -7444,20 +7514,20 @@ Prevent unnecessary redraws:
 - Batch updates on UI thread; let binding/animation handle smooth changes.
 - Free large bitmaps once no longer needed.
 
-## 8. Frame timing instrumentation
+### 8. Frame timing instrumentation
 
-### Renderer diagnostics
+#### Renderer diagnostics
 
 - Enable `RendererDiagnostics` (see [`RendererDiagnostics.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDiagnostics.cs)) via `RenderRoot.Renderer.Diagnostics`. Metrics include dirty rectangle counts, render phase durations, and draw call tallies.
 - Pair diagnostics with `SceneInvalidated`/`RenderLoop` timestamps to push frame data into tracing systems such as `EventSource` or Prometheus exporters.
 
-### DevTools
+#### DevTools
 
 - Press `F12` to open DevTools.
 - `Diagnostics` panel toggles overlays and displays frame timing graphs.
 - `Rendering` view (when available) shows render loop cadence, render thread load, and GPU backend in use.
 
-### Logging
+#### Logging
 
 ```csharp
 AppBuilder.Configure<App>()
@@ -7466,7 +7536,7 @@ AppBuilder.Configure<App>()
     .StartWithClassicDesktopLifetime(args);
 ```
 
-### Render overlays
+#### Render overlays
 
 `RendererDebugOverlays` (see [`RendererDebugOverlays.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)) enable overlays showing dirty rectangles, FPS, layout costs.
 
@@ -7475,15 +7545,15 @@ if (TopLevel is { Renderer: { } renderer })
     renderer.DebugOverlays = RendererDebugOverlays.Fps | RendererDebugOverlays.LayoutTimeGraph;
 ```
 
-### Tools
+#### Tools
 
 - Use .NET memory profiler or `dotnet-counters` to monitor GC while animating UI.
 - GPU profilers (RenderDoc) can capture Skia GPU commands (advanced scenario).
 - `Avalonia.Diagnostics.RenderingDebugOverlays` integrates with `Avalonia.Remote.Protocol`. Use `avalonia-devtools://` clients to stream metrics from remote devices (Chapter 24).
 
-## 9. Immediate rendering utilities
+### 9. Immediate rendering utilities
 
-### RenderTargetBitmap
+#### RenderTargetBitmap
 
 ```csharp
 var bitmap = new RenderTargetBitmap(new PixelSize(300, 200), new Vector(96, 96));
@@ -7493,11 +7563,11 @@ bitmap.Save("snapshot.png");
 
 Uses `ImmediateRenderer` to render a control off-screen.
 
-### Drawing manually
+#### Drawing manually
 
 `DrawingContext` allows custom drawing via immediate renderer.
 
-## 10. Platform-specific notes
+### 10. Platform-specific notes
 
 - Windows: GPU backend typically ANGLE (OpenGL) or D3D via Skia; transparency support (Mica/Acrylic) may involve compositor-level effects.
 - macOS: uses Metal via Skia; retina scaling via `RenderScaling`.
@@ -7505,7 +7575,7 @@ Uses `ImmediateRenderer` to render a control off-screen.
 - Mobile: OpenGL ES on Android, Metal on iOS; consider battery impact when scheduling animations.
 - Browser: WebGL2/WebGL1/Software2D (Chapter 20); one-threaded unless WASM threading enabled.
 
-## 11. Practice exercises
+### 11. Practice exercises
 
 1. Replace the render timer with a custom `IRenderTimer` implementation and graph frame cadence using timestamps collected from `SceneInvalidated`.
 2. Override `SkiaOptions.RenderMode` to force software rendering, then switch back to GPU; profile render time using overlays in both modes.
@@ -7513,7 +7583,7 @@ Uses `ImmediateRenderer` to render a control off-screen.
 4. Instrument `RenderRoot.Renderer.Diagnostics` to log dirty rectangle counts when toggling `InvalidateVisual`; correlate with DevTools overlays.
 5. Use DevTools remote transport to attach from another process (Chapter 24) and verify frame timing matches local instrumentation.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Renderer interface: [`IRenderer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/IRenderer.cs)
 - Compositor: [`Compositor.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/Composition/Compositor.cs)
 - Scene graph: [`RenderDataDrawingContext.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/Composition/Drawing/RenderDataDrawingContext.cs)
@@ -7525,7 +7595,7 @@ Uses `ImmediateRenderer` to render a control off-screen.
 - Renderer diagnostics: [`RendererDiagnostics.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDiagnostics.cs)
 - Debug overlays: [`RendererDebugOverlays.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDebugOverlays.cs)
 
-## Check yourself
+### Check yourself
 - What components run on the UI thread vs render thread?
 - How does `InvalidateVisual` lead to a new frame?
 - When would you adjust `SkiaOptions.MaxGpuResourceSizeBytes` vs `RenderOptions.BitmapInterpolationMode`?
@@ -7539,7 +7609,7 @@ What's next
 \newpage
 ```
 
-# 23. Custom drawing and custom controls
+## 23. Custom drawing and custom controls
 
 Goal
 - Decide when to custom draw (override `Render`) versus build templated controls (pure XAML).
@@ -7553,7 +7623,7 @@ Why this matters
 Prerequisites
 - Chapter 22 (rendering pipeline), Chapter 15 (accessibility), Chapter 16 (storage for exporting images if needed).
 
-## 1. Choosing an approach
+### 1. Choosing an approach
 
 | Scenario | Draw (override `Render`) | Template (`ControlTemplate`) |
 | --- | --- | --- |
@@ -7565,13 +7635,13 @@ Prerequisites
 
 Hybrid: templated control containing a custom-drawn child for performance-critical surface.
 
-## 2. Invalidation basics
+### 2. Invalidation basics
 
 - `InvalidateVisual()` schedules redraw.
 - Register property changes via `AffectsRender<TControl>(property1, ...)` in static constructor to auto-invalidate on property change.
 - For layout changes, use `InvalidateMeasure` similarly (handled automatically for `StyledProperty`s registered with `AffectsMeasure`).
 
-## 3. DrawingContext essentials
+### 3. DrawingContext essentials
 
 `DrawingContext` primitives:
 - `DrawGeometry(brush, pen, geometry)`
@@ -7594,7 +7664,7 @@ public override void Render(DrawingContext ctx)
 }
 ```
 
-## 4. Template lifecycle, presenters, and template results
+### 4. Template lifecycle, presenters, and template results
 
 - `TemplatedControl` raises `TemplateApplied` when the `ControlTemplate` is inflated. Override `OnApplyTemplate(TemplateAppliedEventArgs e)` to wire named parts via `e.NameScope`.
 - Templates compiled from XAML return a `TemplateResult<Control>` behind the scenes (`ControlTemplate.Build`). It carries a `NameScope` so you can fetch presenters (`e.NameScope.Find<ContentPresenter>("PART_Content")`).
@@ -7615,7 +7685,7 @@ protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
 
 For library-ready controls publish a `ControlTheme` default template so consumers can restyle without copying large XAML fragments.
 
-## 5. Example: Sparkline (custom draw)
+### 5. Example: Sparkline (custom draw)
 
 ```csharp
 public sealed class Sparkline : Control
@@ -7693,11 +7763,11 @@ Usage:
 <local:Sparkline Width="160" Height="36" Values="3,7,4,8,12" StrokeThickness="2"/>
 ```
 
-### Performance tips
+#### Performance tips
 - Avoid allocations inside `Render`. Cache `Pen`, `FormattedText` when possible.
 - Use `StreamGeometry` and reuse if values rarely change (rebuild when invalidated).
 
-## 6. Templated control example: Badge
+### 6. Templated control example: Badge
 
 Create `Badge : TemplatedControl` with properties (`Content`, `Background`, `Foreground`, `CornerRadius`, `MaxWidth`, etc.). Default style in `Styles.axaml`:
 
@@ -7754,20 +7824,20 @@ public sealed class Badge : TemplatedControl
 
 Expose additional state through `StyledProperty`s so themes and animations can target them.
 
-## 7. Visual states and control themes
+### 7. Visual states and control themes
 
 - Use `PseudoClasses` (e.g., `PseudoClasses.Set(":badge-has-content", true)`) to signal template states that styles can observe.
 - Combine `PseudoClasses` with `Transitions` or `Animations` to create hover/pressed effects without rewriting templates.
 - Ship alternate appearances via additional `ControlTheme` resources referencing the same `TemplatedControl` type.
 - For re-usable primitive parts, create internal `Visual` subclasses (e.g., `BadgeGlyph`) and expose them as named template parts.
 
-## 8. Accessibility & input
+### 8. Accessibility & input
 
 - Set `Focusable` as appropriate; override `OnPointerPressed`/`OnKeyDown` for interaction or to update pseudo classes.
 - Expose automation metadata via `AutomationProperties.Name`, `HelpText`, or custom `AutomationPeer` for drawn controls.
 - Override `OnCreateAutomationPeer` when your control represents a unique semantic (`BadgeAutomationPeer` describing count, severity).
 
-## 9. Measure/arrange
+### 9. Measure/arrange
 
 Custom controls should override `MeasureOverride`/`ArrangeOverride` when size depends on content/drawing.
 
@@ -7783,7 +7853,7 @@ protected override Size MeasureOverride(Size availableSize)
 
 `TemplatedControl` handles measurement via its template (border + content). For custom-drawn controls, define desired size heuristics.
 
-## 10. Rendering to bitmaps / exporting
+### 10. Rendering to bitmaps / exporting
 
 Use `RenderTargetBitmap` for saving custom visuals:
 
@@ -7796,28 +7866,28 @@ await rtb.SaveAsync(stream);
 
 Use `RenderOptions` to adjust interpolation for exported graphics if needed.
 
-## 11. Combining drawing & template (hybrid)
+### 11. Combining drawing & template (hybrid)
 
 Example: `ChartControl` template contains toolbar (Buttons, ComboBox) and a custom `ChartCanvas` child that handles drawing/selection.
 - Template XAML composes layout.
 - Drawn child handles heavy rendering & direct pointer handling.
 - Chart exposes data/selection via view models.
 
-## 12. Troubleshooting & best practices
+### 12. Troubleshooting & best practices
 
 - Flickering or wrong clip: ensure you clip to `Bounds` using `PushClip` when necessary.
 - Aliasing issues: adjust `RenderOptions.SetEdgeMode` and align lines to device pixels (e.g., `Math.Round(x) + 0.5` for 1px strokes at 1.0 scale).
 - Performance: profile by measuring allocations, consider caching `StreamGeometry`/`FormattedText`.
 - Template issues: ensure template names line up with `TemplateBinding`; use DevTools -> `Style Inspector` to check which template applies.
 
-## 13. Practice exercises
+### 13. Practice exercises
 
 1. Build a templated notification badge that swaps between "pill" and "dot" visuals by toggling `PseudoClasses` within `OnApplyTemplate`.
 2. Embed a custom drawn sparkline into that badge (composed via `RenderTargetBitmap` or direct drawing) and expose it as a named part in the template.
 3. Implement `OnCreateAutomationPeer` so assistive tech can report badge count and severity; verify with the accessibility tree in DevTools.
 4. Use DevTools `Logical Tree` to confirm your presenter hierarchy (content vs drawn part) matches expectations and retains bindings when themes change.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Visual/render infrastructure: [`Visual.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Visual.cs)
 - DrawingContext API: [`DrawingContext.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/DrawingContext.cs)
 - StreamGeometry: [`StreamGeometryContextImpl`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Media/Geometry/StreamGeometryContextImpl.cs)
@@ -7829,7 +7899,7 @@ Example: `ChartControl` template contains toolbar (Buttons, ComboBox) and a cust
 - Pseudo classes: [`StyledElement.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Styling/StyledElement.cs)
 - Automation peers: [`ControlAutomationPeer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Automation/Peers/ControlAutomationPeer.cs)
 
-## Check yourself
+### Check yourself
 - When do you override `Render` versus `ControlTemplate`?
 - How does `AffectsRender` simplify invalidation?
 - What caches can you introduce to prevent allocations in `Render`?
@@ -7844,7 +7914,7 @@ What's next
 \newpage
 ```
 
-# 24. Performance, diagnostics, and DevTools
+## 24. Performance, diagnostics, and DevTools
 
 Goal
 - Diagnose and fix Avalonia performance issues using measurement, logging, DevTools, and overlays.
@@ -7858,14 +7928,14 @@ Why this matters
 Prerequisites
 - Chapter 22 (rendering pipeline), Chapter 17 (async patterns), Chapter 16 (custom controls and lists).
 
-## 1. Measure before changing anything
+### 1. Measure before changing anything
 
 - Run in Release (`dotnet run -c Release`). JIT optimizations affect responsiveness.
 - Use a small repro: isolate the view or control and reproduce with minimal data before optimizing.
 - Use high-resolution timers only around suspect code sections; avoid timing entire app startup on the first pass.
 - Change one variable at a time and re-measure to confirm impact.
 
-## 2. Logging
+### 2. Logging
 
 Enable logging per area using `AppBuilder` extensions (see [`LoggingExtensions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/LoggingExtensions.cs)).
 
@@ -7880,7 +7950,7 @@ AppBuilder.Configure<App>()
 - Reduce noise by lowering level (`Warning`) or limiting areas once you identify culprit.
 - Optionally log to file via `LogToTextWriter`.
 
-## 3. DevTools (F12)
+### 3. DevTools (F12)
 
 Attach DevTools after app initialization:
 
@@ -7895,7 +7965,7 @@ public override void OnFrameworkInitializationCompleted()
 
 Supports options: `AttachDevTools(new DevToolsOptions { StartupScreenIndex = 1 })` for multi-monitor setups.
 
-### DevTools tour
+#### DevTools tour
 
 - **Visual Tree**: inspect hierarchy, properties, pseudo-classes, and layout bounds.
 - **Logical Tree**: understand DataContext/template relationships.
@@ -7906,7 +7976,7 @@ Supports options: `AttachDevTools(new DevToolsOptions { StartupScreenIndex = 1 }
 
 Use the target picker to select elements on screen and inspect descendants/ancestors.
 
-## 4. Renderer diagnostics API
+### 4. Renderer diagnostics API
 
 - Every `TopLevel` exposes `IRenderer Diagnostics`. Subscribe to `PropertyChanged` to stream overlay toggles or other diagnostics to logs, counters, or dashboards.
 - Toggle overlays without opening DevTools: set `renderer.Diagnostics.DebugOverlays` from code or configuration.
@@ -7933,7 +8003,7 @@ if (TopLevel is { Renderer: { } renderer })
 }
 ```
 
-## 5. Debug overlays (`RendererDebugOverlays`)
+### 5. Debug overlays (`RendererDebugOverlays`)
 
 Access via DevTools "Diagnostics" pane or programmatically:
 
@@ -7959,7 +8029,7 @@ Interpretation:
 - LayoutTime spikes = heavy measure/arrange; check Layout Explorer to spot bottleneck.
 - RenderTime spikes = expensive drawing (big bitmaps, custom rendering).
 
-## 6. Remote diagnostics (`Avalonia.Remote.Protocol`)
+### 6. Remote diagnostics (`Avalonia.Remote.Protocol`)
 
 - Remote DevTools streams frames and inspection data over the transports defined in `Avalonia.Remote.Protocol` (BSON/TCP by default).
 - Use `Avalonia.Controls.Remote.RemoteServer` with a `BsonTcpTransport` to expose an interactive surface when debugging devices without a local inspector (mobile, kiosk). Connect using an Avalonia DevTools client (dotnet `avalonia` tool or IDE integration) pointing at `tcp-bson://host:port`.
@@ -7967,7 +8037,7 @@ Interpretation:
 - Remote sessions respect overlay and logging flags, so enabling `RendererDebugOverlays` locally will surface in the remote stream as well.
 - For secure deployments, wrap `TcpTransportBase` in an authenticated tunnel (SSH port forward, reverse proxy) and disable remote servers in production builds.
 
-## 7. Performance checklist
+### 7. Performance checklist
 
 Lists & templates
 - Use virtualization (`VirtualizingStackPanel`) for list controls.
@@ -7992,20 +8062,20 @@ Profiling
 - Use `.NET` profilers (dotTrace, PerfView, dotnet-trace) to capture CPU/memory.
 - For GPU, use platform tools if necessary (RenderDoc for GL/DirectX when supported).
 
-## 8. Considerations per platform
+### 8. Considerations per platform
 
 - Windows: ensure GPU acceleration enabled; check drivers. Acrylic/Mica can cost extra GPU time.
 - macOS: retina scaling multiplies pixel counts; ensure vector assets and efficient drawing.
 - Linux: varying window managers/compositors. If using software rendering, expect lower FPS--optimize accordingly.
 - Mobile & Browser: treat CPU/GPU resources as more limited; avoid constant redraw loops.
 
-## 9. Automation & CI
+### 9. Automation & CI
 
 - Combine unit tests with headless UI tests (Chapter 21).
 - Create regression tests for performance-critical features (measure time for known operations, fail if above threshold).
 - Capture baseline metrics (FPS, load time) and compare across commits; tools like BenchmarkDotNet can help (for logic-level measurements).
 
-## 10. Workflow summary
+### 10. Workflow summary
 
 1. Reproduce in Release with logging disabled -> measure baseline.
 2. Enable DevTools overlays (FPS, dirty rects, layout/render graphs) -> identify pattern.
@@ -8014,14 +8084,14 @@ Profiling
 5. Re-measure with overlays/logs to confirm improvements.
 6. Capture notes and, if beneficial, automate tests for future regressions.
 
-## 11. Practice exercises
+### 11. Practice exercises
 
 1. Attach DevTools, toggle `RendererDebugOverlays.Fps | LayoutTimeGraph`, and record metrics before/after enabling virtualization in a long list.
 2. Capture binding noise by raising `LogArea.Binding` to `Debug`, then fix the source and verify the log stream quiets down.
 3. Spin up a `RemoteServer` with `BsonTcpTransport`, connect using an Avalonia DevTools client (dotnet `avalonia` tool or IDE integration), and confirm overlays/logging data mirror the local session.
 4. Profile the same interaction with `dotnet-trace` and align CPU spikes with render diagnostics to validate the chosen fix.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - DevTools attach helpers: [`DevToolsExtensions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/DevToolsExtensions.cs)
 - DevTools view models (toggling overlays): [`MainViewModel.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Diagnostics/Diagnostics/ViewModels/MainViewModel.cs)
 - Renderer diagnostics: [`RendererDiagnostics.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Rendering/RendererDiagnostics.cs)
@@ -8032,7 +8102,7 @@ Profiling
 - Remote transport messages: [`TransportMessages.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Remote.Protocol/TransportMessages.cs)
 - Remote server host: [`RemoteServer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Remote/RemoteServer.cs)
 
-## Check yourself
+### Check yourself
 - Why must performance measurements be done in Release builds?
 - Which overlay would you enable to track layout time spikes? What about render time spikes?
 - How do DevTools and logging complement each other?
@@ -8047,7 +8117,7 @@ What's next
 \newpage
 ```
 
-# 25. Design-time tooling and the XAML Previewer
+## 25. Design-time tooling and the XAML Previewer
 
 Goal
 - Use Avalonia's XAML Previewer (designer) effectively in VS, Rider, and VS Code.
@@ -8061,7 +8131,7 @@ Why this matters
 Prerequisites
 - Familiarity with XAML bindings (Chapter 8) and templates (Chapter 23).
 
-## 1. Previewer pipeline and transport
+### 1. Previewer pipeline and transport
 
 IDE hosts spawn a preview process that loads your view or resource dictionary over the remote protocol. `DesignWindowLoader` spins up `RemoteDesignerEntryPoint`, which compiles your project with the design configuration, loads the control, then streams rendered frames back to the IDE through `Avalonia.Remote.Protocol.DesignMessages`.
 
@@ -8073,7 +8143,7 @@ Key components:
 
 Because the previewer compiles your project, build errors surface exactly as in `dotnet build`. Keep `AvaloniaResource` items and generated code in sync or the previewer will refuse to load.
 
-## 2. Mock data with `Design.DataContext`
+### 2. Mock data with `Design.DataContext`
 
 Provide lightweight POCOs or design view models for preview without touching production services.
 
@@ -8111,7 +8181,7 @@ Usage in XAML:
 
 At runtime the transformer removes `Design.DataContext`; real view models take over. For complex forms, expose design view models with stub services but avoid heavy logic. When you need multiple sample contexts, expose them as static properties on a design-time provider class and bind with `{x:Static}`.
 
-### Design.IsDesignMode checks
+#### Design.IsDesignMode checks
 
 Guard expensive operations:
 
@@ -8122,7 +8192,7 @@ if (Design.IsDesignMode)
 
 Place guards in view constructors, `OnApplyTemplate`, or view model initialization.
 
-## 3. Design.Width/Height & `DesignStyle`
+### 3. Design.Width/Height & `DesignStyle`
 
 Set design canvas size:
 
@@ -8145,7 +8215,7 @@ Example design style:
 </Style>
 ```
 
-## 4. Preview resource dictionaries with `Design.PreviewWith`
+### 4. Preview resource dictionaries with `Design.PreviewWith`
 
 Previewing a dictionary or style requires a host control:
 
@@ -8168,14 +8238,14 @@ Previewing a dictionary or style requires a host control:
 
 `PreviewWith` ensures the previewer renders the host when you open the dictionary alone.
 
-## 5. Inspect previewer logs and compilation errors
+### 5. Inspect previewer logs and compilation errors
 
 - Visual Studio and Rider show previewer logs in the dedicated "Avalonia Previewer" tool window; VS Code prints to the Output panel (`Avalonia Previewer` channel).
 - Logs come from `DesignMessages`; look for `JsonRpcError` entries when bindings fail—those line numbers map to generated XAML.
 - If compilation fails, open the temporary build directory path printed in the log. Running `dotnet build /p:Configuration=Design` replicates the preview build.
 - Enable `Diagnostics -> Capture frames` to export a `.png` snapshot of the preview surface when you troubleshoot rendering glitches.
 
-## 6. Extend design-time services
+### 6. Extend design-time services
 
 `RemoteDesignerEntryPoint` registers services in a tiny IoC container separate from your production DI. Override or extend them by wiring a helper that only executes when `Design.IsDesignMode` is true:
 
@@ -8199,20 +8269,20 @@ public static class DesignTimeServices
 
 Call `DesignTimeServices.Register();` inside `BuildAvaloniaApp().AfterSetup(...)` so the previewer receives the fake services without altering production setup. Use this pattern to swap HTTP clients, repositories, or configuration with in-memory fakes while keeping runtime untouched.
 
-## 7. IDE-specific tips
+### 7. IDE-specific tips
 
-### Visual Studio
+#### Visual Studio
 - Ensure "Avalonia Previewer" extension is installed.
 - F12 toggles DevTools; `Alt+Space` opens previewer hotkeys.
 - If previewer doesn't refresh, rebuild project; VS sometimes caches the design assembly.
 - Enable verbose logs via `Previewer -> Options -> Enable Diagnostics` to capture transport traces when the preview window stays blank.
 
-### Rider
+#### Rider
 - Avalonia plugin required; previewer window shows automatically when editing XAML.
 - Use the data context drop-down to quickly switch between sample contexts if multiple available.
 - Rider caches preview assemblies under `%LOCALAPPDATA%/Avalonia`. Use "Invalidate caches" if you ship new resource dictionaries and the previewer shows stale data.
 
-### VS Code
+#### VS Code
 - Avalonia `.vsix` extension hosts the previewer through the dotnet CLI; keep the extension and SDK workloads in sync.
 - Run `dotnet workload install wasm-tools` (previewer uses WASM-hosted renderer). Use the `Avalonia Previewer: Show Log` command if the embedded browser surface fails.
 
@@ -8221,7 +8291,7 @@ General
 - Use `Design.DataContext` to avoid hitting DI container or real services.
 - Split complex layouts into smaller user controls and preview them individually.
 
-## 8. Troubleshooting & best practices
+### 8. Troubleshooting & best practices
 
 | Issue | Fix |
 | --- | --- |
@@ -8232,13 +8302,13 @@ General
 | Slow preview | Remove animations/effects temporarily; large data sets or virtualization can slow preview host |
 | Transport errors (`SocketException`) | Restart previewer. Firewalls can block the loopback port used by `Avalonia.Remote.Protocol` |
 
-## 9. Automation
+### 9. Automation
 
 - Document designer defaults using `README` for your UI project. Include instructions for sample data.
 - Use git hooks/CI to catch accidental runtime usages of `Design.*`. For instance, forbid `Design.IsDesignMode` checks in release-critical code by scanning for patterns if needed.
 - Add an automated smoke test that loads critical views with `Design.IsDesignModeProperty` set to true via `RuntimeXamlLoader` to detect regressions before IDE users do.
 
-## 10. Practice exercises
+### 10. Practice exercises
 
 1. Add `Design.DataContext` to a complex form, providing realistic sample data (names, email, totals). Ensure preview shows formatted values.
 2. Set `Design.Width/Height` to 360x720 for a mobile view; use `Design.DesignStyle` to highlight layout boundaries.
@@ -8247,7 +8317,7 @@ General
 5. Guard service initialization with `if (Design.IsDesignMode)` and confirm preview load improves.
 6. Bonus: implement a design-only service override and register it from `BuildAvaloniaApp().AfterSetup(...)`.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Design property helpers: [`Design.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Controls/Design.cs)
 - Preview transport wiring: [`DesignWindowLoader.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.DesignerSupport/DesignWindowLoader.cs)
 - Previewer bootstrapping: [`RemoteDesignerEntryPoint.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.DesignerSupport/Remote/RemoteDesignerEntryPoint.cs)
@@ -8256,7 +8326,7 @@ General
 - Protocol messages: [`Avalonia.Remote.Protocol/DesignMessages.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Remote.Protocol/DesignMessages.cs)
 - Samples: ControlCatalog resources demonstrate `Design.PreviewWith` usage (`samples/ControlCatalog/Styles/...`)
 
-## Check yourself
+### Check yourself
 - How do you provide sample data without running production services?
 - How do you prevent design-only code from running in production?
 - When do you use `Design.PreviewWith`?
@@ -8270,7 +8340,7 @@ What's next
 \newpage
 ```
 
-# 26. Build, publish, and deploy
+## 26. Build, publish, and deploy
 
 Goal
 - Produce distributable builds for every platform Avalonia supports (desktop, mobile, browser).
@@ -8284,13 +8354,13 @@ Why this matters
 Prerequisites
 - Chapters 18-20 for platform nuances, Chapter 17 for async/networking (relevant to release builds).
 
-## 1. Build vs publish
+### 1. Build vs publish
 
 - `dotnet build`: compiles assemblies, typically run for local development.
 - `dotnet publish`: creates a self-contained folder/app ready to run on target machines (Optionally includes .NET runtime).
 - Always test in `Release` configuration: `dotnet publish -c Release`.
 
-## 2. Avalonia build tooling & project file essentials
+### 2. Avalonia build tooling & project file essentials
 
 Avalonia ships MSBuild targets that compile XAML and pack resources alongside your assemblies. Understanding them keeps design-time and publish-time behavior in sync.
 
@@ -8308,7 +8378,7 @@ Avalonia ships MSBuild targets that compile XAML and pack resources alongside yo
 - Use property flags like `<AvaloniaUseCompiledBindings>true</AvaloniaUseCompiledBindings>` consistently across Debug/Release so the previewer and publish builds agree.
 - For custom steps (version stamping, signing) extend `Target Name="AfterPublish"` or a Directory.Build.targets file; Avalonia emits its files before your target runs, so you can safely zip or notarize afterward.
 
-## 3. Runtime identifiers (RIDs)
+### 3. Runtime identifiers (RIDs)
 
 Common RIDs:
 - Windows: `win-x64`, `win-arm64`.
@@ -8318,9 +8388,9 @@ Common RIDs:
 - iOS: `ios-arm64`, `iossimulator-x64`.
 - Browser (WASM): `browser-wasm` (handled by browser head).
 
-## 4. Publish configurations
+### 4. Publish configurations
 
-### Framework-dependent (requires installed .NET runtime)
+#### Framework-dependent (requires installed .NET runtime)
 
 ```bash
 dotnet publish -c Release -r win-x64 --self-contained false
@@ -8328,7 +8398,7 @@ dotnet publish -c Release -r win-x64 --self-contained false
 
 Smaller download; target machine must have matching .NET runtime. Good for enterprise scenarios.
 
-### Self-contained (bundled runtime)
+#### Self-contained (bundled runtime)
 
 ```bash
 dotnet publish -c Release -r osx-arm64 --self-contained true
@@ -8336,7 +8406,7 @@ dotnet publish -c Release -r osx-arm64 --self-contained true
 
 Larger download; runs on machines without .NET. Standard for consumer apps.
 
-### Single-file
+#### Single-file
 
 ```bash
 dotnet publish -c Release -r linux-x64 /p:SelfContained=true /p:PublishSingleFile=true
@@ -8344,7 +8414,7 @@ dotnet publish -c Release -r linux-x64 /p:SelfContained=true /p:PublishSingleFil
 
 Creates one executable (plus a few native libraries depending on platform). Avalonia may extract resources native libs to temp; test startup.
 
-### ReadyToRun
+#### ReadyToRun
 
 ```bash
 dotnet publish -c Release -r win-x64 /p:SelfContained=true /p:PublishReadyToRun=true
@@ -8352,7 +8422,7 @@ dotnet publish -c Release -r win-x64 /p:SelfContained=true /p:PublishReadyToRun=
 
 Precompiles IL to native code; faster cold start at cost of larger size. Measure before deciding.
 
-### Trimming (advanced)
+#### Trimming (advanced)
 
 ```bash
 dotnet publish -c Release -r osx-arm64 /p:SelfContained=true /p:PublishTrimmed=true
@@ -8360,7 +8430,7 @@ dotnet publish -c Release -r osx-arm64 /p:SelfContained=true /p:PublishTrimmed=t
 
 Aggressive size reduction; risky because Avalonia/XAML relies on reflection. Requires careful annotation/preservation with `DynamicDependency` or `ILLinkTrim` files. Start without trimming; enable later with thorough testing.
 
-### Publish options matrix (example)
+#### Publish options matrix (example)
 
 | Option | Pros | Cons |
 | --- | --- | --- |
@@ -8370,7 +8440,7 @@ Aggressive size reduction; risky because Avalonia/XAML relies on reflection. Req
 | ReadyToRun | Faster cold start | Larger size | 
 | Trimmed | Smaller | Risk of missing types |
 
-## 5. Output directories and manifest validation
+### 5. Output directories and manifest validation
 
 Publish outputs to `bin/Release/<TFramework>/<RID>/publish`.
 
@@ -8384,53 +8454,53 @@ Verify resources (images, fonts) present; confirm `AvaloniaResource` includes th
 - Check the generated `appsettings.json`, `MyApp.runtimeconfig.json`, and `.deps.json` to ensure trimming or single-file options didn't remove dependencies.
 - For RID-specific bundles, review the platform manifests (e.g., `MyApp.app/Contents/Info.plist`, `MyApp.msix`) before shipping.
 
-## 6. Asset packing and resources
+### 6. Asset packing and resources
 
 - Group related resources into folders and wildcard them via `AvaloniaResource Include="Assets/Icons/**/*"`. The build task preserves folder structure when copying to publish output.
 - Embedded assets larger than a few MB (videos, large fonts) can remain external files by setting `<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>` alongside `AvaloniaResource`. That avoids bloating assemblies and keeps startup fast.
 - When you refactor project layout, set explicit logical paths: `<AvaloniaResource Update="Assets/logo.svg" LogicalPath="resm:MyApp.Assets.logo.svg">`. Logical paths become the keys your app uses with `AssetLoader`.
 - Hook a custom `Target Name="VerifyAvaloniaResources" AfterTargets="ResolveAvaloniaResource"` to ensure required files exist; failing early prevents subtle runtime crashes after publish.
 
-## 7. Platform packaging
+### 7. Platform packaging
 
-### Windows
+#### Windows
 
 - Basic distribution: zip the publish folder or single-file EXE.
 - MSIX: use `dotnet publish /p:WindowsPackageType=msix` or MSIX packaging tool. Enables automatic updates, store distribution.
 - MSI/Wix: for enterprise installs.
 - Code signing recommended (Authenticode certificate) to avoid SmartScreen warnings.
 
-### macOS
+#### macOS
 
 - Create `.app` bundle with `Avalonia.DesktopRuntime.MacOS` packaging scripts.
 - Code sign and notarize: use Apple Developer ID certificate, `codesign`, `xcrun altool`/`notarytool`.
 - Provide DMG for distribution.
 
-### Linux
+#### Linux
 
 - Zip/tarball publish folder with run script.
 - AppImage: use `Avalonia.AppTemplate.AppImage` or AppImage tooling to bundle.
 - Flatpak: create manifest (flatpak-builder). Ensure dependencies included via `org.freedesktop.Platform` runtime.
 - Snap: use `snapcraft.yaml` to bundle.
 
-### Android
+#### Android
 
 - Platform head (`MyApp.Android`) builds APK/AAB using Android tooling.
 - Publish release AAB and sign with keystore (`./gradlew bundleRelease` or `dotnet publish` using .NET Android tooling).
 - Upload to Google Play or sideload.
 
-### iOS
+#### iOS
 
 - Platform head (`MyApp.iOS`) builds .ipa using Xcode or `dotnet publish -f net8.0-ios -c Release` with workload.
 - Requires macOS, Xcode, signing certificates, provisioning profiles.
 - Deploy to App Store via Transporter/Xcode.
 
-### Browser (WASM)
+#### Browser (WASM)
 
 - `dotnet publish -c Release` in browser head (`MyApp.Browser`). Output in `bin/Release/net8.0/browser-wasm/AppBundle`.
 - Deploy to static host (GitHub Pages, S3, etc.). Use service worker for caching if desired.
 
-## 8. Automation (CI/CD)
+### 8. Automation (CI/CD)
 
 - Use GitHub Actions/Azure Pipelines/GitLab CI to run `dotnet publish` per target.
 - Example GitHub Actions matrix aligned with Avalonia's build tasks:
@@ -8483,7 +8553,7 @@ jobs:
 - Azure Pipelines alternative: copy patterns from [`azure-pipelines.yml`](https://github.com/AvaloniaUI/Avalonia/blob/master/azure-pipelines.yml) to reuse matrix publishing, signing, and artifact staging.
 - For custom MSBuild integration, define `Target Name="SignArtifacts" AfterTargets="Publish"` or `AfterTargets="BundleApp"` in `Directory.Build.targets` so both local builds and CI run the same packaging hooks.
 
-## 9. Verification checklist
+### 9. Verification checklist
 
 - Run published app on real machines/VMs for each RID.
 - Check fonts, DPI, plugins, network resources.
@@ -8492,7 +8562,7 @@ jobs:
 - Run `dotnet publish` with `--self-contained` false/true to compare sizes and startup times; pick best trade-off.
 - Capture a SHA/hash of the publish folder (or installer) and include it in release notes so users can verify downloads.
 
-## 10. Troubleshooting
+### 10. Troubleshooting
 
 | Problem | Fix |
 | --- | --- |
@@ -8504,7 +8574,7 @@ jobs:
 | `CompileAvaloniaXamlTask` failure | Clean `obj/`, fix XAML build errors, and examine the `/bl` binlog to inspect generated task arguments. |
 | Native dependency failure (Skia/WASM) | Use `ldd`/`otool`/`wasm-ld` reports to list missing libraries; bundle them or switch to self-contained publishes. |
 
-## 11. Practice exercises
+### 11. Practice exercises
 
 1. Publish self-contained builds for `win-x64`, `osx-arm64`, `linux-x64`. Run each and note size/performance differences.
 2. Enable `PublishSingleFile` and `PublishReadyToRun` for one target; compare startup time and size.
@@ -8513,7 +8583,7 @@ jobs:
 5. Optional: create MSIX (Windows) or DMG (macOS) packages, sign them, and run locally to test installation/updates.
 6. Bonus: add a custom MSBuild target that zips the publish folder and uploads a checksum to your CI artifacts.
 
-## Look under the hood (source & docs)
+### Look under the hood (source & docs)
 - Build docs: [`docs/build.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/docs/build.md)
 - XAML compiler task: [`CompileAvaloniaXamlTask.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Build.Tasks/CompileAvaloniaXamlTask.cs)
 - Resource pipeline: [`AvaloniaResource.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Build.Tasks/AvaloniaResource.cs)
@@ -8523,7 +8593,7 @@ jobs:
 - .NET publish docs: [dotnet publish reference](https://learn.microsoft.com/dotnet/core/tools/dotnet-publish)
 - App packaging: Microsoft MSIX docs, Apple code signing docs, AppImage/Flatpak/Snap guidelines.
 
-## Check yourself
+### Check yourself
 - What's the difference between framework-dependent and self-contained publishes? When do you choose each?
 - How do single-file, ReadyToRun, and trimming impact size/performance?
 - Which MSBuild tasks make sure `.axaml` files and resources reach your publish output?
@@ -8539,7 +8609,7 @@ What's next
 \newpage
 ```
 
-# 27. Read the source, contribute, and grow
+## 27. Read the source, contribute, and grow
 
 Goal
 - Navigate the Avalonia repo confidently, understand how to build/test locally, and contribute fixes, features, docs, or samples.
@@ -8553,7 +8623,7 @@ Why this matters
 Prerequisites
 - Familiarity with Git, .NET tooling (`dotnet build/publish/test`).
 
-## 1. Repository tour
+### 1. Repository tour
 
 Avalonia repo highlights:
 - Core source: [`src/`](https://github.com/AvaloniaUI/Avalonia/tree/master/src) contains assemblies such as `Avalonia.Base`, `Avalonia.Controls`, `Avalonia.Markup.Xaml`, platform heads, and backend integrations (`Skia`, `WinUI`, browser).
@@ -8563,7 +8633,7 @@ Avalonia repo highlights:
 - Docs: [`docs/`](https://github.com/AvaloniaUI/Avalonia/tree/master/docs) complements the separate [avalonia-docs](https://github.com/AvaloniaUI/avalonia-docs) site.
 - Contributor policy: [`CONTRIBUTING.md`](https://github.com/AvaloniaUI/Avalonia/blob/master/CONTRIBUTING.md), coding conventions, and `.editorconfig` enforce consistent style (spacing, naming) across submissions.
 
-## 2. Building the framework locally
+### 2. Building the framework locally
 
 Scripts in repo root:
 - `build.ps1` (Windows), `build.sh` (Unix), `build.cmd`.
@@ -8573,25 +8643,25 @@ Scripts in repo root:
 Manual build:
 
 ```bash
-# Restore dependencies
+## Restore dependencies
 dotnet restore Avalonia.sln
 
-# Build core
+## Build core
 cd src/Avalonia.Controls
 dotnet build -c Debug
 
-# Run tests
+## Run tests
 cd tests/Avalonia.Headless.UnitTests
 dotnet test -c Release
 
-# Run sample
+## Run sample
 cd samples/ControlCatalog
  dotnet run
 ```
 
 Follow `docs/build.md` for environment requirements.
 
-## 3. Testing strategy overview
+### 3. Testing strategy overview
 
 Avalonia's quality gates rely on multiple test layers:
 - Unit tests (`tests/Avalonia.Base.UnitTests`, etc.) validate core property system, styling, and helper utilities.
@@ -8601,7 +8671,7 @@ Avalonia's quality gates rely on multiple test layers:
 
 When contributing, prefer adding or updating the test nearest to the code you touch. For visual bugs, a headless interaction test plus a ControlCatalog sample usually gives maintainers confidence.
 
-## 4. Reading source with purpose
+### 4. Reading source with purpose
 
 Common entry points:
 - Controls/styling: `src/Avalonia.Controls/` (Control classes, templates, themes).
@@ -8611,14 +8681,14 @@ Common entry points:
 
 Use IDE features (Go to Definition, Find Usages) to jump between user code and framework internals.
 
-## 5. Debugging into Avalonia
+### 5. Debugging into Avalonia
 
 - Enable symbol loading for Avalonia assemblies. NuGet packages ship SourceLink metadata—turn on "Load symbols from Microsoft symbol servers" (VS) or configure Rider's symbol caches so `.pdb` files download automatically.
 - Add a fallback source path pointing at your local clone (`external/Avalonia/src`) to guarantee line numbers match when you build from source.
 - Set breakpoints in your app, step into framework code to inspect layout/renderer behavior. Combine with DevTools overlays to correlate visual state with code paths.
 - When debugging ControlCatalog or your own sample against a local build, reference the project outputs directly (`dotnet pack` + `nuget add source`) so you test the same bits you'll propose in a PR.
 
-## 6. Filing issues
+### 6. Filing issues
 
 Best practice checklist:
 - Minimal reproducible sample (GitHub repo, .zip, or steps to recreate with ControlCatalog).
@@ -8626,7 +8696,7 @@ Best practice checklist:
 - Summarize expected vs actual behavior. Provide logs (Binding/Layout/Render) or screenshot/video when relevant.
 - Tag regression vs new bug; mention if release-only or debug-only.
 
-## 7. Contributing pull requests
+### 7. Contributing pull requests
 
 Steps:
 1. Check CONTRIBUTING.md for branching/style.
@@ -8638,31 +8708,31 @@ Steps:
 7. Submit PR with clear description, referencing issue IDs/sites.
 8. Respond to feedback promptly.
 
-### Writing tests
+#### Writing tests
 - Use headless tests for visual/interaction behavior (Chapter 21 covers pattern).
 - Add regression tests for fixed bugs to prevent future breakage.
 - Consider measuring performance (BenchmarkDotNet) if change affects rendering/layout.
 
-### Doc-only or sample-only PRs
+#### Doc-only or sample-only PRs
 - Target `avalonia-docs` or `docs/` when API behavior changes. Reference the code PR in your documentation PR so reviewers can coordinate releases.
 - For book/doc updates that do not touch runtime code, label the PR `Documentation` and mention "no runtime changes" in the description; CI can skip heavy legs when reviewers apply the label.
 - Keep screenshots or GIFs small and check them into `docs/images/` or the appropriate sample folder. Update markdown links accordingly.
 
-## 8. Docs & sample contributions
+### 8. Docs & sample contributions
 
 - Docs source: [avalonia-docs repository](https://github.com/AvaloniaUI/avalonia-docs). Preview the site locally with `npm install` + `npm start` to validate links before submitting.
 - In-repo docs under `docs/` explain build and architecture topics; align book/new content with these guides.
 - Samples: add new sample to `samples/` illustrating advanced patterns or new controls. Update `samples/README.md` when you add something new.
 - Keep docs in sync with code changes for features/bug fixes and cross-link PRs so reviewers merge them together.
 
-## 9. Community & learning
+### 9. Community & learning
 
 - GitHub discussions: [AvaloniaUI discussions](https://github.com/AvaloniaUI/Avalonia/discussions).
 - Discord community: link in README.
 - Follow release notes and blog posts for new features (subscribe to repo releases).
 - Speak at meetups, write blog posts, or answer questions to grow visibility and knowledge.
 
-## 10. Sustainable contribution workflow
+### 10. Sustainable contribution workflow
 
 Checklist before submitting work:
 - [ ] Reproduced issue with minimal sample.
@@ -8671,7 +8741,7 @@ Checklist before submitting work:
 - [ ] Performance measured if relevant.
 - [ ] Docs/samples updated.
 
-## 11. Practice exercises
+### 11. Practice exercises
 
 1. Clone the Avalonia repo and run `.\build.ps1 --target Compile` (or `dotnet run --project build/NukeBuild Compile`). Verify the build succeeds and inspect the generated artifacts.
 2. Launch ControlCatalog from the sample folder, then step into the code for one control you use frequently.
@@ -8680,7 +8750,7 @@ Checklist before submitting work:
 5. Write a headless unit test for a simple control (e.g., verifying a custom control draws expected output) and run it locally.
 6. Draft a doc-only PR in `avalonia-docs` describing a workflow you improved (link back to the code sample or issue).
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Repo root: [github.com/AvaloniaUI/Avalonia](https://github.com/AvaloniaUI/Avalonia)
 - Build scripts: [`build.ps1`](https://github.com/AvaloniaUI/Avalonia/blob/master/build.ps1), [`build.sh`](https://github.com/AvaloniaUI/Avalonia/blob/master/build.sh)
 - NUKE entry point: [`build/NukeBuild`](https://github.com/AvaloniaUI/Avalonia/tree/master/build/NukeBuild)
@@ -8689,7 +8759,7 @@ Checklist before submitting work:
 - Issue templates: `.github/ISSUE_TEMPLATE` directory (bug/feature request).
 - PR template: `.github/pull_request_template.md`.
 
-## Check yourself
+### Check yourself
 - Where do you find tests or samples relevant to a control you're debugging?
 - How do you step into Avalonia sources from your app?
 - What makes a strong issue/PR description?
@@ -8700,12 +8770,24 @@ Checklist before submitting work:
 What's next
 - Next: [Chapter28](Chapter28.md)
 
+```{=latex}
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{Part VI — Advanced interactivity, markup, and platform integration}
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+{\Huge\bfseries Part VI — Advanced interactivity, markup, and platform integration}
+\end{center}
+\vspace*{\fill}
+\clearpage
+```
 
 ```{=latex}
 \newpage
 ```
 
-# 28. Advanced input system and interactivity
+## 28. Advanced input system and interactivity
 
 Goal
 - Coordinate pointer, keyboard, gamepad/remote, and text input so complex UI stays responsive.
@@ -8722,7 +8804,7 @@ Prerequisites
 - Chapter 15 (accessibility) to validate keyboard/automation parity.
 - Chapter 23 (custom controls) if you plan to surface bespoke surfaces that drive input directly.
 
-## 1. How Avalonia routes input
+### 1. How Avalonia routes input
 
 Avalonia turns OS-specific events into a three-stage pipeline (`InputManager.ProcessInput`).
 
@@ -8740,7 +8822,7 @@ using IDisposable? sub = InputManager.Instance?
 
 Remember to dispose subscriptions; the pipeline never terminates while the app runs.
 
-## 2. Pointer fundamentals and event order
+### 2. Pointer fundamentals and event order
 
 `InputElement` exposes pointer events (bubble strategy by default).
 
@@ -8766,13 +8848,13 @@ protected override void OnInitialized()
 
 Use tunnel handlers (`RoutingStrategies.Tunnel`) for global shortcuts (e.g., closing flyouts). Keep bubbling logic per control.
 
-### Working with pointer positions
+#### Working with pointer positions
 
 - `e.GetPosition(this)` projects coordinates into any visual's space; pass `null` for top-level coordinates.
 - `e.GetIntermediatePoints(this)` yields historical samples—crucial for smoothing freehand ink.
 - `PointerPoint.Properties` exposes pressure, tilt, contact rectangles, and button states. Always verify availability (`Pointer.Type == PointerType.Pen` before reading pressure).
 
-## 3. Pointer capture and lifetime handling
+### 3. Pointer capture and lifetime handling
 
 Capturing sends subsequent input to an element regardless of pointer location—vital for drags.
 
@@ -8804,7 +8886,7 @@ Key rules:
 - Don't forget to handle the gesture recognizer case: if a recognizer captures the pointer, your control stops receiving `PointerMoved` events until capture returns.
 - When chaining capture up the tree (`Control` → `Window`), consider `e.Pointer.Capture(this)` in the top-level to avoid anomalies when children are removed mid-gesture.
 
-## 4. Multi-touch, pen, and high-precision data
+### 4. Multi-touch, pen, and high-precision data
 
 Avalonia assigns unique IDs per contact (`Pointer.Id`) and marks a primary contact (`Pointer.IsPrimary`). Keep per-pointer state in a dictionary:
 
@@ -8834,7 +8916,7 @@ bool isEraser = sample.Properties.IsEraser;
 
 Touch sends a contact rectangle (`ContactRect`) you can use for palm rejection or handle-size aware UI.
 
-## 5. Gesture recognizers in depth
+### 5. Gesture recognizers in depth
 
 Two gesture models coexist:
 
@@ -8901,7 +8983,7 @@ public class PressAndHoldRecognizer : GestureRecognizer
 
 Register the routed event (`PressAndHoldEvent`) on your control and listen just like other events. Note the call to `Capture(e.Pointer)` which also calls `PreventGestureRecognition()` to stop competing recognizers.
 
-### Manipulation gestures and inertia
+#### Manipulation gestures and inertia
 
 Avalonia exposes higher-level manipulation data through gesture recognizers so you do not have to rebuild velocity tracking yourself.
 
@@ -8921,7 +9003,7 @@ GestureRecognizers.Add(scroll);
 
 Manipulation events coexist with pointer events. Mark the gesture event as handled when you consume it so the default scroll viewer does not fight your logic. For custom behaviors (elastic edges, snap points), tune `ScrollGestureRecognizer.IsContinuous`, `ScrollGestureRecognizer.CanHorizontallyScroll`, and `ScrollGestureRecognizer.CanVerticallyScroll` to match your layout.
 
-## 6. Designing complex pointer experiences
+### 6. Designing complex pointer experiences
 
 Strategies for common scenarios:
 
@@ -8937,7 +9019,7 @@ Platform differences worth noting:
 - **Browser (WASM)** lacks raw access to OS cursors and some pen metrics; `PointerPoint.Properties.Pressure` may always be `1.0`.
 - **Tizen** requires declaring the `http://tizen.org/privilege/haptic` privilege before you can trigger haptics from pull or press gestures.
 
-## 7. Keyboard navigation, focus, and shortcuts
+### 7. Keyboard navigation, focus, and shortcuts
 
 Avalonia's focus engine is pluggable.
 
@@ -8971,7 +9053,7 @@ Ensure the target control implements `ICommandSource` or `IClickableControl`; Av
 
 Ensure focus cues remain visible: call `NavigationMethod.Tab` when moving focus programmatically so keyboard users see an adorner.
 
-## 8. Gamepad, remote, and spatial focus
+### 8. Gamepad, remote, and spatial focus
 
 When Avalonia detects non-keyboard key devices, it sets `KeyDeviceType` on key events. Use `FocusManager.GetFocusManager(this)?.Focus(elem, NavigationMethod.Directional, modifiers)` to respect D-Pad navigation.
 
@@ -8987,7 +9069,7 @@ For dense grids (e.g., TV apps), set `XYFocus.NavigationModes="Gamepad,Remote"` 
 
 Where hardware exposes haptic feedback (mobile, TV remotes), query the platform implementation with `TopLevel.PlatformImpl?.TryGetFeature<TFeature>()`. Some backends surface rumble/vibration helpers; when none are available, fall back gracefully so keyboard-only users are not blocked.
 
-## 9. Text input services and IME integration
+### 9. Text input services and IME integration
 
 Text input flows through `InputMethod`, `TextInputMethodClient`, and `TextInputOptions`.
 
@@ -9015,7 +9097,7 @@ When you implement custom text surfaces (code editors, chat bubbles):
 
 Remember to honor `TextInputOptions.IsSensitive`—set it when editing secrets so onboard keyboards hide predictions.
 
-## 10. Accessibility and multi-modal parity
+### 10. Accessibility and multi-modal parity
 
 Advanced interactions must fall back to keyboard and automation:
 
@@ -9025,7 +9107,7 @@ Advanced interactions must fall back to keyboard and automation:
 - Respect `FocusManager` decisions—never suppress focus adorners merely because a pointer started the interaction.
 - Use `InputMethod.SetIsInputMethodEnabled` and `TextInputOptions` to support assistive text input (switch control, dictation).
 
-## 11. Multi-modal input lab (practice)
+### 11. Multi-modal input lab (practice)
 
 Create a playground that exercises every surface:
 
@@ -9041,7 +9123,7 @@ Create a playground that exercises every surface:
 
 Document findings in README (which gestures compete, how capture behaves on focus loss) so the team can adjust default UX.
 
-## 12. Troubleshooting & best practices
+### 12. Troubleshooting & best practices
 
 - **Missing pointer events**: ensure `IsHitTestVisible` is true and that no transparent sibling intercepts input. For overlays, set `IsHitTestVisible="False"`.
 - **Stuck capture**: always release capture during `PointerCaptureLost` and when the control unloads. Wrap capture in `try/finally` on operations that may throw.
@@ -9050,7 +9132,7 @@ Document findings in README (which gestures compete, how capture behaves on focu
 - **Keyboard focus lost after drag**: store `(this.GetVisualRoot() as IInputRoot)?.FocusManager?.GetFocusedElement()` before capture and restore it when the operation completes to preserve keyboard flow.
 - **IME composition rectangles misplaced**: update `TextInputMethodClient.TextViewVisual` whenever layout changes; failing to do so leaves composition windows floating in the old position.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Pointer lifecycle: [`Pointer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/Pointer.cs)
 - Pointer events & properties: [`PointerEventArgs.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/PointerEventArgs.cs), [`PointerPoint.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/PointerPoint.cs)
 - Gesture infrastructure: [`GestureRecognizer.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/GestureRecognizers/GestureRecognizer.cs), [`Gestures.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/Gestures.cs)
@@ -9060,7 +9142,7 @@ Document findings in README (which gestures compete, how capture behaves on focu
 - Text input pipeline: [`TextInputOptions.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/TextInputOptions.cs), [`TextInputMethodManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/TextInput/InputMethodManager.cs)
 - Input manager stages: [`InputManager.cs`](https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Input/InputManager.cs)
 
-## Check yourself
+### Check yourself
 - How do tunnelling handlers differ from bubbling handlers when mixing pointer capture and gestures?
 - Which `PointerPointProperties` matter for pen input and how do you guard against unsupported platforms?
 - What steps are required to surface a custom `TextInputMethodClient` in your control?
@@ -9075,7 +9157,7 @@ What's next
 \newpage
 ```
 
-# 29. Animations, transitions, and composition
+## 29. Animations, transitions, and composition
 
 Goal
 - Shape motion with Avalonia's keyframe animations, property transitions, and composition effects.
@@ -9092,7 +9174,7 @@ Prerequisites
 - Chapter 23 (Custom drawing) for custom visuals that you might animate.
 - Chapter 8 (Data binding) for reactive triggers, and Chapter 24 (Diagnostics) for measuring performance.
 
-## 1. Keyframe animation building blocks
+### 1. Keyframe animation building blocks
 
 Avalonia's declarative animation stack lives in `Avalonia.Animation.Animation` and friends. Every control derives from `Animatable`, so you can plug animations into styles or run them directly in code.
 
@@ -9137,7 +9219,7 @@ Key points:
 - `FillMode` controls which keyframe value sticks before/after the timeline. Use `FillMode="Both"` for a resting value.
 - You can scope animations to a resource dictionary and reference them by `{StaticResource}` from templates or code.
 
-## 2. Controlling playback from code
+### 2. Controlling playback from code
 
 `Animation.RunAsync` and `Animation.Apply` let you start, await, or conditionally run animations from code-behind or view models (`Animation.cs`, `RunAsync`).
 
@@ -9179,7 +9261,7 @@ _disposables.Add(subscription);
 - Supply your own `Clock` to coordinate multiple animations (e.g., `new Clock(globalClock)` with `PlayState.Pause` to scrub).
 - Use the cancellation overload to stop animating when the control unloads or the view model changes.
 
-## 3. Implicit transitions and styling triggers
+### 3. Implicit transitions and styling triggers
 
 For property tweaks (hover states, theme switches) `Animatable.Transitions` (`Animatable.cs`) is lighter weight than keyframes. A `Transition<T>` blends from the old value to a new one automatically.
 
@@ -9212,11 +9294,11 @@ Rules of thumb:
 
 When the property switches, the matching `Transition<T>` eases between the two values. Avalonia ships transitions for numeric types, brushes, thickness, transforms, box shadows, and more (`Animation/Transitions/*.cs`).
 
-### Animator-driven transitions
+#### Animator-driven transitions
 
 `AnimatorDrivenTransition` lets you reuse keyframe logic as an implicit transition. Add an `Animation` to `Transition` by setting `Property` and plugging a custom `Animator<T>` if you need non-linear interpolation or multi-stop blends.
 
-## 4. Page transitions and content choreography
+### 4. Page transitions and content choreography
 
 Navigation surfaces (`TransitioningContentControl`, `Frame`, `NavigationView`) rely on `IPageTransition` (`PageSlide.cs`, `CrossFade.cs`).
 
@@ -9240,7 +9322,7 @@ Navigation surfaces (`TransitioningContentControl`, `Frame`, `NavigationView`) r
 
 For navigation stacks, pair page transitions with parameterized view-model lifetimes so you can cancel transitions on route changes (`TransitioningContentControl.cs`).
 
-## 5. Reactive animation flows
+### 5. Reactive animation flows
 
 Because each animation pipes through `IObservable<bool>` internally, you can stitch motion into reactive pipelines:
 
@@ -9258,7 +9340,7 @@ var throttle = validationFailures
 animation.Apply(textBox, null, throttle, null);
 ```
 
-## 6. Composition vs classic rendering
+### 6. Composition vs classic rendering
 
 Avalonia's compositor (`Compositor.cs`) mirrors the Windows Composition model: a scene graph of `CompositionVisual` objects runs on a dedicated thread and talks directly to GPU backends. Advantages:
 
@@ -9288,11 +9370,11 @@ root!.Children.Add(sprite);
 
 When mixing visuals, ensure they come from the same `Compositor` instance (`ElementCompositionPreview.cs`).
 
-### Composition target and hit testing
+#### Composition target and hit testing
 
 `CompositionTarget` (`CompositionTarget.cs`) owns the visual tree that the compositor renders. It handles hit testing, coordinate transforms, and redraw scheduling. Most apps use the compositor implicitly via the built-in renderer, but custom hosts (e.g., embedding Avalonia) can create their own target (`Compositor.CreateCompositionTarget`).
 
-### Composition brushes, effects, and materials
+#### Composition brushes, effects, and materials
 
 The compositor supports more than simple solids:
 
@@ -9303,7 +9385,7 @@ The compositor supports more than simple solids:
 
 Use `Compositor.TryCreateBlurEffect()` (platform-provided helpers) to probe support before enabling expensive effects. Not every backend exposes every effect type; guard features behind capability checks.
 
-### Backend considerations
+#### Backend considerations
 
 Composition runs on different engines per platform:
 
@@ -9314,7 +9396,7 @@ Composition runs on different engines per platform:
 
 When features are missing, prefer classic transitions so the experience remains functional.
 
-## 7. Composition animations and implicit animations
+### 7. Composition animations and implicit animations
 
 Composition animations live in `Avalonia.Rendering.Composition.Animations`:
 
@@ -9343,7 +9425,7 @@ For property-driven motion, use implicit animations: create an `ImplicitAnimatio
 
 `StartAnimation` pushes the animation to the render thread. Use `CompositionAnimationGroup` to start multiple animations atomically, and `Compositor.RequestCommitAsync()` to flush batched changes before measuring results.
 
-## 8. Performance and diagnostics
+### 8. Performance and diagnostics
 
 - Prefer animating transforms (`RenderTransform`, `Opacity`) over layout-affecting properties (`Width`, `Height`). Layout invalidation happens on the UI thread and can stutter.
 - Reuse animation instances; parsing keyframes or easings each time allocates. Store them as static resources.
@@ -9352,7 +9434,7 @@ For property-driven motion, use implicit animations: create an `ImplicitAnimatio
 - Use `RendererDiagnostics` overlays (Chapter 24) to spot dropped frames and long render passes. Composition visuals show up as separate layers, so you can verify they batch correctly.
 - Brush transitions fall back to discrete jumps for incompatible brush types (`BrushTransition.cs`). Verify gradients or image brushes blend the way you expect.
 
-## 9. Practice lab: motion system
+### 9. Practice lab: motion system
 
 1. **Explicit keyframes** – Build a reusable animation resource that pulses a `NotificationBanner`, then start it from a view model with `RunAsync`. Add cancellation so repeated notifications restart smoothly.
 2. **Implicit hover transitions** – Define a `Transitions` block for cards in a dashboard: fade elevation shadows, scale the card slightly, and update `TranslateTransform.Y`. Drive the transitions purely from pseudo-classes.
@@ -9362,7 +9444,7 @@ For property-driven motion, use implicit animations: create an `ImplicitAnimatio
 
 Document timing curves, easing choices, and any performance issues so the team can iterate on the experience.
 
-## 10. Troubleshooting & best practices
+### 10. Troubleshooting & best practices
 
 - Animation not firing? Ensure the target property is styled (not direct) and the selector matches the control. For composition, check the animation `Target` matches the composition property name (case-sensitive).
 - Looped animations via `RunAsync` throw—drive infinite loops with `Apply` or manual scheduler instead.
@@ -9370,7 +9452,7 @@ Document timing curves, easing choices, and any performance issues so the team c
 - Composition visuals disappear after resizing? Update `Size` and `Offset` whenever the host control's bounds change, then call `Compositor.RequestCommitAsync()` to flush.
 - Hot reload spawns multiple composition visuals? Remove the old child visual (`Children.Remove`) before adding a new one, or cache the sprite in the control instance.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Animation timeline & playback: `external/Avalonia/src/Avalonia.Base/Animation/Animation.cs`
 - Property transitions: `external/Avalonia/src/Avalonia.Base/Animation/Transitions.cs`
 - Page transitions: `external/Avalonia/src/Avalonia.Base/Animation/PageSlide.cs`, `external/Avalonia/src/Avalonia.Base/Animation/CrossFade.cs`
@@ -9378,7 +9460,7 @@ Document timing curves, easing choices, and any performance issues so the team c
 - Composition effects & materials: `external/Avalonia/src/Avalonia.Base/Rendering/Composition/CompositionDrawListVisual.cs`, `external/Avalonia/src/Avalonia.Base/Rendering/Composition/CompositionExperimentalAcrylicVisual.cs`, `external/Avalonia/src/Avalonia.Base/Rendering/Composition/Expressions/ExpressionAnimation.cs`
 - Implicit composition animations: `external/Avalonia/src/Avalonia.Base/Rendering/Composition/CompositionObject.cs`
 
-## Check yourself
+### Check yourself
 - When would you pick a `DoubleTransition` over a keyframe animation, and why does that matter for layout cost?
 - How do `IterationCount`, `FillMode`, and `PlaybackDirection` interact to determine an animation's resting value?
 - What are the risks of animating direct properties, and how does Avalonia guard against them?
@@ -9393,7 +9475,7 @@ What's next
 \newpage
 ```
 
-# 30. Markup, XAML compiler, and extensibility
+## 30. Markup, XAML compiler, and extensibility
 
 Goal
 - Understand how Avalonia turns `.axaml` files into IL, resources, and runtime objects.
@@ -9410,7 +9492,7 @@ Prerequisites
 - Chapter 07 (styles and selectors) and Chapter 10 (resources) for consuming XAML assets.
 - Chapter 08 (bindings) for compiled binding references.
 
-## 1. The XAML asset pipeline
+### 1. The XAML asset pipeline
 
 When you add `.axaml` files, the SDK-driven build uses two MSBuild tasks from `Avalonia.Build.Tasks`:
 
@@ -9428,7 +9510,7 @@ Key metadata:
 - Set `<VerifyXamlIl>true</VerifyXamlIl>` to enable IL verification after compilation; this slows builds slightly but catches invalid IL earlier.
 - `<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>` opts every binding into compiled bindings unless opted out per markup (see Chapter 08).
 
-## 2. Inside the XamlIl compiler
+### 2. Inside the XamlIl compiler
 
 XamlIl is Avalonia's LLVM-style pipeline built on XamlX:
 
@@ -9443,7 +9525,7 @@ Every `.axaml` file with `x:Class="Namespace.View"` yields:
 
 If you set `<SkipXamlCompilation>true</SkipXamlCompilation>`, the compiler bypasses IL generation; `AvaloniaXamlLoader` then falls back to runtime parsing for each load (slower and reflection-heavy, but useful during prototyping).
 
-## 3. Runtime loading and hot reload
+### 3. Runtime loading and hot reload
 
 `AvaloniaXamlLoader` (`external/Avalonia/src/Markup/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs`) chooses between:
 - **Compiled XAML** – looks for `CompiledAvaloniaXaml.!XamlLoader.TryLoad(string)` in the owning assembly and instantiates the pre-generated tree.
@@ -9459,7 +9541,7 @@ Use cases for runtime loading:
 - Pluggable modules that ship XAML as data (load from database, theme packages).
 - Unit tests where compiling all XAML would slow loops; the headless test adapters provide a runtime loader.
 
-## 4. Namespaces, schemas, and lookup
+### 4. Namespaces, schemas, and lookup
 
 Avalonia uses `XmlnsDefinitionAttribute` (`external/Avalonia/src/Avalonia.Base/Metadata/XmlnsDefinitionAttribute.cs`) to map XML namespaces to CLR namespaces. Assemblies such as `Avalonia.Markup.Xaml` declare:
 
@@ -9474,7 +9556,7 @@ Guidelines:
 
 `IXamlTypeResolver` is available through the service provider (`Extensions.ResolveType`). When you write custom markup extensions, you can resolve types that respect `XmlnsDefinition` mappings.
 
-## 5. Markup extensions and service providers
+### 5. Markup extensions and service providers
 
 All markup extensions inherit from `Avalonia.Markup.Xaml.MarkupExtension` (`MarkupExtension.cs`) and implement `ProvideValue(IServiceProvider serviceProvider)`.
 
@@ -9514,7 +9596,7 @@ Tips:
 - Use services (e.g., `serviceProvider.GetService<IServiceProvider>`) sparingly; they run on every instantiation.
 - For asynchronous or deferred value creation, return a delegate implementing `IProvideValueTarget` or use `XamlIlRuntimeHelpers.DeferredTransformationFactoryV2`.
 
-## 6. Custom templates, resources, and compiled bindings
+### 6. Custom templates, resources, and compiled bindings
 
 XamlIl optimises templates and bindings when you:
 - Declare controls with `x:Class` so partial classes can inject compiled fields (`InitializeComponent`).
@@ -9523,14 +9605,14 @@ XamlIl optimises templates and bindings when you:
 
 The compiler hoists resource dictionaries and template bodies into factory methods, reducing runtime allocations. When you inspect generated IL (use `ilspy`), you'll see `new Func<IServiceProvider, object>(...)` wrappers for control templates referencing `XamlIlRuntimeHelpers.DeferredTransformationFactoryV2`.
 
-## 7. Debugging and diagnostics
+### 7. Debugging and diagnostics
 
 - Build errors referencing `AvaloniaXamlDiagnosticCodes` include the original file path; MSBuild surfaces them in IDEs with line/column.
 - Runtime `XamlLoadException` (`XamlLoadException.cs`) indicates missing compiled loaders or invalid markup; the message suggests ensuring `x:Class` and `AvaloniaResource` build actions.
 - Enable verbose compiler exceptions with `<AvaloniaXamlIlVerboseOutput>true</AvaloniaXamlIlVerboseOutput>` to print stack traces from the XamlIl pipeline.
 - Use `avalonia-preview` (design-time host) to spot issues with namespace resolution; the previewer logs originate from the runtime loader and respect `RuntimeXamlLoaderConfiguration.DiagnosticHandler`.
 
-## 8. Authoring workflow checklist
+### 8. Authoring workflow checklist
 
 1. **Project file** – confirm `<UseCompiledBindingsByDefault>` and `<VerifyXamlIl>` match your requirements.
 2. **Namespaces** – add `[assembly: XmlnsDefinition]` for every exported namespace; document the suggested prefix.
@@ -9538,7 +9620,7 @@ The compiler hoists resource dictionaries and template bodies into factory metho
 4. **InitializeComponent** – always call it in partial classes; otherwise the compiled loader is never invoked.
 5. **Testing** – run unit tests with `AvaloniaHeadless` (Chapter 21) to exercise runtime loader paths without the full compositor.
 
-## 9. Practice lab: extending the markup toolchain
+### 9. Practice lab: extending the markup toolchain
 
 1. **Inspect build output** – build your project with `dotnet build /bl`. Open the MSBuild log and confirm `GenerateAvaloniaResources` and `CompileAvaloniaXaml` run with the expected inputs.
 2. **Add XML namespace mappings** – create a component library, decorate it with `[assembly: XmlnsDefinition("https://schemas.myapp.com/ui", "MyApp.Controls")]`, and consume it from a separate app.
@@ -9546,7 +9628,7 @@ The compiler hoists resource dictionaries and template bodies into factory metho
 4. **Toggle compiled bindings** – set `<AvaloniaUseCompiledBindingsByDefault>false>`, then selectively enable compiled bindings in XAML with `{x:CompileBindings}` and observe the generated IL (via dotnet-monitor or ILSpy).
 5. **Runtime loader experiment** – register a custom `IRuntimeXamlLoader` in a test harness to load XAML from strings, flip `UseCompiledBindingsByDefault`, and log diagnostics through `RuntimeXamlLoaderConfiguration.DiagnosticHandler`.
 
-## 10. Troubleshooting & best practices
+### 10. Troubleshooting & best practices
 
 - Build succeeds but UI is blank? Check that your `.axaml` file still has `x:Class` and `InitializeComponent` is called. Without it, the compiled loader never runs.
 - Duplicate `x:Class` errors: two XAML files declare the same CLR type; rename one or adjust the namespace. The compiler stops on duplicates to avoid ambiguous partial classes.
@@ -9555,14 +9637,14 @@ The compiler hoists resource dictionaries and template bodies into factory metho
 - Large diff after build: compiled XAML rewrites the primary assembly; add `obj/*.dll` to `.gitignore` and avoid checking in intermediate outputs.
 - Hot reload issues: if you disable compiled XAML for faster iteration, remember to re-enable it before shipping to restore startup performance.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Resource packer: `external/Avalonia/src/Avalonia.Build.Tasks/GenerateAvaloniaResourcesTask.cs`
 - XamlIl compiler driver: `external/Avalonia/src/Avalonia.Build.Tasks/CompileAvaloniaXamlTask.cs`, `external/Avalonia/src/Avalonia.Build.Tasks/XamlCompilerTaskExecutor.cs`
 - Runtime loader: `external/Avalonia/src/Markup/Avalonia.Markup.Xaml/AvaloniaXamlLoader.cs`, `RuntimeXamlLoaderDocument.cs`
 - Runtime helpers: `external/Avalonia/src/Markup/Avalonia.Markup.Xaml/XamlIl/Runtime/XamlIlRuntimeHelpers.cs`
 - Extensions & services: `external/Avalonia/src/Markup/Avalonia.Markup.Xaml/Extensions.cs`
 
-## Check yourself
+### Check yourself
 - What MSBuild tasks touch `.axaml` files, and what metadata do they emit?
 - How does XamlIl decide between compiled and runtime loading for a given URI?
 - Where would you place `[XmlnsDefinition]` attributes when publishing a control library?
@@ -9577,7 +9659,7 @@ What's next
 \newpage
 ```
 
-# 31. Extended control modules and component gallery
+## 31. Extended control modules and component gallery
 
 Goal
 - Master specialized Avalonia controls that sit outside the "common controls" set: color pickers, pull-to-refresh, notifications, date/time inputs, split buttons, and more.
@@ -9594,7 +9676,7 @@ Prerequisites
 - Chapter 09 (input) and Chapter 15 (accessibility) to reason about interactions.
 - Chapter 29 (animations) for transitional polish.
 
-## 1. Survey of extended control namespaces
+### 1. Survey of extended control namespaces
 
 Avalonia groups advanced controls into focused namespaces:
 
@@ -9610,7 +9692,7 @@ Avalonia groups advanced controls into focused namespaces:
 
 Each module ships styles in Fluent/Simple theme dictionaries. Include the relevant `.axaml` resource dictionaries when building custom themes.
 
-## 2. ColorPicker and color workflows
+### 2. ColorPicker and color workflows
 
 `ColorPicker` extends `ColorView` by providing a preview area and flyout editing UI (`ColorPicker.cs`). Key elements:
 - Preview content via `Content`/`ContentTemplate` (defaults to swatch + ARGB string).
@@ -9637,7 +9719,7 @@ Tips:
 - Hook `ColorView.ColorChanged` to react immediately to slider changes (e.g., update live preview alt text).
 - Add automation peers (`ColorPickerAutomationPeer`) if you expose color selection to screen readers.
 
-## 3. Pull-to-refresh infrastructure
+### 3. Pull-to-refresh infrastructure
 
 `RefreshContainer` wraps scrollable content and coordinates `RefreshVisualizer` animations (`RefreshContainer.cs`). Concepts:
 - `PullDirection` (top/bottom/left/right) chooses gesture direction.
@@ -9671,7 +9753,7 @@ Notes:
 - Provide localized feedback via `RefreshVisualizer.StateChanged` (show "Release to refresh" vs "Refreshing...").
 - For virtualization, ensure the underlying `ItemsControl` defers updates until after refresh completes so the visualizer can retract smoothly.
 
-## 4. Notifications and toast UIs
+### 4. Notifications and toast UIs
 
 `WindowNotificationManager` hosts toast-like notifications overlaying a `TopLevel` (`WindowNotificationManager.cs`).
 - Set `Position` (TopRight, BottomCenter, etc.) and `MaxItems`.
@@ -9704,7 +9786,7 @@ Considerations:
 - For MVVM, store `INotificationManager` in DI so view models can raise toasts without referencing the view.
 - On future platforms (mobile), swap to platform notification managers when available.
 
-## 5. DatePicker/TimePicker for forms
+### 5. DatePicker/TimePicker for forms
 
 `DatePicker` and `TimePicker` share presenters and respect culture-specific formats (`DatePicker.cs`, `TimePicker.cs`).
 - Properties: `SelectedDate`, `MinYear`, `MaxYear`, `DayVisible`, `MonthFormat`, `YearFormat`.
@@ -9716,7 +9798,7 @@ Validation strategies:
 - For forms, show hint text using pseudo-class `:hasnodate` when `SelectedDate` is null.
 - Provide automation names for the button and popup to assist screen readers.
 
-### Calendar control for planners
+#### Calendar control for planners
 
 `Calendar` gives you a full month or decade view without the flyout wrapper.
 - `DisplayMode` toggles Month, Year, or Decade views—useful for date pickers embedded in dashboards.
@@ -9726,7 +9808,7 @@ Validation strategies:
 
 When you need both `Calendar` and `DatePicker`, reuse the same `CalendarDatePicker` styles so typography and spacing stay consistent.
 
-## 6. SplitView and navigation panes
+### 6. SplitView and navigation panes
 
 `SplitView` builds side drawers with flexible display modes (`SplitView.cs`).
 - `DisplayMode`: Overlay, Inline, CompactOverlay, CompactInline.
@@ -9756,7 +9838,7 @@ Tips:
 - Manage focus: when the pane opens via keyboard, move focus to the first focusable element; when closing, restore focus to the toggle.
 - Combine with `TransitioningContentControl` (Chapter 29) for smooth page transitions.
 
-### TransitioningContentControl for dynamic views
+#### TransitioningContentControl for dynamic views
 
 `TransitioningContentControl` wraps a content presenter with `IPageTransition` support.
 - Assign `PageTransition` in XAML (slide, cross-fade, custom transitions) to animate view-model swaps.
@@ -9765,7 +9847,7 @@ Tips:
 
 For component galleries, use it to showcase before/after states or responsive layouts without writing manual animation plumbing.
 
-## 7. SplitButton and ToggleSplitButton
+### 7. SplitButton and ToggleSplitButton
 
 `SplitButton` provides a main action plus a secondary flyout (`SplitButton.cs`).
 - Primary click raises `Click`/`Command`; the secondary button shows `Flyout`.
@@ -9788,7 +9870,7 @@ Example:
 
 Ensure `Command.CanExecute` updates by binding to view model state; `SplitButton` listens for `CanExecuteChanged` and toggles `IsEnabled` accordingly.
 
-## 8. Notifications, documents, and media surfaces
+### 8. Notifications, documents, and media surfaces
 
 - `Inline`, `Run`, `Span`, and `InlineUIContainer` in `Avalonia.Controls.Documents` let you build rich text with embedded controls (useful for notifications or chat bubbles).
 - Use `InlineUIContainer` sparingly; it affects layout performance.
@@ -9800,7 +9882,7 @@ Ensure `Command.CanExecute` updates by binding to view model state; `SplitButton
 - Handle `MediaOpened`/`MediaEnded` to chain playlists or update state.
 - On platforms without native codecs, surface fallbacks (download prompts, external players) so the UI stays predictable.
 
-## 9. Building a component gallery
+### 9. Building a component gallery
 
 Create a `ComponentGalleryWindow` that showcases each control with explanations and theme toggles:
 
@@ -9831,7 +9913,7 @@ Best practices:
 - Surface accessibility guidance (keyboard shortcuts, screen reader notes) alongside each sample.
 - Provide code snippets via `TextBlock` or copy buttons so teammates can reuse patterns.
 
-## 10. Practice lab: responsibility matrix
+### 10. Practice lab: responsibility matrix
 
 1. **Color workflows** – Customize `ColorPicker` palettes, bind to view model state, and expose automation peers for UI tests.
 2. **Mobile refresh** – Implement `RefreshContainer` in a list, test on touch-enabled hardware, and add fallback commands for desktop.
@@ -9839,7 +9921,7 @@ Best practices:
 4. **Dashboard shell** – Combine `SplitView`, `SplitButton`, and `TransitioningContentControl` to create a responsive navigation shell with keyboard and pointer parity.
 5. **Component gallery** – Document each control with design notes, theming tweaks, and automation IDs; integrate into project documentation.
 
-## Troubleshooting & best practices
+### Troubleshooting & best practices
 
 - Many controls rely on template parts (`PART_*`). When restyling, preserve these names or update code-behind references.
 - Notification overlays run on the UI thread; throttle or batch updates to avoid flooding `WindowNotificationManager` with dozens of toasts.
@@ -9847,7 +9929,7 @@ Best practices:
 - Date/time pickers use `DateTimeOffset`. When binding to `DateTime`, convert carefully to retain time zones.
 - SplitView on compact widths: watch out for layout loops if your pane content uses `HorizontalAlignment.Stretch`; consider fixed width.
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Color picker foundation: `external/Avalonia/src/Avalonia.Controls.ColorPicker/ColorPicker/ColorPicker.cs`
 - Pull-to-refresh: `external/Avalonia/src/Avalonia.Controls/PullToRefresh/RefreshContainer.cs`
 - Notifications: `external/Avalonia/src/Avalonia.Controls/Notifications/WindowNotificationManager.cs`, `NotificationCard.cs`
@@ -9856,7 +9938,7 @@ Best practices:
 - Documents: `external/Avalonia/src/Avalonia.Controls/Documents/*`
 - Transitions host: `external/Avalonia/src/Avalonia.Controls/TransitioningContentControl.cs`
 
-## Check yourself
+### Check yourself
 - Which namespace hosts `RefreshContainer`, and why does it need a `RefreshVisualizer`?
 - How does `WindowNotificationManager` limit concurrent notifications and close them programmatically?
 - What steps keep `DatePicker` in sync with `DateTime` view-model properties?
@@ -9871,7 +9953,7 @@ What's next
 \newpage
 ```
 
-# 32. Platform services, embedding, and native interop
+## 32. Platform services, embedding, and native interop
 
 Goal
 - Integrate Avalonia with native hosts: Windows, macOS, X11, browsers, mobile shells, and custom embedding scenarios.
@@ -9888,7 +9970,7 @@ Prerequisites
 - Chapter 18–20 (platform targets) for backend overviews.
 - Chapter 32 builds on Chapter 29 (animations/composition) when synchronizing native surfaces.
 
-## 1. Platform abstractions overview
+### 1. Platform abstractions overview
 
 Avalonia abstracts windowing via interfaces in `Avalonia.Controls.Platform` and `Avalonia.Platform`:
 
@@ -9902,7 +9984,7 @@ Avalonia abstracts windowing via interfaces in `Avalonia.Controls.Platform` and 
 
 `PlatformManager` coordinates these services and surfaces high-level helpers (tray icons, dialogs). Check `TopLevel.PlatformImpl` to access backend-specific features.
 
-## 2. Hosting native controls inside Avalonia
+### 2. Hosting native controls inside Avalonia
 
 `NativeControlHost` (`external/Avalonia/src/Avalonia.Controls/NativeControlHost.cs`) lets you wrap native views:
 
@@ -9934,7 +10016,7 @@ Guidelines:
 - Use `NativeControlHandleChanged` for interop with additional APIs (e.g., hooking message loops).
 - For accessibility, expose appropriate semantics; Avalonia's `NativeControlHostAutomationPeer` helps but you may need custom peers.
 
-## 3. Embedding Avalonia inside native hosts
+### 3. Embedding Avalonia inside native hosts
 
 `EmbeddableControlRoot` (`external/Avalonia/src/Avalonia.Controls/Embedding/EmbeddableControlRoot.cs`) wraps a `TopLevel` that can live in non-Avalonia environments:
 
@@ -9953,7 +10035,7 @@ Interop tips:
 - Expose the `Content` property to your native layer for dynamic view injection.
 - Bridge focus and input: e.g., WinForms host sets `TabStop` and forwards focus events to the Avalonia root.
 
-### MicroCom bridges for Windows interop
+#### MicroCom bridges for Windows interop
 
 Avalonia relies on [MicroCom](https://github.com/AvaloniaUI/MicroCom) to generate COM-compatible wrappers. When embedding on Windows (drag/drop, menus, Win32 interop):
 - Use `Avalonia.MicroCom.CallbackBase` as the base for custom COM callbacks; it handles reference counting and error reporting.
@@ -9962,7 +10044,7 @@ Avalonia relies on [MicroCom](https://github.com/AvaloniaUI/MicroCom) to generat
 
 You rarely need to touch MicroCom directly, but understanding it helps when diagnosing drag/drop or accessibility issues on Windows.
 
-## 4. Remote rendering and previews
+### 4. Remote rendering and previews
 
 Avalonia's remote protocol (`external/Avalonia/src/Avalonia.Remote.Protocol`) powers the XAML previewer and custom remoting scenarios.
 
@@ -9979,7 +10061,7 @@ Potential use cases:
 
 Security note: remote transports expose the UI tree—protect endpoints if you ship this beyond trusted tooling.
 
-## 5. Tray icons, dialogs, and platform services
+### 5. Tray icons, dialogs, and platform services
 
 `IWindowingPlatform.CreateTrayIcon()` supplies backend-specific tray icon implementations. Use `PlatformManager.CreateTrayIcon()` to instantiate one:
 
@@ -10005,13 +10087,13 @@ Other services:
 - **System navigation**: On mobile, `SystemNavigationManager` handles back-button events; ensure `UsePlatformDetect` registers the appropriate lifetime.
 - **Window chrome**: `Window` exposes `SystemDecorations`, `ExtendClientAreaToDecorationsHint`, `WindowTransparencyLevel`, and the `Chrome.WindowChrome` helpers so you can blend custom title bars with OS hit testing. Always provide resize grips and fall back to system chrome when composition is disabled.
 
-## 6. Browser, Android, iOS views
+### 6. Browser, Android, iOS views
 
 - **Browser**: `Avalonia.Browser.AvaloniaView` hosts `EmbeddableControlRoot` atop WebAssembly; `NativeControlHost` implementations for the browser route to JS interop.
 - **Android/iOS**: `AvaloniaView` provides native controls (Android View, iOS UIView) embedding Avalonia UI. Use `SingleViewLifetime` to tie app lifetimes to host platforms.
 - Expose Avalonia content to native navigation stacks, but run Avalonia's message loop (`AppBuilder.AndroidLifecycleEvents` / `AppBuilder.iOS`).
 
-## 7. Offscreen rendering and interoperability
+### 7. Offscreen rendering and interoperability
 
 `OffscreenTopLevel` (`external/Avalonia/src/Avalonia.Controls/Embedding/Offscreen/OffscreenTopLevel.cs`) allows rendering to a framebuffer without showing a window—useful for:
 - Server-side rendering (generate bitmaps for PDFs, emails).
@@ -10020,7 +10102,7 @@ Other services:
 
 Pair with `RenderTargetBitmap` to save results.
 
-## 8. Practice lab: hybrid UI playbook
+### 8. Practice lab: hybrid UI playbook
 
 1. **Embed native control** – Host a Win32 WebView or platform-specific map view inside Avalonia using `NativeControlHost`. Ensure resize and DPI updates work.
 2. **Avalonia-in-native** – Create a WinForms or WPF shell embedding `EmbeddableControlRoot`. Swap Avalonia content dynamically and synchronize focus/keyboard.
@@ -10030,7 +10112,7 @@ Pair with `RenderTargetBitmap` to save results.
 
 Document interop boundaries (threading, disposal, event forwarding) for your team.
 
-## Troubleshooting & best practices
+### Troubleshooting & best practices
 
 - Always dispose hosts (`EmbeddableControlRoot`, tray icons, remote transports) to release native resources.
 - Ensure Avalonia is initialized (`BuildAvaloniaApp().SetupWithoutStarting()`) before embedding in native shells.
@@ -10039,7 +10121,7 @@ Document interop boundaries (threading, disposal, event forwarding) for your tea
 - Remote transports may drop messages under heavy load—implement reconnection logic and validation.
 - On macOS, tray icons require the app to stay alive (use `NSApplication.ActivateIgnoringOtherApps` when needed).
 
-## Look under the hood (source bookmarks)
+### Look under the hood (source bookmarks)
 - Native hosting: `external/Avalonia/src/Avalonia.Controls/NativeControlHost.cs`
 - Embedding root: `external/Avalonia/src/Avalonia.Controls/Embedding/EmbeddableControlRoot.cs`
 - Platform manager & services: `external/Avalonia/src/Avalonia.Controls/Platform/PlatformManager.cs`
@@ -10049,7 +10131,7 @@ Document interop boundaries (threading, disposal, event forwarding) for your tea
 - MicroCom interop: `external/Avalonia/src/Avalonia.MicroCom/CallbackBase.cs`, `external/Avalonia/src/Windows/Avalonia.Win32/OleDropTarget.cs`
 - Window chrome helpers: `external/Avalonia/src/Avalonia.Controls/Chrome/WindowChrome.cs`, `external/Avalonia/src/Avalonia.Controls/Window.cs`
 
-## Check yourself
+### Check yourself
 - How does `NativeControlHost` coordinate `INativeControlHostImpl` and what events trigger repositioning?
 - What steps are required to embed Avalonia inside an existing WinForms/WPF app?
 - Which services does `IWindowingPlatform` expose, and how do you use them to create tray icons or embeddable top levels?
@@ -10059,12 +10141,24 @@ Document interop boundaries (threading, disposal, event forwarding) for your tea
 What's next
 - Next: [Chapter33](Chapter33.md)
 
+```{=latex}
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{Part VII — Code-first UI without XAML friction}
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+{\Huge\bfseries Part VII — Code-first UI without XAML friction}
+\end{center}
+\vspace*{\fill}
+\clearpage
+```
 
 ```{=latex}
 \newpage
 ```
 
-# 33. Code-only startup and architecture blueprint
+## 33. Code-only startup and architecture blueprint
 
 Goal
 - Bootstrap Avalonia apps entirely from C# so you can skip XAML without losing features.
@@ -10081,7 +10175,7 @@ Prerequisites
 - Chapter 7 (styling) to recognize how selectors, themes, and resources work.
 - Chapter 11 (MVVM) for structuring view-models and locator patterns that code-first projects often lean on.
 
-## 1. Start from `Program.cs`: configuring the builder yourself
+### 1. Start from `Program.cs`: configuring the builder yourself
 
 Avalonia templates scaffold XAML, but the real work happens in `Program.BuildAvaloniaApp()` (see `external/Avalonia/src/Avalonia.Templates/`). Code-first apps use the same `AppBuilder<TApp>` API.
 
@@ -10130,7 +10224,7 @@ private static AppBuilder ConfigurePlatforms(AppBuilder builder)
 
 Chaining explicit helper methods keeps `BuildAvaloniaApp` readable while preserving fluent semantics.
 
-## 2. Crafting an `Application` subclass without XAML
+### 2. Crafting an `Application` subclass without XAML
 
 `Application` lives in `external/Avalonia/src/Avalonia.Controls/Application.cs`. The default XAML template overrides `OnFrameworkInitializationCompleted()` after loading XAML. In code-first scenarios you:
 
@@ -10220,7 +10314,7 @@ Notes from source:
 - `RegisterServices()` is invoked early in `AppBuilderBase<TApp>.Setup()` before the app is instantiated. It's designed for code-first registration patterns.
 - Always call `base.OnFrameworkInitializationCompleted()` to ensure any registered `OnFrameworkInitializationCompleted` handlers fire.
 
-## 3. Building windows and views directly in C#
+### 3. Building windows and views directly in C#
 
 When you skip XAML, every control tree is instantiated manually. You can:
 - Derive from `Window`, `UserControl`, or `ContentControl` and compose UI in the constructor.
@@ -10309,11 +10403,11 @@ scope.Register("StatusText", statusText);
 
 This matches `NameScope` behaviour from XAML (see `external/Avalonia/src/Avalonia.Base/LogicalTree/NameScope.cs`).
 
-## 4. Binding, commands, and services without markup extensions
+### 4. Binding, commands, and services without markup extensions
 
 Code-first projects rely on the same binding engine, but you create bindings manually or use compiled binding helpers.
 
-### Creating bindings programmatically
+#### Creating bindings programmatically
 
 ```csharp
 var textBox = new TextBox();
@@ -10344,7 +10438,7 @@ var compiled = factory.Create<object, string>(
 textBox.Bind(TextBox.TextProperty, compiled);
 ```
 
-### Services and dependency injection
+#### Services and dependency injection
 
 Use `AvaloniaLocator.CurrentMutable` (defined in `Application.RegisterServices`) to register services. For richer DI, integrate libraries like `Microsoft.Extensions.DependencyInjection`.
 
@@ -10364,11 +10458,11 @@ protected override void RegisterServices()
 
 Later, resolve services via `AvaloniaLocator.Current.GetService<HomeViewModel>()` or inject them into controls. Because `RegisterServices` runs before `Initialize`, you can use registered services while building resources.
 
-## 5. Theming, resources, and modular structure
+### 5. Theming, resources, and modular structure
 
 Code-first theming revolves around `ResourceDictionary`, `Styles`, and `StyleInclude`.
 
-### Centralize app resources
+#### Centralize app resources
 
 ```csharp
 private static ResourceDictionary CreateAppResources()
@@ -10436,7 +10530,7 @@ public void UseDarkTheme()
 
 Iterate the collection when swapping themes—`Styles` implements `IEnumerable<IStyle>` so a simple `foreach` keeps dependencies minimal. Remember to freeze brushes (`Brushes.Transparent` is already frozen) when reusing them to avoid unnecessary allocations.
 
-### Organize modules by feature
+#### Organize modules by feature
 
 A common pattern is to place each feature in its own namespace with:
 - A factory method returning a `Control` (for pure code) or a partial class if you mix `.axaml` for templates.
@@ -10462,7 +10556,7 @@ src/
 
 `DashboardStyles` might expose a `Styles` property you merge into `Application.Styles`. Keep style/helper definitions close to the controls they customize to maintain cohesion.
 
-## 6. Migrating from XAML to code-first
+### 6. Migrating from XAML to code-first
 
 To convert an existing XAML-based app:
 
@@ -10475,7 +10569,7 @@ To convert an existing XAML-based app:
 
 Testing after each step keeps parity. Avalonia DevTools still works with code-first UI, so inspect logical/visual trees to confirm bindings and styles resolved correctly.
 
-## 7. Practice lab
+### 7. Practice lab
 
 1. **From template to C#** – Scaffold a standard Avalonia MVVM template, then delete `App.axaml` and `MainWindow.axaml`. Recreate them as classes mirroring their original layout using C# object initializers. Verify styles, resources, and data bindings behave identically using DevTools.
 2. **Theme switcher** – Implement light/dark `Styles` groups in code. Add a toggle button that swaps `Application.Current.Styles` and persists the choice using your service layer.
@@ -10493,7 +10587,7 @@ What's next
 \newpage
 ```
 
-# 34. Layouts and controls authored in pure C#
+## 34. Layouts and controls authored in pure C#
 
 Goal
 - Compose Avalonia visual trees entirely in code using layout containers, attached properties, and fluent helpers.
@@ -10510,7 +10604,7 @@ Prerequisites
 - Chapter 9 (input) if you plan to attach event handlers in code-behind.
 - Chapter 33 (code-first startup) for application scaffolding and DI patterns.
 
-## 1. Layout primitives in code: `StackPanel`, `Grid`, `DockPanel`
+### 1. Layout primitives in code: `StackPanel`, `Grid`, `DockPanel`
 
 Avalonia's panels live in `external/Avalonia/src/Avalonia.Controls/`. Construct them exactly as you would in XAML, but populate `Children` and set properties directly.
 
@@ -10539,7 +10633,7 @@ private static TextBox CreateLabeledInput(string label, out TextBlock caption)
 }
 ```
 
-### Grids without XAML strings
+#### Grids without XAML strings
 
 `Grid` exposes `RowDefinitions`/`ColumnDefinitions` collections of `RowDefinition`/`ColumnDefinition`. You add definitions and set attached properties programmatically.
 
@@ -10576,7 +10670,7 @@ grid.Children.Add(filterBox);
 
 Attached property methods (`Grid.SetRow`, `Grid.SetColumnSpan`) are static for clarity. Because they ultimately call `AvaloniaObject.SetValue`, you can wrap them in fluent helpers if you prefer chaining (example later in section 3).
 
-### Dock layouts and last-child filling
+#### Dock layouts and last-child filling
 
 `DockPanel` (source: `DockPanel.cs`) uses the `Dock` attached property. From code you set it with `DockPanel.SetDock(control, Dock.Left)`.
 
@@ -10614,7 +10708,7 @@ public static class DockExtensions
 
 You own these helpers, so you can tailor them for your team's conventions (dock with margins, apply classes, etc.).
 
-## 2. Working with the property system: `SetValue`, `SetCurrentValue`, observers
+### 2. Working with the property system: `SetValue`, `SetCurrentValue`, observers
 
 Without XAML attribute syntax you interact with `AvaloniaProperty` APIs directly. Every control inherits from `AvaloniaObject` (`AvaloniaObject.cs`), which exposes:
 
@@ -10642,7 +10736,7 @@ box.GetObservable(TextBox.TextProperty)
 
 `GetObservable` is defined in `AvaloniaObject`. Remember to dispose subscriptions when controls leave the tree—store `IDisposable` tokens and call `Dispose` in your control's `DetachedFromVisualTree` handler.
 
-### Creating reusable property helpers
+#### Creating reusable property helpers
 
 When repeating property patterns, encapsulate them:
 
@@ -10666,7 +10760,7 @@ public static class ControlHelpers
 
 These mirror markup extensions in code, making complex layouts more declarative.
 
-## 3. Factories, builders, and fluent composition
+### 3. Factories, builders, and fluent composition
 
 Large code-first views benefit from factory methods that return configured controls. Compose factories from smaller functions to keep logic readable.
 
@@ -10715,7 +10809,7 @@ public static class GridExtensions
 
 This approach keeps UI declarations near data bindings, reducing mental overhead for reviewers.
 
-### Repeating structures via LINQ or loops
+#### Repeating structures via LINQ or loops
 
 Because you're in C#, generate children dynamically:
 
@@ -10736,7 +10830,7 @@ foreach (var card in cards)
 
 `Grid` measure logic handles dynamic counts; just ensure `RowDefinitions` fits the generated children (add rows as needed or rely on `GridLength.Auto`).
 
-### Sharing styles between factories
+#### Sharing styles between factories
 
 Factories can return both controls and supporting `Styles`:
 
@@ -10752,7 +10846,7 @@ public static Styles DashboardStyles { get; } = new Styles
 
 Merge these into `Application.Current.Styles` in `App.Initialize()` or on demand when the feature loads.
 
-## 4. Managing `NameScope`, logical/visual trees, and lookup
+### 4. Managing `NameScope`, logical/visual trees, and lookup
 
 XAML automatically registers names in a `NameScope`. In code-first views you create and assign it manually when you need element lookup or `ElementName`-like references.
 
@@ -10775,7 +10869,7 @@ var detail = container.FindControl<StackPanel>("DetailPanel");
 
 `NameScope` implementation lives in `external/Avalonia/src/Avalonia.Base/LogicalTree/NameScope.cs`. Remember that nested scopes behave like XAML: children inherit the nearest scope unless you assign a new one.
 
-### Logical tree utilities
+#### Logical tree utilities
 
 Avalonia's logical tree helpers (`LogicalTreeExtensions.cs`) are just as useful without XAML. Use them to inspect or traverse the tree:
 
@@ -10786,9 +10880,9 @@ IEnumerable<IControl> children = myControl.GetLogicalChildren().OfType<IControl>
 
 This is handy when you dynamically add/remove controls and need to ensure data contexts or resources flow correctly. To validate at runtime, enable DevTools (`Avalonia.Diagnostics`) even in code-only views—the visual tree is identical.
 
-## 5. Advanced controls entirely from C#
+### 5. Advanced controls entirely from C#
 
-### `TabControl` and dynamic pages
+#### `TabControl` and dynamic pages
 
 `TabControl` expects `TabItem` children. Compose them programmatically and bind headers/content.
 
@@ -10819,7 +10913,7 @@ tabControl.ItemTemplate = new FuncDataTemplate<IDetailViewModel>((context, _) =>
     supportsRecycling: true);
 ```
 
-### Lists with factories
+#### Lists with factories
 
 `ItemsControl` and `ListBox` take `Items` plus optional panel templates. Build the items panel in code to control layout.
 
@@ -10833,7 +10927,7 @@ var list = new ListBox
 
 Here `FuncTemplate` comes from `Avalonia.Controls.Templates` (source: `FuncTemplate.cs`). It mirrors `<ItemsPanelTemplate>`.
 
-### Popups and overlays
+#### Popups and overlays
 
 Controls like `FlyoutBase` or `Popup` are fully accessible in code. Example: attach a contextual menu.
 
@@ -10851,7 +10945,7 @@ button.Flyout = new MenuFlyout
 
 The object initializer syntax keeps the code close to the equivalent XAML while exposing full IntelliSense.
 
-## 6. Diagnostics and testing for code-first layouts
+### 6. Diagnostics and testing for code-first layouts
 
 Because no XAML compilation step validates your layout, lean on:
 - **Unit tests** using `Avalonia.Headless` to instantiate controls and assert layout bounds.
@@ -10876,7 +10970,7 @@ public void Summary_panel_contains_totals()
 
 `GetLogicalDescendants` is defined in `LogicalTreeExtensions`. Pair this with Chapter 38 for deeper testing patterns.
 
-## 7. Practice lab
+### 7. Practice lab
 
 1. **StackPanel to Grid refactor** – Start with a simple `StackPanel` form built in code. Refactor it to a `Grid` with columns and auto-sizing rows using only C# helpers. Confirm layout parity via DevTools.
 2. **Dashboard factory** – Implement a `DashboardViewFactory` that returns a `Grid` with cards arranged dynamically based on a view-model collection. Add fluent helpers for grid position, dock, and margin management.
@@ -10894,7 +10988,7 @@ What's next
 \newpage
 ```
 
-# 35. Bindings, resources, and styles with fluent APIs
+## 35. Bindings, resources, and styles with fluent APIs
 
 Goal
 - Compose data bindings, resource lookups, and styles from C# using the same primitives Avalonia's XAML markup wraps.
@@ -10911,7 +11005,7 @@ Prerequisites
 - Chapter 33 (code-only startup) for service registration and theme initialization.
 - Chapter 34 (layout) for structuring controls that consume bindings/styles.
 
-## 1. Binding essentials without markup
+### 1. Binding essentials without markup
 
 Avalonia's binding engine is expressed via `Binding` (`external/Avalonia/src/Avalonia.Base/Data/Binding.cs`). Construct bindings with property paths, modes, converters, and validation:
 
@@ -10947,7 +11041,7 @@ var binding = new Binding
 header.Bind(TextBlock.TextProperty, binding);
 ```
 
-### Indexer bindings from code
+#### Indexer bindings from code
 
 Avalonia supports indexer paths (dictionary or list access) via the same `Binding.Path` syntax used in XAML.
 
@@ -10958,7 +11052,7 @@ statusText.Bind(TextBlock.TextProperty, new Binding("Statuses[SelectedStatus]"))
 
 Internally the binding engine uses `IndexerNode` (see `ExpressionNodes`). You still get change notifications when the indexer raises property change events (`INotifyPropertyChanged` + `IndexerName`). For dynamic dictionaries, call `RaisePropertyChanged("Item[]")` on changes.
 
-### Typed bindings with `CompiledBindingFactory`
+#### Typed bindings with `CompiledBindingFactory`
 
 Compiled bindings avoid reflection at runtime. Create a factory and supply strongly-typed accessors, mirroring `{CompiledBinding}` usage.
 
@@ -10975,7 +11069,7 @@ headerText.Bind(TextBlock.TextProperty, compiled);
 
 `CompiledBindingFactory` resides in `Avalonia.Data.Core`. Pass `BindingPriority` if you need to align with style triggers. Because compiled bindings capture delegates, they work well with source generators or analyzers.
 
-### Binding helpers for fluent composition
+#### Binding helpers for fluent composition
 
 Create extension methods to reduce boilerplate:
 
@@ -10998,9 +11092,9 @@ var searchBox = new TextBox()
     .BindValue(TextBox.TextProperty, nameof(SearchViewModel.Query), BindingMode.TwoWay);
 ```
 
-## 2. Validation, converters, and multi-bindings
+### 2. Validation, converters, and multi-bindings
 
-### Validation feedback
+#### Validation feedback
 
 Avalonia surfaces validation errors via `BindingNotification`. In code you set validation options on binding instances:
 
@@ -11021,7 +11115,7 @@ amountTextBox.GetObservable(DataValidationErrors.HasErrorsProperty)
     .Subscribe(hasErrors => amountTextBox.Classes.Set(":invalid", hasErrors));
 ```
 
-### Converters and converter parameters
+#### Converters and converter parameters
 
 Instantiate converters directly and assign them to `Binding.Converter`:
 
@@ -11037,7 +11131,7 @@ spinner.Bind(IsVisibleProperty, binding);
 
 For inline converters, create lambda-based converter classes implementing `IValueConverter`. In code-first setups you can keep converter definitions close to usage.
 
-### Multi-binding composition
+#### Multi-binding composition
 
 `MultiBinding` lives in `Avalonia.Base/Data/MultiBinding.cs`. Configure binding collection and converters directly.
 
@@ -11057,7 +11151,7 @@ fullNameText.Bind(TextBlock.TextProperty, multi);
 
 `FullNameConverter` implements `IMultiValueConverter`. When multi-binding in code, consider static singletons to avoid allocations.
 
-## 3. Commands and observables from code
+### 3. Commands and observables from code
 
 Avalonia command support is just binding to `ICommand`. With code-first patterns, leverage `ReactiveCommand` or custom commands while still using `Bind`:
 
@@ -11067,7 +11161,7 @@ refreshButton.Bind(Button.CommandProperty, new Binding("RefreshCommand"));
 
 To observe property changes for reactive flows, use `GetObservable` or `PropertyChanged` events. Combine with `ReactiveUI` by using `WhenAnyValue` inside view models—code-first views don’t change this interop.
 
-## 4. Resource dictionaries and lookup patterns
+### 4. Resource dictionaries and lookup patterns
 
 `ResourceDictionary` is just a C# collection (see `external/Avalonia/src/Avalonia.Base/Controls/ResourceDictionary.cs`). Create dictionaries and merge them programmatically.
 
@@ -11119,7 +11213,7 @@ public static TResource GetResource<TResource>(this IResourceHost host, string k
 
 `IResourceHost`/`IResourceProvider` interfaces are defined in `Avalonia.Styling`. Controls implement them, so you can call `control.TryFindResource` directly.
 
-## 5. Building styles fluently
+### 5. Building styles fluently
 
 `Style` objects can be constructed with selectors and setters. The selector API mirrors XAML but uses lambda syntax.
 
@@ -11146,7 +11240,7 @@ var buttonStyle = new Style(x => x.OfType<Button>().Class("primary"))
 
 Add styles to `Application.Current.Styles` or to a specific control’s `Styles` collection. Remember to freeze brushes (call `ToImmutable()` or use static brushes) when reusing them widely.
 
-### Style includes and theme variants
+#### Style includes and theme variants
 
 You can still load existing `.axaml` resources via `StyleInclude`, or create purely code-based ones:
 
@@ -11179,9 +11273,9 @@ buttonStyle.Resources[ThemeVariant.Light] = Brushes.Black;
 buttonStyle.Resources[ThemeVariant.Dark] = Brushes.White;
 ```
 
-## 6. Code-first binding infrastructure patterns
+### 6. Code-first binding infrastructure patterns
 
-### Binding factories per view-model
+#### Binding factories per view-model
 
 Encapsulate binding creation in dedicated classes to avoid scattering strings:
 
@@ -11196,7 +11290,7 @@ salesText.Bind(TextBlock.TextProperty, DashboardBindings.TotalSales);
 refreshButton.Bind(Button.CommandProperty, DashboardBindings.RefreshCommand);
 ```
 
-### Expression-based helpers
+#### Expression-based helpers
 
 Use expression trees to produce path strings while maintaining compile-time checks:
 
@@ -11214,7 +11308,7 @@ public static class BindingFactory
 
 `ExpressionHelper` can walk the expression tree to build `Customer.Addresses[0].City` style paths, ensuring refactors update bindings.
 
-### Declarative resource builders
+#### Declarative resource builders
 
 Provide factories for resource dictionaries similar to style factories:
 
@@ -11231,7 +11325,7 @@ public static class ResourceFactory
 
 Merge them in `App.Initialize()` or feature modules when needed.
 
-## 7. Practice lab
+### 7. Practice lab
 
 1. **Binding library** – Implement a helper class that exposes strongly-typed bindings for a view-model using expression trees. Replace string-based paths in an existing code-first view.
 2. **Indexer dashboards** – Build a dashboard card that binds to `Metrics["TotalRevenue"]` from a dictionary-backed view-model. Raise change notifications on dictionary updates and verify the UI refreshes.
@@ -11249,7 +11343,7 @@ What's next
 \newpage
 ```
 
-# 36. Templates, indexers, and dynamic component factories
+## 36. Templates, indexers, and dynamic component factories
 
 Goal
 - Compose control, data, and tree templates in pure C# using Avalonia’s functional template APIs.
@@ -11266,7 +11360,7 @@ Prerequisites
 - Chapter 35 (bindings/resources) for binding syntax and helper patterns.
 - Chapter 23 (custom controls) if you plan to author templated controls that consume templates from code.
 
-## 1. Control templates in code with `FuncControlTemplate`
+### 1. Control templates in code with `FuncControlTemplate`
 
 `FuncControlTemplate<T>` (source: `external/Avalonia/src/Avalonia.Controls/Templates/FuncControlTemplate.cs`) produces a `ControlTemplate` that builds visuals from code. It takes a lambda that receives the templated parent and returns a `Control`/`IControl` tree.
 
@@ -11306,7 +11400,7 @@ Notes from the source implementation:
 - The second parameter (`INameScope scope`) lets you register named parts exactly like `<ControlTemplate>` does in XAML. Use it to satisfy template part lookups in your control’s code-behind.
 - The lambda executes each time the control template is applied, so create new control instances inside the lambda—avoid caching across calls.
 
-### Template bindings and `TemplatedParent`
+#### Template bindings and `TemplatedParent`
 
 Use `TemplateBinding` helpers (`TemplateBindingExtensions`) to bind template visual properties to the templated control.
 
@@ -11328,7 +11422,7 @@ presenter.Bind(ContentPresenter.ContentProperty, parent.GetTemplateBinding(Conte
 
 `TemplateBindingExtensions.cs` shows this helper returns a lightweight binding linked to the templated parent’s property value.
 
-## 2. Data templates with `FuncDataTemplate`
+### 2. Data templates with `FuncDataTemplate`
 
 `FuncDataTemplate<T>` (source: `FuncDataTemplate.cs`) creates visuals for data items. Often you assign it to `ContentControl.ContentTemplate` or `ItemsControl.ItemTemplate`.
 
@@ -11356,7 +11450,7 @@ Pass `recycle: true` to participate in virtualization (controls are reused). Att
 itemsControl.ItemTemplate = itemTemplate;
 ```
 
-### Binding inside data templates
+#### Binding inside data templates
 
 Because the template receives the data item, you can access its properties directly or create bindings relative to the template context.
 
@@ -11382,7 +11476,7 @@ var template = new FuncDataTemplate<Customer>((item, scope) =>
 
 `FuncDataTemplate` sets the `DataContext` to the item automatically, so bindings with explicit paths work without additional setup.
 
-### Template selectors
+#### Template selectors
 
 `FuncDataTemplate` supports predicates for conditional templates. Use the overload that accepts a `Func<object?, bool>` predicate.
 
@@ -11397,7 +11491,7 @@ var selector = new FuncDataTemplate<Transaction>((item, _) =>
 
 For more complex selection logic, implement `IDataTemplate` manually or use `DataTemplateSelector` base classes from community packages.
 
-## 3. Hierarchical templates with `FuncTreeDataTemplate`
+### 3. Hierarchical templates with `FuncTreeDataTemplate`
 
 `FuncTreeDataTemplate<T>` builds item templates for hierarchical data such as tree views. It receives the item and a recursion function.
 
@@ -11425,7 +11519,7 @@ The third argument is `supportsRecycling`. The second argument is the accessor r
 
 `FuncTreeDataTemplate` internally wires `TreeDataTemplate` with lambda-based factories, so you get the same virtualization behaviour as XAML templates.
 
-## 4. Instanced bindings and indexer tricks
+### 4. Instanced bindings and indexer tricks
 
 `InstancedBinding` (source: `external/Avalonia/src/Avalonia.Data/Core/InstancedBinding.cs`) lets you precompute a binding for a known source. It’s powerful when a template needs to bind to an item-specific property or when you assemble UI from graphs.
 
@@ -11439,7 +11533,7 @@ text.Bind(text.TextProperty, instanced);
 
 Because you supply the source (`metricsDictionary`), the binding bypasses `DataContext`. This is useful in templates where you juggle multiple sources (e.g., templated parent + external service).
 
-### Binding to template parts via indexers
+#### Binding to template parts via indexers
 
 Within templates you can reference named parts registered through `scope.RegisterNamed`. After applying the template, resolve them via `TemplateAppliedEventArgs`.
 
@@ -11453,7 +11547,7 @@ protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
 
 From code-first templates, ensure the name scope registration occurs inside the template lambda as shown earlier.
 
-## 5. Swapping templates at runtime
+### 5. Swapping templates at runtime
 
 Because templates are just CLR objects, you can replace them dynamically to support different visual representations.
 
@@ -11483,9 +11577,9 @@ contentControl.Bind(ContentControl.ContentTemplateProperty, new Binding("Selecte
 
 The view-model exposes `IDataTemplate SelectedTemplate`, and your code-first view updates this property to switch visuals.
 
-## 6. Component factories and virtualization
+### 6. Component factories and virtualization
 
-### Control factories
+#### Control factories
 
 Wrap template logic in factories that accept data and return controls, useful for plugin systems.
 
@@ -11519,7 +11613,7 @@ panel.Children.Add(widget);
 
 Factories can also emit data templates instead of controls. For virtualization, return a `FuncDataTemplate` that participates in recycling.
 
-### Items panel factories
+#### Items panel factories
 
 `ItemsControl` allows specifying the `ItemsPanel` with `FuncTemplate<Panel?>`. Build them from code to align virtualization mode with runtime options.
 
@@ -11534,7 +11628,7 @@ itemsControl.ItemsPanel = new FuncTemplate<Panel?>(() =>
 
 `FuncTemplate<T>` lives in `external/Avalonia/src/Avalonia.Controls/Templates/FuncTemplate.cs` and returns a new panel per items presenter.
 
-### Recycling with `RecyclingElementFactory`
+#### Recycling with `RecyclingElementFactory`
 
 Avalonia’s element factories provide direct control over virtualization (see `external/Avalonia/src/Avalonia.Controls/Generators/`). You can use `RecyclingElementFactory` and supply templates via `IDataTemplate` implementations defined in code.
 
@@ -11550,7 +11644,7 @@ var items = new ItemsRepeater { ItemTemplate = factory };
 
 `ItemsRepeater` (in `Avalonia.Controls`) mirrors WinUI’s control. Providing a factory integrates with virtualization surfaces better than raw `ItemsControl` in performance-sensitive scenarios.
 
-## 7. Testing templates and factories
+### 7. Testing templates and factories
 
 - **Unit tests**: Use `FuncDataTemplate.Build(item)` to materialize the control tree in memory and assert shape/values.
 
@@ -11568,7 +11662,7 @@ public void Order_item_template_renders_quantity()
 - **Headless rendering**: Combine with Chapter 40 to capture template output bitmaps.
 - **Name scope checks**: After applying control templates, call `TemplateAppliedEventArgs.NameScope.Find` in tests to guarantee required parts exist.
 
-## 8. Practice lab
+### 8. Practice lab
 
 1. **Card control template** – Build a `FuncControlTemplate` for a `CardControl` that registers named parts, uses template bindings for background/content, and applies to multiple instances with different content.
 2. **Conditional data templates** – Create templates for `IssueViewModel` that render differently based on `IsClosed`. Swap templates dynamically by changing a property on the view-model.
@@ -11586,7 +11680,7 @@ What's next
 \newpage
 ```
 
-# 37. Reactive patterns, helpers, and tooling for code-first teams
+## 37. Reactive patterns, helpers, and tooling for code-first teams
 
 Goal
 - Combine Avalonia’s property system with reactive libraries (ReactiveUI, DynamicData) entirely from C#.
@@ -11603,7 +11697,7 @@ Prerequisites
 - Chapter 29 (animations) and Chapter 24 (DevTools) for background on transitions and diagnostics.
 - Working familiarity with ReactiveUI/DynamicData if you plan to reuse those patterns.
 
-## 1. Reactive building blocks in Avalonia
+### 1. Reactive building blocks in Avalonia
 
 Avalonia’s property system already supports observables. `AvaloniaObject` exposes `GetObservable` and `GetPropertyChangedObservable` so you can build reactive pipelines without XAML triggers.
 
@@ -11617,7 +11711,7 @@ textBox.GetObservable(TextBox.TextProperty)
 
 Use `ObserveOn(RxApp.MainThreadScheduler)` to marshal onto the UI thread when subscribing. For non-ReactiveUI projects, use `DispatcherScheduler.Current` (from `Avalonia.Reactive`) or `Dispatcher.UIThread.InvokeAsync` inside the observer.
 
-### Connecting to ReactiveUI view-models
+#### Connecting to ReactiveUI view-models
 
 ReactiveUI view-models usually expose `ReactiveCommand` and `ObservableAsPropertyHelper`. Bind them as usual, but you can also subscribe directly:
 
@@ -11630,7 +11724,7 @@ vm.WhenAnyValue(x => x.IsLoading)
 
 `WhenAnyValue` is extension from `ReactiveUI`. For code-first views, you may bridge them via constructor injection, ensuring the view wires observable pipelines in its constructor or `OnAttachedToVisualTree` lifecycle methods.
 
-### DynamicData for collections
+#### DynamicData for collections
 
 DynamicData shines when projecting observable collections into UI-friendly lists.
 
@@ -11648,7 +11742,7 @@ listBox.Items = items;
 
 Dispose the subscription when the control unloads to prevent leaks (e.g., store `IDisposable` and dispose in `DetachedFromVisualTree`).
 
-## 2. Working with `Classes` and `PseudoClasses`
+### 2. Working with `Classes` and `PseudoClasses`
 
 `Classes` and `PseudoClasses` collections (defined in `Avalonia.Styling`) let you toggle CSS-like states entirely from C#.
 
@@ -11681,7 +11775,7 @@ public static class ClassExtensions
 }
 ```
 
-### Behaviours from `Avalonia.Interactivity`
+#### Behaviours from `Avalonia.Interactivity`
 
 `Interaction` (in `external/Avalonia/src/Avalonia.Interactivity/Interaction.cs`) provides behaviour collections similar to WPF. You can attach behaviours programmatically via `Interaction.SetBehaviors`.
 
@@ -11694,7 +11788,7 @@ Interaction.SetBehaviors(listBox, new BehaviorCollection
 
 Behaviours are regular classes implementing `IBehavior`. Author your own to encapsulate complex logic like drag-to-reorder.
 
-## 3. Transitions, animations, and reactive triggers
+### 3. Transitions, animations, and reactive triggers
 
 `Transitions` collection (from `Avalonia.Animation`) lives on `Control`. Build transitions and hook them dynamically.
 
@@ -11719,7 +11813,7 @@ vm.WhenAnyValue(x => x.ShowDetails)
 
 The change triggers the transition. Because transitions live on the control, you can swap them per theme or feature by replacing the `Transitions` collection at runtime.
 
-### Animation helpers
+#### Animation helpers
 
 `Animatable.BeginAnimation` (from `AnimationExtensions`) lets you trigger storyboards without styles:
 
@@ -11741,7 +11835,7 @@ panel.BeginAnimation(Border.OpacityProperty, new Animation
 
 Encapsulate animations into factory methods for reuse across views.
 
-## 4. Hot reload and state persistence helpers
+### 4. Hot reload and state persistence helpers
 
 While Avalonia’s XAML Previewer focuses on markup, code-first workflows can approximate hot reload using:
 - **`DevTools`**: `AttachDevTools()` on the main window or `AppBuilder` (see `ApplicationLifetimes`).
@@ -11759,7 +11853,7 @@ if (Debugger.IsAttached)
 
 For headless tests, log control trees after creation to confirm state without UI.
 
-## 5. Diagnostics pipelines
+### 5. Diagnostics pipelines
 
 Integrate logging by observing key properties and commands.
 
@@ -11778,7 +11872,7 @@ if (Debugger.IsAttached)
 }
 ```
 
-## 6. Putting it together: Building reusable helper libraries
+### 6. Putting it together: Building reusable helper libraries
 
 Create a shared library of helpers tailored to your code-first patterns:
 
@@ -11803,7 +11897,7 @@ _disposables.Add(vm.BindState(this, x => x.IsActive, ":active"));
 
 Maintain a `CompositeDisposable` on the view to dispose subscriptions when the view unloads. Override `OnAttachedToVisualTree`/`OnDetachedFromVisualTree` to manage lifetime.
 
-## 7. Practice lab
+### 7. Practice lab
 
 1. **Reactive state toggles** – Implement a helper that watches `WhenAnyValue` on a view-model and toggles `Classes` on a panel. Verify with headless tests that pseudo-class changes propagate to styles.
 2. **Transition kit** – Build a factory returning `Transitions` configured per theme (e.g., fast vs. slow). Swap collections at runtime and instrument the effect with property observers.
@@ -11816,12 +11910,24 @@ Reactive helper patterns ensure code-first Avalonia apps stay expressive, mainta
 What's next
 - Next: [Chapter38](Chapter38.md)
 
+```{=latex}
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{Part VIII — Headless unit testing that gives confidence}
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+{\Huge\bfseries Part VIII — Headless unit testing that gives confidence}
+\end{center}
+\vspace*{\fill}
+\clearpage
+```
 
 ```{=latex}
 \newpage
 ```
 
-# 38. Headless platform fundamentals and lifetimes
+## 38. Headless platform fundamentals and lifetimes
 
 Goal
 - Run Avalonia apps without a windowing system so tests, previews, and automation can execute in CI.
@@ -11838,7 +11944,7 @@ Prerequisites
 - Chapter 33 (code-first startup) for wiring services/resources without XAML.
 - Chapter 21 (Headless and testing overview) for the bigger picture of test tooling.
 
-## 1. Meet the headless platform
+### 1. Meet the headless platform
 
 The headless backend lives in `external/Avalonia/src/Headless/Avalonia.Headless`. You enable it by calling `UseHeadless()` on `AppBuilder`.
 
@@ -11870,7 +11976,7 @@ Key extension: `AvaloniaHeadlessAppBuilderExtensions.UseHeadless` registers plat
 
 Because `UseHeadless()` skips `UsePlatformDetect()`, call it explicitly in tests. For hybrid apps, provide a `BuildAvaloniaApp` overload that chooses headless vs. desktop based on environment.
 
-## 2. Lifetimes built for tests
+### 2. Lifetimes built for tests
 
 Headless apps use `HeadlessLifetime` (see `Avalonia.Headless/HeadlessLifetime.cs`). It mimics `IClassicDesktopStyleApplicationLifetime` but never opens OS windows.
 
@@ -11896,7 +12002,7 @@ public sealed class TestApp : Application
 
 You can also use `SingleViewLifetime` (`Avalonia.Controls/ApplicationLifetimes/ISingleViewApplicationLifetime.cs`) for mobile-like scenarios. Headless tests frequently wire both so code mirrors production flows.
 
-### Switching lifetimes per environment
+#### Switching lifetimes per environment
 
 ```csharp
 var builder = Program.BuildAvaloniaApp(enableSkia: true);
@@ -11916,11 +12022,11 @@ else
 
 `SetupWithoutStarting()` (from `AppBuilderBase`) initializes the app without running the run loop, allowing you to plug in custom lifetimes.
 
-## 3. Headless application sessions for test frameworks
+### 3. Headless application sessions for test frameworks
 
 `HeadlessUnitTestSession` (source: `Avalonia.Headless/HeadlessUnitTestSession.cs`) coordinates app startup across tests so each fixture doesn’t rebuild the runtime.
 
-### NUnit integration
+#### NUnit integration
 
 `Avalonia.Headless.NUnit` ships attributes (`[AvaloniaTest]`, `[AvaloniaTheory]`) that wrap tests in a session. Example test fixture:
 
@@ -11944,15 +12050,15 @@ public class CounterTests
 
 `HeadlessUnitTestSession.Start<TApp>()` spins up the shared app and dispatcher. `FindControl` works because the visual tree exists even though no OS window renders.
 
-### xUnit integration
+#### xUnit integration
 
 `Avalonia.Headless.XUnit` provides `[AvaloniaFact]` and `[AvaloniaTheory]` attributes. Decorate your test class with `[CollectionDefinition]` to ensure single app instance per collection when running in parallel.
 
-## 4. Dispatcher, render loops, and timing
+### 4. Dispatcher, render loops, and timing
 
 Headless rendering still uses Avalonia’s dispatcher and render loop. `HeadlessWindowImpl` (source: `Avalonia.Headless/HeadlessWindowImpl.cs`) implements `IWindowImpl` with an in-memory framebuffer. Understanding its behaviour is crucial for deterministic tests.
 
-### Forcing layout/render ticks
+#### Forcing layout/render ticks
 
 Headless tests don’t run an infinite loop unless you start it. Use `AvaloniaHeadlessPlatform.ForceRenderTimerTick()` to advance timers manually.
 
@@ -11966,7 +12072,7 @@ public static void RenderFrame(TopLevel topLevel)
 
 `RunJobsOnMainThread()` is a helper extension defined in `HeadlessWindowExtensions`. It drains pending dispatcher work and ensures layout/render happens before assertions.
 
-### Simulating async work
+#### Simulating async work
 
 Combine `Dispatcher.UIThread.InvokeAsync` with `ForceRenderTimerTick` to await UI updates:
 
@@ -11977,7 +12083,7 @@ AvaloniaHeadlessPlatform.ForceRenderTimerTick();
 
 In tests, call `Dispatcher.UIThread.RunJobs()` to flush pending tasks (extension in `Avalonia.Headless` as well).
 
-## 5. Input, focus, and window services
+### 5. Input, focus, and window services
 
 `HeadlessWindowImpl` implements `IHeadlessWindow`, exposing methods to simulate input:
 
@@ -12005,7 +12111,7 @@ protected override void RegisterServices()
 
 `Avalonia.Headless` already provides `HeadlessClipboard`, `HeadlessCursorFactory`, and other minimal implementations; inspect `Avalonia.Headless` folder for available services before writing your own.
 
-## 6. Rendering options and Skia integration
+### 6. Rendering options and Skia integration
 
 By default headless renders via CPU copy. To generate bitmaps (Chapter 40), enable Skia:
 
@@ -12018,7 +12124,7 @@ When `UseSkia` is true, the backend creates a Skia surface per frame. Ensure the
 
 `HeadlessWindowExtensions.CaptureRenderedFrame(topLevel)` captures an `IBitmap` of the latest frame—use it for snapshot tests.
 
-## 7. Troubleshooting common issues
+### 7. Troubleshooting common issues
 
 - **App not initialized**: Ensure `AppBuilder.Configure<App>()` runs before calling `HeadlessUnitTestSession.Start`. Missing static constructor often stems from trimming or linking; mark entry point classes with `[assembly: RequiresUnreferencedCode]` if needed.
 - **Dispatcher deadlocks**: Always schedule UI work via `Dispatcher.UIThread`. If a test blocks the UI thread, there’s no OS event loop to bail you out.
@@ -12026,7 +12132,7 @@ When `UseSkia` is true, the backend creates a Skia surface per frame. Ensure the
 - **Time-dependent tests**: When using timers, call `ForceRenderTimerTick` repeatedly or provide deterministic scheduler wrappers.
 - **Memory leaks**: Dispose windows (`window.Close()`) and subscriptions (`CompositeDisposable`) after each test—headless sessions persist across multiple tests by default.
 
-## 8. Practice lab
+### 8. Practice lab
 
 1. **Headless bootstrap** – Build a reusable `HeadlessTestApplication` that mirrors your production `App` styles/resources. Verify service registration via unit tests that resolve dependencies from `AvaloniaLocator`.
 2. **Lifetime switcher** – Write a helper that starts your app with `HeadlessLifetime` when `DOTNET_RUNNING_IN_CONTAINER` is set. Assert via tests that both classic desktop and headless lifetimes share the same `OnFrameworkInitializationCompleted` flow.
@@ -12044,7 +12150,7 @@ What's next
 \newpage
 ```
 
-# 39. Unit testing view-models and controls headlessly
+## 39. Unit testing view-models and controls headlessly
 
 Goal
 - Exercise your UI and view-model logic inside real `Dispatcher` loops without opening desktop windows.
@@ -12061,11 +12167,11 @@ Prerequisites
 - Chapter 21 for the bird’s-eye view of headless testing capabilities.
 - Chapter 38 for platform options, dispatcher control, and input helpers.
 
-## 1. Pick the headless harness
+### 1. Pick the headless harness
 
 Avalonia ships runner glue for xUnit and NUnit so your test bodies always execute on the UI dispatcher.
 
-### xUnit: opt into the Avalonia test framework
+#### xUnit: opt into the Avalonia test framework
 
 Add the assembly-level attribute once and then decorate tests with `[AvaloniaFact]`/`[AvaloniaTheory]`.
 
@@ -12080,7 +12186,7 @@ using Avalonia.Headless.XUnit;
 
 `AvaloniaTestFramework` (see `external/Avalonia/src/Headless/Avalonia.Headless.XUnit/AvaloniaTestFramework.cs`) installs a custom executor that spawns a `HeadlessUnitTestSession` for the assembly. Each `[AvaloniaFact]` routes through `AvaloniaTestCaseRunner`, ensuring awaited continuations re-enter the dispatcher thread.
 
-### NUnit: wrap commands via `[AvaloniaTest]`
+#### NUnit: wrap commands via `[AvaloniaTest]`
 
 ```csharp
 using Avalonia.Headless;
@@ -12104,7 +12210,7 @@ public class ButtonSpecs
 
 `AvaloniaTestAttribute` swaps NUnit’s command pipeline with `AvaloniaTestMethodCommand` (`external/Avalonia/src/Headless/Avalonia.Headless.NUnit/AvaloniaTestMethodCommand.cs`), capturing `SetUp`/`TearDown` delegates and executing them inside the shared dispatcher.
 
-## 2. Bootstrap the application under test
+### 2. Bootstrap the application under test
 
 The harness needs an entry point that mirrors production startup. Reuse your `BuildAvaloniaApp` method or author a lightweight test shell.
 
@@ -12130,7 +12236,7 @@ public class TestApp : Application
 
 This pattern matches Avalonia’s own tests (`external/Avalonia/tests/Avalonia.Headless.UnitTests/TestApplication.cs`). When the runner detects `BuildAvaloniaApp`, it invokes it before each dispatch, so your services, themes, and dependency injection mirror the real app. If your production bootstrap already includes `UseHeadless`, the harness respects it; otherwise `HeadlessUnitTestSession.StartNew` injects defaults.
 
-## 3. Understand session lifetime and dispatcher flow
+### 3. Understand session lifetime and dispatcher flow
 
 `HeadlessUnitTestSession` (`external/Avalonia/src/Headless/Avalonia.Headless/HeadlessUnitTestSession.cs`) is the engine behind both harnesses. Highlights:
 
@@ -12152,7 +12258,7 @@ await session.Dispatch(async () =>
 
 Dispose the session at the end of a run to stop the dispatcher loop and release the blocking queue.
 
-## 4. Mount controls and bind view-models
+### 4. Mount controls and bind view-models
 
 With the dispatcher in place, tests can instantiate real controls, establish bindings, and observe Avalonia’s property system.
 
@@ -12188,7 +12294,7 @@ public class CounterTests
 
 The mouse helpers come from `HeadlessWindowExtensions` (`external/Avalonia/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs`). They flush pending dispatcher work before delivering input, then run jobs again afterward so bindings update before the assertion. Always `Close()` windows when you finish to keep the session clean.
 
-## 5. Share fixtures with setup/teardown hooks
+### 5. Share fixtures with setup/teardown hooks
 
 Both frameworks let you prepare windows or services per test while staying on the UI thread.
 
@@ -12240,7 +12346,7 @@ public class InputHarness
 
 The sample mirrors Avalonia’s own `InputTests` (`external/Avalonia/tests/Avalonia.Headless.UnitTests/InputTests.cs`). Use preprocessor guards if you cross-compile the same tests between xUnit and NUnit packages.
 
-## 6. Keep async work deterministic
+### 6. Keep async work deterministic
 
 Headless tests still depend on Avalonia’s dispatcher and timers. Prefer structured helpers over `Task.Delay`.
 
@@ -12270,7 +12376,7 @@ public async Task Loader_raises_progress()
 
 If your view-model uses `DispatcherTimer`, expose a hook that ticks manually so tests avoid clock-based flakiness.
 
-## 7. Theories, collections, and parallelism
+### 7. Theories, collections, and parallelism
 
 `[AvaloniaTheory]` supports data-driven tests while staying on the dispatcher. For xUnit, decorate a collection definition to run related fixtures sequentially:
 
@@ -12293,7 +12399,7 @@ public class AvaloniaCollection : ICollectionFixture<HeadlessFixture> { }
 
 The custom fixture can preload services or share the `MainView`. NUnit users can rely on `[Apartment(ApartmentState.STA)]` plus `[AvaloniaTest]` when mixing with other UI frameworks, but remember Avalonia already enforces a single dispatcher thread.
 
-## 8. Troubleshooting failures
+### 8. Troubleshooting failures
 
 - **Test never finishes** – ensure you awaited async work through `Dispatcher.UIThread` or `HeadlessUnitTestSession.Dispatch`. Background tasks without dispatcher access will hang because the harness blocks the originating test thread.
 - **Missing services** – register substitutes in `Application.RegisterServices()` before calling base initialization. Clipboard, dialogs, or storage require headless-friendly implementations (see Chapter 38).
@@ -12301,7 +12407,7 @@ The custom fixture can preload services or share the `MainView`. NUnit users can
 - **Random `InvalidOperationException: VerifyAccess`** – a test ran code on a thread pool thread. Wrap the block in `Dispatcher.UIThread.InvokeAsync` or use `await session.Dispatch(...)` in custom helpers.
 - **Parallel collection deadlocks** – turn off test parallelism when fixtures share windows. xUnit: `[assembly: CollectionBehavior(DisableTestParallelization = true)]`; NUnit: `--workers=1` or `[NonParallelizable]` per fixture.
 
-## Practice lab
+### Practice lab
 
 1. **Session helper** – Write a reusable `HeadlessTestSessionFixture` exposing `Dispatch(Func<Task>)` so plain unit tests can invoke dispatcher-bound code without attributes.
 2. **View-model assertions** – Mount a form with compiled bindings, trigger `BindingOperations` updates, and assert validation errors surface via `DataValidationErrors.GetErrors`.
@@ -12317,7 +12423,7 @@ What's next
 \newpage
 ```
 
-# 40. Rendering verification and pixel assertions
+## 40. Rendering verification and pixel assertions
 
 Goal
 - Capture deterministic frames from controls and windows so UI regressions show up as image diffs.
@@ -12334,7 +12440,7 @@ Prerequisites
 - Chapter 38 for dispatcher control and headless render ticks.
 - Chapter 39 for running xUnit/NUnit fixtures on the Avalonia dispatcher.
 
-## 1. Capture frames from headless top levels
+### 1. Capture frames from headless top levels
 
 `HeadlessWindowExtensions.CaptureRenderedFrame` (`external/Avalonia/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs:20`) flushes the dispatcher, ticks the headless timer, and returns a `WriteableBitmap` of the latest frame. The helper delegates to `GetLastRenderedFrame`, which requires Skia-backed rendering—set `UseHeadlessDrawing = false` and `UseSkia = true` in your test app:
 
@@ -12365,7 +12471,7 @@ Assert.NotNull(frame);
 
 Avalonia’s own regression tests follow this pattern (`external/Avalonia/tests/Avalonia.Headless.UnitTests/RenderingTests.cs:18`). Use `CaptureRenderedFrame` when you want the helper to tick timers for you; call `GetLastRenderedFrame` if you have already driven the dispatcher manually.
 
-## 2. Render visuals off-screen with `RenderTargetBitmap`
+### 2. Render visuals off-screen with `RenderTargetBitmap`
 
 To avoid constructing full windows, target the visual tree directly. `RenderTargetBitmap` uses `ImmediateRenderer.Render` under the hood (`external/Avalonia/src/Avalonia.Base/Media/Imaging/RenderTargetBitmap.cs:33`).
 
@@ -12393,7 +12499,7 @@ rtb.Render(root);
 
 The bitmap implements `IBitmap`, so you can save it, compare pixels, or embed it in diagnostics emails. For complex compositions, grab a `DrawingContext` from `RenderTargetBitmap.CreateDrawingContext` to draw primitive overlays before comparison.
 
-## 3. Compare pixels with configurable tolerances
+### 3. Compare pixels with configurable tolerances
 
 Whether you use `CaptureRenderedFrame` or `RenderTargetBitmap`, lock the frame buffer to access raw bytes. `WriteableBitmap.Lock()` exposes an `ILockedFramebuffer` with stride, format, and a pointer into the pixel buffer (`external/Avalonia/src/Avalonia.Base/Media/Imaging/WriteableBitmap.cs:59`).
 
@@ -12435,7 +12541,7 @@ public static PixelDiffResult CompareBitmaps(IBitmap expected, IBitmap actual, b
 
 Tune the tolerance to absorb small antialiasing differences. Consider summing absolute channel differences or using the Delta-E metric when gradients highlight sub-pixel drift.
 
-### Produce diagnostic overlays
+#### Produce diagnostic overlays
 
 When differences occur, create an error bitmap that highlights only changed pixels:
 
@@ -12464,7 +12570,7 @@ public static WriteableBitmap CreateDiffMask(IBitmap baseline, PixelDiffResult r
 
 Attach the original frame, baseline, and diff mask to CI artifacts so reviewers can inspect regressions quickly.
 
-## 4. Manage baselines and golden images
+### 4. Manage baselines and golden images
 
 Golden images can live alongside tests as embedded resources. Load them via `WriteableBitmap.Decode` and normalize configuration before comparison:
 
@@ -12484,7 +12590,7 @@ normalized.Save(file);
 
 `RenderTargetBitmapImpl` uses Skia surfaces (`external/Avalonia/src/Skia/Avalonia.Skia/RenderTargetBitmapImpl.cs:8`), so CI agents must have the Skia native bundle available. If you target platforms without GPU support, stick to headless captures with `UseHeadlessDrawing = true` and fall back to `WriteableBitmap` comparisons.
 
-## 5. Handle DPI, alpha, and layout variability
+### 5. Handle DPI, alpha, and layout variability
 
 Visual tests are sensitive to device-independent rounding. Lock down inputs:
 
@@ -12496,7 +12602,7 @@ For dynamic content (animations, timers), tick the dispatcher deterministically:
 
 Leverage composition snapshots when you need sub-tree captures: `Compositor.CreateCompositionVisualSnapshot` returns a GPU-rendered image of any `Visual` (`external/Avalonia/tests/Avalonia.Headless.UnitTests/RenderingTests.cs:118`). Convert the snapshot to `WriteableBitmap` for comparisons if you want to isolate specific effects layers.
 
-## 6. Troubleshooting
+### 6. Troubleshooting
 
 - **`GetLastRenderedFrame` throws** – ensure Skia is active; the helper checks for `HeadlessPlatformRenderInterface` and fails when only headless drawing is enabled.
 - **Alpha mismatches** – multiply against a known background before diffing. Render your control inside a `Border` with a solid color or premultiply the buffer before comparison.
@@ -12504,7 +12610,7 @@ Leverage composition snapshots when you need sub-tree captures: `Compositor.Crea
 - **Platform font differences** – embed test fonts or ship them with the test harness so text metrics remain identical across agents.
 - **Large golden files** – compress PNGs with `optipng` or generate vector baselines by storing the render input (XAML/data) alongside the image for easier review.
 
-## Practice lab
+### Practice lab
 
 1. **Snapshot harness** – Build a `PixelAssert.Capture(window)` helper that returns baseline, actual, and diff images, then integrates them with your test framework’s logging.
 2. **Tolerance sweeper** – Write a diagnostic that runs the same render with multiple tolerances, reporting how many pixels fail each threshold to help pick a sensible default.
@@ -12520,7 +12626,7 @@ What's next
 \newpage
 ```
 
-# 41. Simulating input and automation in headless runs
+## 41. Simulating input and automation in headless runs
 
 Goal
 - Drive Avalonia UI interactions programmatically inside headless tests, mirroring real user gestures.
@@ -12537,7 +12643,7 @@ Prerequisites
 - Chapter 39 for integrating Avalonia’s headless test attributes in xUnit or NUnit.
 - Chapter 40 if you plan to pair input simulation with pixel verification.
 
-## 1. Meet the headless input surface
+### 1. Meet the headless input surface
 
 Every headless `TopLevel` implements `IHeadlessWindow` (`external/Avalonia/src/Headless/Avalonia.Headless/IHeadlessWindow.cs:7`), exposing methods for keyboard, pointer, wheel, and drag/drop events. `HeadlessWindowExtensions` (`external/Avalonia/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs:20`) wraps those APIs, handling dispatcher ticks before and after each gesture so routed events fire on time.
 
@@ -12552,7 +12658,7 @@ window.MouseUp(new Point(20, 20), MouseButton.Left);
 
 Under the hood the extension flushes outstanding work (`Dispatcher.UIThread.RunJobs()`), triggers the render timer (`AvaloniaHeadlessPlatform.ForceRenderTimerTick()`), invokes the requested gesture on the `IHeadlessWindow`, and drains the dispatcher again. This ensures property changes, focus updates, and automation events complete before your assertions run.
 
-## 2. Keyboard and text input
+### 2. Keyboard and text input
 
 `HeadlessWindowExtensions` provides multiple helpers for synthesizing key strokes:
 
@@ -12576,7 +12682,7 @@ textBox.Text.Should().Be("Hi!\n");
 
 Avalonia routes the events through `KeyboardDevice` so controls experience the same bubbling/tunneling as in production. Remember to set focus explicitly (`textBox.Focus()` or `KeyboardDevice.Instance.SetFocusedElement`) before typing—headless windows do not auto-focus when shown.
 
-## 3. Pointer gestures and drag/drop
+### 3. Pointer gestures and drag/drop
 
 Mouse helpers cover move, button transitions, wheel scrolling, and drag/drop scenarios. The headless platform maintains a single virtual pointer (`HeadlessWindowImpl` uses `PointerDevice`, see `external/Avalonia/src/Headless/Avalonia.Headless/HeadlessWindowImpl.cs:34`).
 
@@ -12610,7 +12716,7 @@ window.DragDrop(new Point(80, 40), RawDragEventType.Drop, data, DragDropEffects.
 
 Your controls will receive `DragEventArgs`, invoke drop handlers, and update view-models just as they would with real user input.
 
-## 4. Focus, capture, and multi-step workflows
+### 4. Focus, capture, and multi-step workflows
 
 Headless tests still rely on Avalonia’s focus and capture services:
 
@@ -12641,7 +12747,7 @@ public void DragHandle_updates_offset()
 
 Because `HeadlessWindowExtensions` executes all gestures on the UI thread, your control can update dependency properties, trigger animations, and publish events synchronously within the test.
 
-## 5. Compose higher-level automation helpers
+### 5. Compose higher-level automation helpers
 
 Most suites wrap common interaction patterns in reusable functions to keep tests declarative:
 
@@ -12669,7 +12775,7 @@ public sealed class HeadlessUser
 
 Pair these helpers with assertions against `AutomationProperties` to verify accessibility metadata as you drive the UI. Tests in `external/Avalonia/tests/Avalonia.Headless.UnitTests/InputTests.cs:29` demonstrate structuring fixtures that open a window in `[SetUp]`/constructor, execute gestures, and dispose deterministically.
 
-## 6. Raw input modifiers and multiple devices
+### 6. Raw input modifiers and multiple devices
 
 `RawInputModifiers` combines buttons, keyboard modifiers, and touch states into a single bit field. Use it to emulate complex shortcuts:
 
@@ -12680,7 +12786,7 @@ window.KeyPress(Key.S, RawInputModifiers.Control, PhysicalKey.KeyS, "s");
 
 Headless currently exposes a single mouse pointer and keyboard. To simulate multi-pointer scenarios (e.g., pinch gestures), create custom `RawPointerEventArgs` and push them through `InputManager.Instance.ProcessInput`. That advanced path uses `IInputRoot.Input` (hook available via `HeadlessWindowImpl.Input`), giving you full control when default helpers are insufficient.
 
-## 7. Troubleshooting
+### 7. Troubleshooting
 
 - **No events firing** – confirm you called `window.Show()` and that the target control is in the visual tree. Without showing, the platform impl doesn’t attach an `InputRoot`.
 - **Focus lost between gestures** – check whether your control closes popups or dialogs. Re-focus before continuing or assert against `FocusManager.Instance.Current`.
@@ -12688,7 +12794,7 @@ Headless currently exposes a single mouse pointer and keyboard. To simulate mult
 - **Keyboard text missing** – some controls ignore `KeyTextInput` without focus or when `AcceptsReturn` is false. Set the right properties or use `TextInputOptions` when testing IME handling (`external/Avalonia/src/Avalonia.Base/Input/TextInput/TextInputOptions.cs`).
 - **Drag/drop crashes** – make sure Skia is enabled for capture-heavy tests and that you dispose `DataObject` content streams after the drop completes.
 
-## Practice lab
+### Practice lab
 
 1. **User DSL** – Build a `HeadlessUser` helper that supports click, double-click, context menu, typing, and modifier-aware shortcuts. Use it to script multi-page navigation flows.
 2. **Pointer capture assertions** – Write a test that verifies a custom canvas captures the pointer during drawing and releases it when `PointerReleased` fires, asserting against `Pointer.Captured`.
@@ -12704,7 +12810,7 @@ What's next
 \newpage
 ```
 
-# 42. CI pipelines, diagnostics, and troubleshooting
+## 42. CI pipelines, diagnostics, and troubleshooting
 
 Goal
 - Run Avalonia headless and automation suites reliably in CI across Windows, macOS, and Linux agents.
@@ -12721,7 +12827,7 @@ Prerequisites
 - Chapter 39 for integrating the headless test session into xUnit or NUnit.
 - Chapter 41 for scripting complex input sequences that your pipeline will exercise.
 
-## 1. Pick a CI host and bootstrap prerequisites
+### 1. Pick a CI host and bootstrap prerequisites
 
 Avalonia’s own integration pipeline (see `external/Avalonia/azure-pipelines-integrationtests.yml:1`) demonstrates the moving parts for Appium + headless test runs:
 
@@ -12761,7 +12867,7 @@ jobs:
 
 Adjust the matrix for Linux when you only need headless tests (no Appium). Use the same `dotnet test` command locally to validate pipeline scripts.
 
-## 2. Configure deterministic test execution
+### 2. Configure deterministic test execution
 
 Headless suites should run with parallelism disabled unless every fixture is isolation-safe. xUnit supports assembly-level configuration:
 
@@ -12775,7 +12881,7 @@ Pair the attribute with `AvaloniaTestApplication` so a single `HeadlessUnitTestS
 
 Within tests, drain work deterministically. `HeadlessWindowExtensions` already wraps each gesture with `Dispatcher.UIThread.RunJobs()` and `AvaloniaHeadlessPlatform.ForceRenderTimerTick()`; call those directly from helpers when you schedule background tasks outside the provided wrappers.
 
-## 3. Capture logs, screenshots, and videos
+### 3. Capture logs, screenshots, and videos
 
 Collect evidence automatically so failing builds are actionable:
 
@@ -12784,7 +12890,7 @@ Collect evidence automatically so failing builds are actionable:
 - On Windows, record screen captures with MSTest data collectors. Avalonia ships `record-video.runsettings` (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/record-video.runsettings:1`) to capture Appium sessions; reuse it by passing `/Settings:record-video.runsettings` to VSTest or `--settings` to `dotnet test`.
 - For Appium runs, write driver logs to disk. The macOS pipeline publishes `appium.out` when a job fails (`external/Avalonia/azure-pipelines-integrationtests.yml:27`).
 
-## 4. Diagnose hangs and deadlocks
+### 4. Diagnose hangs and deadlocks
 
 UI tests occasionally hang because outstanding work blocks the dispatcher. Harden your pipeline with diagnosis options:
 
@@ -12795,7 +12901,7 @@ UI tests occasionally hang because outstanding work blocks the dispatcher. Harde
 
 Analyze captured dumps with `dotnet-dump analyze` to inspect managed thread stacks and spot blocked tasks.
 
-## 5. Environment hygiene on shared agents
+### 5. Environment hygiene on shared agents
 
 CI agents often reuse workspaces. Add cleanup steps before running UI automation:
 
@@ -12805,13 +12911,13 @@ CI agents often reuse workspaces. Add cleanup steps before running UI automation
 
 For cross-platform Appium tests, encapsulate capability setup in fixtures. `DefaultAppFixture` (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/DefaultAppFixture.cs:9`) configures Windows and macOS sessions differently while exposing a consistent driver to tests.
 
-## 6. Build health dashboards and alerts
+### 6. Build health dashboards and alerts
 
 Publish TRX or NUnit XML outputs to your CI system so failures appear in dashboards. Azure Pipelines uses `PublishTestResults@2` to ingest xUnit results even when the job succeeds with warnings (`external/Avalonia/azure-pipelines-integrationtests.yml:67`). GitHub Actions can read TRX via `dorny/test-reporter` or similar actions.
 
 Send critical logs to observability tools if your team maintains telemetry infrastructure. A simple approach is to push structured log lines to stdout in JSON—CI services preserve the console by default.
 
-## 7. Troubleshooting checklist
+### 7. Troubleshooting checklist
 
 - **Tests fail only on CI** – compare fonts, localization, and DPI. Ensure custom fonts are deployed with the test app and `CultureInfo.DefaultThreadCurrentUICulture` is set for deterministic layouts.
 - **Intermittent hangs** – add `--blame` dumps, then review stuck threads. Often a test awaited `Task.Delay` without advancing the render timer; replace with deterministic loops.
@@ -12819,7 +12925,7 @@ Send critical logs to observability tools if your team maintains telemetry infra
 - **Appium session errors** – verify the automation server is running (WinAppDriver/Appium) before tests start, and stop it in a final step to avoid port conflicts next run.
 - **Resource leaks across tests** – always close windows (`window.Close()`), dispose `CompositeDisposable`, and tear down Appium sessions in `Dispose`. Lingering windows keep the dispatcher alive and can cause later tests to inherit state.
 
-## Practice lab
+### Practice lab
 
 1. **Pipeline parity** – Create a local script that mirrors your CI job (`dotnet restore`, `dotnet test`, artifact copy). Run it before pushing so pipeline failures never surprise you.
 2. **Hang detector** – Wire `dotnet test --blame` into your CI job and practice analyzing the generated dumps for a deliberately hung test.
@@ -12830,12 +12936,24 @@ Send critical logs to observability tools if your team maintains telemetry infra
 What's next
 - Next: [Chapter43](Chapter43.md)
 
+```{=latex}
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{Part IX — Appium automation done right}
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+{\Huge\bfseries Part IX — Appium automation done right}
+\end{center}
+\vspace*{\fill}
+\clearpage
+```
 
 ```{=latex}
 \newpage
 ```
 
-# 43. Appium fundamentals for Avalonia apps
+## 43. Appium fundamentals for Avalonia apps
 
 Goal
 - Stand up Appium-based UI tests that drive Avalonia desktop apps on Windows and macOS.
@@ -12852,7 +12970,7 @@ Prerequisites
 - Chapter 13 for menus/dialogs—the automation harness exercises them heavily.
 - Chapter 42 for CI orchestration once your Appium suite is green locally.
 
-## 1. Anatomy of the Avalonia Appium harness
+### 1. Anatomy of the Avalonia Appium harness
 
 Avalonia ships an Appium test suite in `external/Avalonia/tests/Avalonia.IntegrationTests.Appium`. Key parts:
 
@@ -12862,7 +12980,7 @@ Avalonia ships an Appium test suite in `external/Avalonia/tests/Avalonia.Integra
 
 Reuse this structure in your own project: create a fixture that launches your app (packaged exe/bundle), expose the `AppiumDriver`, and derive page-specific test classes from a `TestBase` that performs navigation.
 
-## 2. Configure sessions per platform
+### 2. Configure sessions per platform
 
 `DefaultAppFixture` populates capability sets tailored to each OS:
 
@@ -12888,7 +13006,7 @@ The fixture also foregrounds the window on Windows via `SetForegroundWindow` to 
 
 TIP: keep Appium/WAD endpoints configurable via environment variables so your CI scripts can point to remote device clouds.
 
-## 3. Navigating the sample app
+### 3. Navigating the sample app
 
 `TestBase` selects a page by finding the pager control and clicking the relevant button. The same pattern applies to your app:
 
@@ -12910,7 +13028,7 @@ public class WindowTests : TestBase
 
 The `pageName` passed to `TestBase` must match the accessible name exposed by the pager button. Avalonia’s sample ControlCatalog sets these via `AutomationProperties.Name`, so always annotate navigation controls in your app for consistent selectors.
 
-## 4. Element discovery and helper APIs
+### 4. Element discovery and helper APIs
 
 Selectors vary subtly across platforms. Avalonia’s helpers hide those differences:
 
@@ -12920,7 +13038,7 @@ Selectors vary subtly across platforms. Avalonia’s helpers hide those differen
 
 When building your suite, add similar extension methods instead of hard-coding XPath per test. Keep selectors rooted in `AutomationId` or names you control via `AutomationProperties.AutomationId` and `Name` to minimize brittleness.
 
-## 5. Synchronization and retries
+### 5. Synchronization and retries
 
 Appium commands are asynchronous relative to the app. Avalonia tests mix explicit waits, retries, and timeouts:
 
@@ -12930,7 +13048,7 @@ Appium commands are asynchronous relative to the app. Avalonia tests mix explici
 
 Wrap these patterns in helper methods so timing tweaks stay centralized. For more resilient waits, use Appium’s `WebDriverWait` with conditions such as `driver.FindElementByAccessibilityId(...)` or `element.Displayed`.
 
-## 6. Cross-platform control with attributes and collections
+### 6. Cross-platform control with attributes and collections
 
 Automation suites often need OS-specific assertions. Avalonia uses:
 
@@ -12939,7 +13057,7 @@ Automation suites often need OS-specific assertions. Avalonia uses:
 
 Follow suit by tagging tests with custom attributes that read environment variables or capability flags. This keeps your suite from failing on agents lacking certain features (e.g., Win32-only APIs).
 
-## 7. Exposing automation IDs in Avalonia
+### 7. Exposing automation IDs in Avalonia
 
 Appium relies on the accessibility tree. Avalonia maps these properties as follows:
 
@@ -12949,15 +13067,15 @@ Appium relies on the accessibility tree. Avalonia maps these properties as follo
 
 Ensure the controls you interact with set both `AutomationId` and `Name`; for templated controls expose IDs through `x:Name` or `Automation.Id`. Without these properties, selectors fall back to fragile XPath queries.
 
-## 8. Running the suite
+### 8. Running the suite
 
-### Windows
+#### Windows
 
 1. Install WinAppDriver (ships with Visual Studio workloads) and start it on port 4723.
 2. Build your Avalonia app for `net8.0-windows` with `UseWindowsForms` disabled (the sample uses `IntegrationTestApp`).
 3. Launch Appium tests: `dotnet test tests/Avalonia.IntegrationTests.Appium --logger "trx;LogFileName=appium.trx"`.
 
-### macOS
+#### macOS
 
 1. Install Appium 2 with the `mac2` driver and run `appium --base-path /wd/hub`.
 2. Ensure the test runner has accessibility permissions; the pipeline script resets them via `pkill` and `osascript` (`external/Avalonia/azure-pipelines-integrationtests.yml:17`).
@@ -12965,7 +13083,7 @@ Ensure the controls you interact with set both `AutomationId` and `Name`; for te
 
 Use the provided `macos-clean-build-test.sh` as a reference for orchestrating builds locally or in CI.
 
-## 9. Troubleshooting
+### 9. Troubleshooting
 
 - **Session fails to start** – Verify the Appium server is running and that the path/bundle ID is correct. On Windows, ensure the test app exists relative to the test project (`DefaultAppFixture.TestAppPath`).
 - **Elements not found** – Inspect the accessibility tree with tools such as Windows Inspect or macOS Accessibility Inspector. Add missing `AutomationId` values to the Avalonia XAML.
@@ -12973,7 +13091,7 @@ Use the provided `macos-clean-build-test.sh` as a reference for orchestrating bu
 - **Multiple windows** – Use `OpenWindowWithClick` helper to track handles. Remember to dispose the returned `IDisposable` so the new window closes after the test.
 - **Driver shutdown crashes** – Wrap `Session.Close()` in try/catch like `DefaultAppFixture.Dispose` to shield flaky platform drivers.
 
-## Practice lab
+### Practice lab
 
 1. **Custom fixture** – Implement a fixture that launches your app under test, parameterized by environment variables for executable path and Appium endpoint.
 2. **Navigation helper** – Create a `TestBase` that navigates your shell’s menu/pager via automation IDs, then write a smoke test asserting window title, version label, or status bar text.
@@ -12989,7 +13107,7 @@ What's next
 \newpage
 ```
 
-# 44. Environment setup, drivers, and device clouds
+## 44. Environment setup, drivers, and device clouds
 
 Goal
 - Stand up reliable Appium infrastructure for Avalonia desktop automation on Windows and macOS.
@@ -13006,15 +13124,15 @@ Prerequisites
 - Chapter 42 for CI orchestration patterns and artifact capture.
 - Base familiarity with platform build tooling (PowerShell, bash, Xcode command-line tools).
 
-## 1. Install automation servers and drivers
+### 1. Install automation servers and drivers
 
-### Windows
+#### Windows
 
 1. Install **WinAppDriver** (https://github.com/microsoft/WinAppDriver). It registers itself in the Start menu and listens on `http://127.0.0.1:4723`.
 2. Ensure the machine is running in **desktop interactive** mode—WinAppDriver cannot interact with headless Windows Server sessions.
 3. Optional: pin the service to auto-start via `schtasks` or a Windows Service wrapper so CI agents bring it up automatically.
 
-### macOS
+#### macOS
 
 1. Install **Appium** (`npm install -g appium`). For Appium 1, the built-in mac driver is sufficient; for Appium 2 install the `mac2` driver (`appium driver install mac2`).
 2. Grant Xcode helper the accessibility permissions required to drive UI (see harness readme at `external/Avalonia/tests/Avalonia.IntegrationTests.Appium/readme.md`).
@@ -13023,7 +13141,7 @@ Prerequisites
 
 The harness toggles between Appium 1 and 2 using the `IsRunningAppium2` property (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/Avalonia.IntegrationTests.Appium.csproj:5`). Set the property to `true` in `Directory.Build.props` or via `dotnet test -p:IsRunningAppium2=true` when running against Appium 2.
 
-## 2. Package and register the test app
+### 2. Package and register the test app
 
 Appium launches desktop apps by path (Windows) or bundle identifier (macOS). The Avalonia sample uses `IntegrationTestApp` and rebuilds it before each run:
 
@@ -13049,7 +13167,7 @@ protected override void ConfigureMacOptions(AppiumOptions options, string? app =
 
 3. For variants (e.g., overlay popups), add command-line arguments via capabilities. `OverlayPopupsAppFixture` adds `--overlayPopups` on both platforms (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/OverlayPopupsAppFixture.cs:4`).
 
-## 3. Start/stop lifecycle scripts
+### 3. Start/stop lifecycle scripts
 
 Automation servers must be running when tests start and shut down afterward. Avalonia’s pipelines demonstrate the sequence:
 
@@ -13061,7 +13179,7 @@ General guidelines:
 - Always clean up (`pkill`, `Stop-Process`) on both success and failure to keep subsequent runs deterministic.
 - Redirect server logs to files (`appium > appium.out &`). Publish them when the job fails for easier triage (see pipeline’s `publish appium.out` step).
 
-## 4. Device cloud configuration
+### 4. Device cloud configuration
 
 Device clouds (BrowserStack App Automate, Sauce Labs, Azure-hosted desktops) require the same capabilities plus authentication tokens:
 
@@ -13097,7 +13215,7 @@ protected override void ConfigureWin32Options(AppiumOptions options, string? app
 
 Guard cloud-specific behavior using environment variables so local runs stay unchanged.
 
-## 5. Managing driver compatibility
+### 5. Managing driver compatibility
 
 The harness conditionally compiles for Appium 1 vs. 2 via `APPIUM1`/`APPIUM2` constants (`AppiumDriverEx.cs`). Checklist:
 
@@ -13107,7 +13225,7 @@ The harness conditionally compiles for Appium 1 vs. 2 via `APPIUM1`/`APPIUM2` co
 
 If you see protocol errors, print the server log (`appium.out`) and compare capability names. Appium 2 requires `appium:` prefixes for vendor-specific entries (already shown in `DefaultAppFixture.ConfigureMacOptions`).
 
-## 6. Permissions and security prompts
+### 6. Permissions and security prompts
 
 Desktop automation breaks when the app lacks accessibility permissions:
 
@@ -13117,7 +13235,7 @@ Desktop automation breaks when the app lacks accessibility permissions:
 
 Automate these steps where possible—on macOS you can pre-provision a profile or run a script to enable permissions via `tccutil`. For Windows, prefer an image with WinAppDriver pre-installed.
 
-## 7. Logging and diagnostics
+### 7. Logging and diagnostics
 
 Augment your harness to collect evidence:
 
@@ -13126,7 +13244,7 @@ Augment your harness to collect evidence:
 - For WinAppDriver, enable verbose logs via registry (`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\WinAppDriver\ConsoleLogging = 1`).
 - Record video on Windows using the supplied `record-video.runsettings` file when executing through VSTest (Chapter 42).
 
-## 8. Troubleshooting
+### 8. Troubleshooting
 
 - **`SessionNotCreatedException`** – Check that the app path/bundle exists and the process isn’t already running. On macOS, run `osascript` cleanup like the sample script to delete stale bundles.
 - **`Could not find app`** – Re-run your packaging script; the bundle path changes when switching architectures (`osx-arm64` vs. `osx-x64`).
@@ -13134,7 +13252,7 @@ Augment your harness to collect evidence:
 - **Driver mismatch** – Align `IsRunningAppium2` with the server version. Appium 2 rejects legacy capability names like `bundleId` without the `appium:` prefix.
 - **Resource leaks** – Always dispose fixtures, even in skipped tests. Wrap `Session` accesses in `try/finally` or use `IAsyncLifetime` to guarantee cleanup after each class.
 
-## Practice lab
+### Practice lab
 
 1. **Bootstrap script** – Create cross-platform scripts (`scripts/run-appium-tests.ps1` and `.sh`) that build your app, start/stop automation servers, and invoke `dotnet test`. Validate they leave no background processes.
 2. **Configurable fixture** – Extend `DefaultAppFixture` to read capabilities from JSON (local vs. cloud). Add tests that assert the chosen configuration by inspecting `Session.Capabilities`.
@@ -13150,7 +13268,7 @@ What's next
 \newpage
 ```
 
-# 45. Element discovery, selectors, and PageObjects
+## 45. Element discovery, selectors, and PageObjects
 
 Goal
 - Locate Avalonia controls reliably through Appium’s accessibility surface, even when templates or virtualization hide elements.
@@ -13167,7 +13285,7 @@ Prerequisites
 - Chapter 44 for environment setup and driver configuration.
 - Familiarity with Avalonia accessibility APIs (`AutomationProperties`).
 
-## 1. Build selectors on accessibility IDs first
+### 1. Build selectors on accessibility IDs first
 
 Avalonia maps `AutomationProperties.AutomationId` and control `Name` directly into Appium selectors. Tests such as `AutomationTests.AutomationId` rely on `FindElementByAccessibilityId` (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/AutomationTests.cs:12`). Adopt this priority order:
 
@@ -13177,7 +13295,7 @@ Avalonia maps `AutomationProperties.AutomationId` and control `Name` directly in
 
 Annotate controls in XAML with both `x:Name` and `AutomationProperties.AutomationId` to keep selectors stable. For templated controls, expose IDs through template parts so they enter the automation tree.
 
-## 2. Reuse PageObject-style wrappers
+### 2. Reuse PageObject-style wrappers
 
 Avalonia’s Appium harness centralizes navigation in `TestBase`. Each test class inherits and passes the page name, letting `TestBase` click through the pager with retries (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/TestBase.cs:6`). Mirror this structure:
 
@@ -13202,7 +13320,7 @@ public sealed class WindowPage : CatalogPage
 
 Wrap gestures (click, double-click, modifier shortcuts) in extension methods rather than duplicating `Actions` blocks. Avalonia’s `ElementExtensions.SendClick` simulates physical clicks to accommodate controls that resist `element.Click()` (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/ElementExtensions.cs:235`).
 
-## 3. Handle virtualization and dynamic children
+### 3. Handle virtualization and dynamic children
 
 Virtualized lists only generate visible items. `ListBoxTests.Is_Virtualized` counts visual children returned by `GetChildren` to prove virtualization is active (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/ListBoxTests.cs:52`).
 
@@ -13218,7 +13336,7 @@ public IReadOnlyList<AppiumWebElement> VisibleRows()
 
 Combine with helper waits to poll until a desired item appears instead of assuming immediate materialization.
 
-## 4. Account for platform differences in selectors
+### 4. Account for platform differences in selectors
 
 Avalonia ships cross-platform helpers that encapsulate OS-specific attribute quirks:
 
@@ -13228,7 +13346,7 @@ Avalonia ships cross-platform helpers that encapsulate OS-specific attribute qui
 
 Keep such logic in dedicated helpers; PageObjects should consume a single API regardless of platform. Provide capabilities (e.g., `UseOverlayPopups`) through fixtures so tests stay declarative (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/OverlayPopupsAppFixture.cs:4`).
 
-## 5. Synchronize with the UI deliberately
+### 5. Synchronize with the UI deliberately
 
 Animations and popups require waits. The harness uses:
 
@@ -13251,7 +13369,7 @@ public static AppiumWebElement WaitForElement(AppiumDriver session, By by, TimeS
 
 Centralize waits so adjustments (timeouts, polling intervals) propagate across the suite.
 
-## 6. Model complex selectors as queries
+### 6. Model complex selectors as queries
 
 Large UIs often require multi-step discovery:
 
@@ -13261,13 +13379,13 @@ Large UIs often require multi-step discovery:
 
 Treat these as queries, not static selectors. Accept parameters (icon name, menu path) and apply consistent error messaging when assertions fail.
 
-## 7. Use test attributes to scope runs
+### 7. Use test attributes to scope runs
 
 Selectors often depend on platform capabilities. Decorate tests with `[PlatformFact]` / `[PlatformTheory]` to skip unsupported scenarios (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/PlatformFactAttribute.cs:7`). This prevents PageObjects from needing conditionals inside every method and ensures pipelines stay green when features diverge.
 
 Group tests requiring special fixtures (e.g., overlay popups) via xUnit collections (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/CollectionDefinitions.cs:4`). PageObjects then request the appropriate fixture type through constructor injection.
 
-## 8. Troubleshooting selectors
+### 8. Troubleshooting selectors
 
 - **Elements disappear mid-test** – virtualization recycled them; retrieve fresh references after scrolling.
 - **Click no-ops** – switch to `SendClick` actions; some controls ignore `element.Click()` on macOS.
@@ -13275,7 +13393,7 @@ Group tests requiring special fixtures (e.g., overlay popups) via xUnit collecti
 - **Popups not found** – ensure you expanded parent menus or overflow trays first. Add logging describing the hierarchy you traversed for easier debugging.
 - **Timeouts** – adopt structured waits instead of arbitrary sleeps; log the search strategy (selector type, fallback attempts) on failure.
 
-## Practice lab
+### Practice lab
 
 1. **PageObject refactor** – Extract a PageObject for a complex page (e.g., ComboBox) that exposes strongly-typed actions and returns typed results (`GetSelectedValue`). Replace direct selector usage in tests.
 2. **Selector fallback** – Implement a helper that tries `AutomationId`, then `Name`, then a custom XPath, logging each attempt. Use it to locate menu items with localized labels.
@@ -13291,7 +13409,7 @@ What's next
 \newpage
 ```
 
-# 46. Cross-platform scenarios and advanced gestures
+## 46. Cross-platform scenarios and advanced gestures
 
 Goal
 - Exercise Avalonia apps under platform-specific shells—window chrome, tray icons, menus—without duplicating logic per OS.
@@ -13308,7 +13426,7 @@ Prerequisites
 - Chapter 45 for selector patterns and PageObject design.
 - Familiarity with Avalonia windowing APIs (Chapters 12 and 18).
 
-## 1. Split platform-specific coverage with fixtures and attributes
+### 1. Split platform-specific coverage with fixtures and attributes
 
 `PlatformFactAttribute` and `PlatformTheoryAttribute` skip tests on unsupported OSes (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/PlatformFactAttribute.cs:7`). Use them to branch behavior cleanly:
 
@@ -13319,13 +13437,13 @@ public void ThickTitleBar_Drag_Reports_Moves() { ... }
 
 Group tests into collections bound to fixtures that configure capabilities. For example, `DefaultAppFixture` launches the stock ControlCatalog, while `OverlayPopupsAppFixture` adds `--overlayPopups` arguments to highlight overlay behavior (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/OverlayPopupsAppFixture.cs:4`).
 
-## 2. Window management across platforms
+### 2. Window management across platforms
 
-### Windows
+#### Windows
 
 `WindowTests` (see `external/Avalonia/tests/Avalonia.IntegrationTests.Appium/WindowTests.cs`) verifies state transitions (Normal, Maximized, FullScreen), docked windows, and mode toggles. It uses `SendClick` on combo entries because native `Click()` is unreliable on certain automation peers (`ElementExtensions.SendClick`, `external/Avalonia/tests/Avalonia.IntegrationTests.Appium/ElementExtensions.cs:235`).
 
-### macOS
+#### macOS
 
 `WindowTests_MacOS` covers thick title bars, system chrome toggles, and fullscreen animations (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/WindowTests_MacOS.cs:19`). Tests depend on applying window decoration parameters via checkboxes exposed in the demo app.
 
@@ -13333,7 +13451,7 @@ Group tests into collections bound to fixtures that configure capabilities. For 
 - Normalize state by calling the same helper at test end; `PointerTests_MacOS.Dispose` resets window parameters before exiting (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/PointerTests_MacOS.cs:119`).
 - When switching states that trigger animations, add intentional waits or `WebDriverWait` polling before grabbing the next snapshot.
 
-## 3. Multi-window flows and dialogs
+### 3. Multi-window flows and dialogs
 
 Use `ElementExtensions.OpenWindowWithClick` to encapsulate the logic of detecting new windows. It differentiates between top-level handles (Windows) and child windows (macOS) and returns an `IDisposable` that closes the window on teardown (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/ElementExtensions.cs:86`).
 
@@ -13346,7 +13464,7 @@ using (Control("OpenModal").OpenWindowWithClick())
 
 `PointerTests.Pointer_Capture_Is_Released_When_Showing_Dialog` relies on this helper to ensure capture is cleared when a dialog opens (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/PointerTests.cs:13`).
 
-## 4. Tray icons and system menus
+### 4. Tray icons and system menus
 
 System integration differs dramatically:
 
@@ -13355,16 +13473,16 @@ System integration differs dramatically:
 
 Wrap this logic in helper methods and hide it behind PageObjects so tests merely call `TrayIcon().ShowMenu()` and assert resulting automation flags.
 
-## 5. Advanced pointer gestures
+### 5. Advanced pointer gestures
 
-### Gesture taxonomy
+#### Gesture taxonomy
 
 `GestureTests` demonstrates how to script taps, double-taps, drags, and right-clicks using Actions API (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/GestureTests.cs:16`). Examples:
 
 - `new Actions(Session).DoubleClick(element).Perform();`
 - Multi-step pointer sequences using `PointerInputDevice` for macOS-specific right-tap semantics (`GestureTests.RightTapped_Is_Raised_2`, line 139).
 
-### Title bar drags on macOS
+#### Title bar drags on macOS
 
 `PointerTests_MacOS.OSXThickTitleBar_Pointer_Events_Continue_Outside_Window_During_Drag` verifies pointer capture beyond window bounds while dragging the title bar (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/PointerTests_MacOS.cs:17`). It uses `DragAndDropToOffset` and reads automation counters from the secondary window.
 
@@ -13372,19 +13490,19 @@ Wrap this logic in helper methods and hide it behind PageObjects so tests merely
 - Always move the pointer onto the target before pressing: `new Actions(Session).MoveToElement(titleAreaControl).Perform();`
 - After custom pointer sequences, release buttons even when assertions fail to leave the driver in a consistent state (`GestureTests.DoubleTapped_Is_Raised_2`, line 70).
 
-## 6. Keyboard modifiers and selection semantics
+### 6. Keyboard modifiers and selection semantics
 
 `ListBoxTests` executes Shift-range selection and marks Ctrl-click tests as skipped due to driver limitations (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/ListBoxTests.cs:36`). Document such constraints in your suite and apply `[Fact(Skip=...)]` with explanations for future debugging.
 
 `ComboBoxTests` rely on keyboard shortcuts (`Keys.LeftAlt + Keys.ArrowDown`) and ensure wrapping behavior toggles via checkboxes before assertion (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/ComboBoxTests.cs:41`). Keep these interactions in PageObjects so tests remain expressive (`ComboBoxPage.OpenDropdown()` vs. inline key sequences).
 
-## 7. Multi-monitor and screen awareness
+### 7. Multi-monitor and screen awareness
 
 `ScreenTests` pulls current monitor data and asserts invariants around bounds, work area, and scaling (`external/Avalonia/tests/Avalonia.IntegrationTests.Appium/ScreenTests.cs:12`). Use similar verifications when you need to assert window placement on multi-monitor setups.
 
 For drag-to-monitor flows, record starting and ending positions via text fields surfaced in the app, then compare after applying pointer moves. Ensure tests reset state (move window back) when done to avoid cascading failures.
 
-## 8. Troubleshooting cross-platform gestures
+### 8. Troubleshooting cross-platform gestures
 
 - **Stuck pointer buttons** – Ensure `PointerInputDevice` sequences end with `PointerUp`. If a test fails mid-action, add `try/finally` to release buttons.
 - **Unexpected double-taps** – As shown in `PointerTests_MacOS.OSXThickTitleBar_Single_Click_Does_Not_Generate_DoubleTapped_Event`, add counters to your app to observe actual events and assert on them instead of stateful UI side effects.
@@ -13392,7 +13510,7 @@ For drag-to-monitor flows, record starting and ending positions via text fields 
 - **Localization differences** – Names of system menu items vary; rely on automation IDs when possible or provide fallback selectors.
 - **Driver limitations** – Document known issues (e.g., WinAppDriver ctrl-click) with skip reasons so team members know why coverage is missing.
 
-## Practice lab
+### Practice lab
 
 1. **Window choreography** – Script a test that opens a secondary window, drags it to a new position, toggles fullscreen, and returns to normal. Assert pointer capture counts using automation counters exposed in the sample.
 2. **Tray icon helper** – Build a PageObject with `ShowMenu()` and `ClickMenuItem(string text)` methods that handle Windows overflow and macOS status items automatically. Use it to verify a menu command toggles a checkbox in the main window.
@@ -13408,7 +13526,7 @@ What's next
 \newpage
 ```
 
-# 47. Stabilizing suites, reporting, and best practices
+## 47. Stabilizing suites, reporting, and best practices
 
 Goal
 - Keep Appium-based Avalonia suites reliable on developer machines and CI by isolating flakiness causes.
@@ -13424,7 +13542,7 @@ Prerequisites
 - Chapter 43–46 for harness setup, selectors, and advanced scenarios.
 - Chapter 42 for CI pipeline integration basics.
 
-## 1. Triage flakiness with classification
+### 1. Triage flakiness with classification
 
 Begin every investigation by tagging failures:
 - **Timing** (animations, virtualization) – resolved with better waits (`WebDriverWait`, dispatcher polling).
@@ -13434,7 +13552,7 @@ Begin every investigation by tagging failures:
 
 Maintain a living flake log referencing test name, platform, root cause, and remediation. Automate updates by pushing annotations into test reporters (Azure Pipelines, GitHub Actions).
 
-## 2. Quarantine and retries without hiding real bugs
+### 2. Quarantine and retries without hiding real bugs
 
 Retries buy time but can mask regressions. Strategies:
 
@@ -13442,7 +13560,7 @@ Retries buy time but can mask regressions. Strategies:
 - Prefer **automatic quarantine**: tag flaky tests and run them in a separate lane, keeping main suites failure-free. Example: use xUnit traits or custom attributes to filter (`dotnet test --filter "TestCategory!=Quarantine"`).
 - Combine retries with diagnostics: on the last retry failure, dump Appium logs and take screenshots before failing.
 
-## 3. Capture rich diagnostics
+### 3. Capture rich diagnostics
 
 For every critical failure, collect:
 
@@ -13454,7 +13572,7 @@ For every critical failure, collect:
 
 Build helper methods so tests simply call `ArtifactCollector.Capture(context);`. Ensure cleanup occurs even when assertions throw (use `try/finally`).
 
-## 4. Standardize waiting and polling policies
+### 4. Standardize waiting and polling policies
 
 Enforce consistent defaults:
 
@@ -13464,20 +13582,20 @@ Enforce consistent defaults:
 
 Document wait policies in CONTRIBUTING guidelines to onboard new contributors.
 
-## 5. Structure reports for quick scanning
+### 5. Structure reports for quick scanning
 
-### Azure Pipelines / GitHub Actions
+#### Azure Pipelines / GitHub Actions
 
 - Publish TRX results with names that encode platform, driver, and suite (e.g., `Appium-macOS-Appium2.trx`).
 - Upload log bundles (`logs/appium.log`, `screenshots/*.png`). Provide clickable links in summary markdown.
 - Add summary steps that print failing test names grouped by category (flaky, new regression, quarantined).
 
-### Local development
+#### Local development
 
 - Provide a script (Chapter 44) that mirrors CI output directories so developers can inspect logs locally.
 - Encourage use of `dotnet test --logger "trx;LogFileName=local.trx"` + `reportgenerator` for HTML summaries.
 
-## 6. Enforce coding standards in tests
+### 6. Enforce coding standards in tests
 
 - **Selectors**: centralize in PageObjects. No raw XPath in tests.
 - **Waits**: ban `Thread.Sleep` in code review; insist on helper usage.
@@ -13486,13 +13604,13 @@ Document wait policies in CONTRIBUTING guidelines to onboard new contributors.
 
 Add lint tooling (Roslyn analyzers or custom scripts) to scan for banned patterns (e.g., `Thread.Sleep(`) in test projects.
 
-## 7. Monitor and alert on trends
+### 7. Monitor and alert on trends
 
 - Track success rate per platform, per suite. Configure dashboards (Azure Analytics, GitHub Insights) to display pass percentages over time.
 - Emit custom metrics (e.g., number of retries) to a time-series store. If retries spike, alert engineers before builds start failing.
 - Rotate flake triage duty; publish weekly summaries identifying top offenders and assigned owners.
 
-## 8. Troubleshooting checklist
+### 8. Troubleshooting checklist
 
 - **Frequent timeouts** – confirm Appium server stability, check CPU usage on agents, review wait durations.
 - **Intermittent focus issues** – ensure tests foreground windows (`SetForegroundWindow` on Windows) or click background-free zones before interacting.
@@ -13500,7 +13618,7 @@ Add lint tooling (Roslyn analyzers or custom scripts) to scan for banned pattern
 - **Artifacts missing** – verify CI scripts always run artifact upload steps with `condition: always()`.
 - **Quarantine drift** – periodic reviews to reinstate fixed tests; failing to do so erodes coverage.
 
-## Practice lab
+### Practice lab
 
 1. **Artifact collector** – Implement a helper that captures Appium logs, driver logs, screenshots, and optional videos when a test fails. Wire it into an xUnit `IAsyncLifetime` fixture so it runs automatically.
 2. **Wait audit** – Write an analyzer or script that flags `Thread.Sleep` usages in the Appium test project. Replace them with explicit waits and document the change.
