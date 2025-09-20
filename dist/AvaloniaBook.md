@@ -4,15 +4,27 @@ header-includes:
   - "\\AtBeginDocument{\\let\\maketitle\\relax}"
   - "\\usepackage{xcolor}"
   - |
+      \definecolor{codebg}{HTML}{F6F8FA}
+      \definecolor{codeborder}{HTML}{D0D7DE}
+      \definecolor{codekw}{HTML}{0550AE}
+      \definecolor{codeident}{HTML}{24292F}
+      \definecolor{codestring}{HTML}{A31515}
+      \definecolor{codecomment}{HTML}{6A737D}
       \usepackage{listings}
       \lstset{
+        language={[Sharp]C},
         breaklines=true,
         breakatwhitespace=true,
         numbers=left,
-        numberstyle=\tiny\color{gray},
-        basicstyle=\ttfamily\small,
+        numberstyle=\tiny\color{codecomment},
+        basicstyle=\ttfamily\small\color{codeident},
+        keywordstyle=\color{codekw}\bfseries,
+        stringstyle=\color{codestring},
+        commentstyle=\color{codecomment}\itshape,
         columns=fullflexible,
         frame=single,
+        rulecolor=\color{codeborder},
+        backgroundcolor=\color{codebg},
         showstringspaces=false,
         keepspaces=true,
         tabsize=2,
