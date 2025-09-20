@@ -8,10 +8,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 ROOT_DIR="${SCRIPT_DIR%/scripts}"
 INDEX_FILE="$ROOT_DIR/Index.md"
 OUT_DIR="$ROOT_DIR/dist"
-TMP_MD="$OUT_DIR/_book_combined.md"
+TMP_MD="$OUT_DIR/AvaloniaBook.md"
 OUT_PDF="$OUT_DIR/AvaloniaBook.pdf"
+OUT_TEX="$OUT_DIR/AvaloniaBook.tex"
 
 mkdir -p "$OUT_DIR"
+rm -f "$OUT_DIR/_book_combined.md"
 
 # Ensure pandoc is installed (attempt auto-install on common platforms)
 ensure_pandoc() {
@@ -118,14 +120,38 @@ fi
 
 # Build combined Markdown for PDF
 : > "$TMP_MD"
-{
-  echo "---";
-  echo "title: \"\"";
-  echo "header-includes:";
-  echo "  - \"\\\\AtBeginDocument{\\\\let\\\\maketitle\\\\relax}\"";
-  echo "---";
-  echo;
-} >> "$TMP_MD"
+cat <<'YAML' >> "$TMP_MD"
+---
+title: ""
+header-includes:
+  - "\\AtBeginDocument{\\let\\maketitle\\relax}"
+  - "\\usepackage{xcolor}"
+  - |
+      \usepackage{listings}
+      \lstset{
+        breaklines=true,
+        breakatwhitespace=true,
+        numbers=left,
+        numberstyle=\tiny\color{gray},
+        basicstyle=\ttfamily\small,
+        columns=fullflexible,
+        frame=single,
+        showstringspaces=false,
+        keepspaces=true,
+        tabsize=2,
+        inputencoding=utf8,
+        extendedchars=true,
+        literate={…}{{\ldots}}1
+                 {➔}{{\textrightarrow}}1
+                 {→}{{\rightarrow}}1
+                 {–}{{-}}1
+                 {—}{{-}}1
+                 {“}{{``}}1
+                 {”}{{''}}1
+      }
+---
+
+YAML
 
 python3 - "$TMP_MD" <<'PY_COVER'
 import sys
@@ -256,7 +282,10 @@ for line in lines:
         shifted_lines.append(line)
         continue
     indent, hashes, space, rest = match.groups()
-    new_count = min(len(hashes) + shift, 6)
+    if shift > 0 and len(hashes) == 1:
+        new_count = min(len(hashes) + shift, 6)
+    else:
+        new_count = len(hashes)
     shifted_lines.append(f"{indent}{'#' * new_count}{space}{rest}")
 
 sys.stdout.write("\n".join(shifted_lines) + "\n")
@@ -278,6 +307,7 @@ COMMON_OPTS=(
   --highlight-style=pygments
   -f markdown+raw_tex
   "--metadata=title-meta:Avalonia Book"
+  --listings
   --pdf-engine="$PDF_ENGINE"
 )
 
@@ -288,3 +318,17 @@ fi
 
 pandoc "${COMMON_OPTS[@]}" -o "$OUT_PDF" "$TMP_MD"
 echo "PDF generated at $OUT_PDF"
+
+# Also emit the combined LaTeX source for reference/debugging
+LATEX_OPTS=(
+  --resource-path="$ROOT_DIR:$ROOT_DIR/Chapters"
+  --highlight-style=pygments
+  -f markdown+raw_tex
+  "--metadata=title-meta:Avalonia Book"
+  --listings
+  -t latex
+)
+
+pandoc "${LATEX_OPTS[@]}" -o "$OUT_TEX" "$TMP_MD"
+echo "LaTeX source saved to $OUT_TEX"
+echo "Markdown source saved to $TMP_MD"
