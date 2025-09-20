@@ -101,18 +101,22 @@ ensure_pdf_engine() {
 
 # Choose a PDF engine in order of preference
 choose_engine() {
-  if command -v tectonic >/dev/null 2>&1; then echo "tectonic"; return; fi
+  if command -v pdflatex >/dev/null 2>&1; then echo "pdflatex"; return; fi
   if command -v xelatex  >/dev/null 2>&1; then echo "xelatex";  return; fi
   if command -v lualatex >/dev/null 2>&1; then echo "lualatex"; return; fi
-  if command -v pdflatex >/dev/null 2>&1; then echo "pdflatex"; return; fi
+  if command -v tectonic >/dev/null 2>&1; then echo "tectonic"; return; fi
   if command -v wkhtmltopdf >/dev/null 2>&1; then echo "wkhtmltopdf"; return; fi
   if command -v weasyprint  >/dev/null 2>&1; then echo "weasyprint";  return; fi
   echo "none"
 }
 
-ensure_pdf_engine || { echo "Could not install a PDF engine automatically. Please install tectonic or a TeX engine and re-run." >&2; exit 1; }
+ensure_pdf_engine || { echo "Could not install a PDF engine automatically. Please install a TeX engine (pdflatex/xelatex/lualatex) and re-run." >&2; exit 1; }
 
-PDF_ENGINE=$(choose_engine)
+if [[ -z ${PDF_ENGINE:-} ]]; then
+  PDF_ENGINE=$(choose_engine)
+else
+  echo "Using PDF engine from environment: $PDF_ENGINE"
+fi
 if [[ "$PDF_ENGINE" == "none" ]]; then
   echo "Error: No PDF engine found after installation attempt. Install tectonic or a LaTeX engine (xelatex/lualatex/pdflatex) and retry." >&2
   exit 1
@@ -126,41 +130,13 @@ title: ""
 header-includes:
   - "\\AtBeginDocument{\\let\\maketitle\\relax}"
   - "\\usepackage{xcolor}"
-  - |
-      \definecolor{codebg}{HTML}{F6F8FA}
-      \definecolor{codeborder}{HTML}{D0D7DE}
-      \definecolor{codekw}{HTML}{0550AE}
-      \definecolor{codeident}{HTML}{24292F}
-      \definecolor{codestring}{HTML}{A31515}
-      \definecolor{codecomment}{HTML}{6A737D}
-      \usepackage{listings}
-      \lstset{
-        language={[Sharp]C},
-        breaklines=true,
-        breakatwhitespace=true,
-        numbers=left,
-        numberstyle=\tiny\color{codecomment},
-        basicstyle=\ttfamily\small\color{codeident},
-        keywordstyle=\color{codekw}\bfseries,
-        stringstyle=\color{codestring},
-        commentstyle=\color{codecomment}\itshape,
-        columns=fullflexible,
-        frame=single,
-        rulecolor=\color{codeborder},
-        backgroundcolor=\color{codebg},
-        showstringspaces=false,
-        keepspaces=true,
-        tabsize=2,
-        inputencoding=utf8,
-        extendedchars=true,
-        literate={…}{{\ldots}}1
-                 {➔}{{\textrightarrow}}1
-                 {→}{{\rightarrow}}1
-                 {–}{{-}}1
-                 {—}{{-}}1
-                 {“}{{``}}1
-                 {”}{{''}}1
-      }
+  - "\\usepackage{fvextra}"
+  - "\\usepackage{framed}"
+  - "\\definecolor{shadecolor}{HTML}{F6F8FA}"
+  - "\\definecolor{linenocolor}{HTML}{6A737D}"
+  - "\\AtBeginDocument{\\renewenvironment{Shaded}{\\begin{snugshade}}{\\end{snugshade}}}"
+  - "\\AtBeginDocument{\\fvset{breaklines=true,breakanywhere=true,numbers=left,numbersep=10pt,framesep=3pt,frame=single,rulecolor=\\color{linenocolor},xleftmargin=1em,fontsize=\\small,breaksymbol=\\color{linenocolor}\\scriptsize\\ensuremath{\\hookrightarrow}}}"
+  - "\\AtBeginDocument{\\renewcommand{\\theFancyVerbLine}{\\textcolor{linenocolor}{\\scriptsize\\arabic{FancyVerbLine}}}}"
 ---
 
 YAML
@@ -313,13 +289,28 @@ if [[ $count -eq 0 ]]; then
   exit 1
 fi
 
+# Normalize fenced code block languages for Pandoc/LaTeX conversion
+python3 - "$TMP_MD" <<'PY_LANG'
+from pathlib import Path
+import re
+
+path = Path(__import__('sys').argv[1])
+text = path.read_text(encoding='utf-8')
+
+text = re.sub(r'^```csharp(\s*$)', r'```{.csharp}\1', text, flags=re.MULTILINE)
+text = re.sub(r'^```Csharp(\s*$)', r'```{.csharp}\1', text, flags=re.MULTILINE)
+text = re.sub(r'^```xml(\s*$)', r'```{.xml}\1', text, flags=re.MULTILINE)
+text = re.sub(r'^```bash(\s*$)', r'```{.bash}\1', text, flags=re.MULTILINE)
+text = re.sub(r'^```yaml(\s*$)', r'```{.yaml}\1', text, flags=re.MULTILINE)
+path.write_text(text, encoding='utf-8')
+PY_LANG
+
 # Common Pandoc options
 COMMON_OPTS=(
   --resource-path="$ROOT_DIR:$ROOT_DIR/Chapters"
   --highlight-style=pygments
   -f markdown+raw_tex
   "--metadata=title-meta:Avalonia Book"
-  --listings
   --pdf-engine="$PDF_ENGINE"
 )
 
@@ -337,7 +328,6 @@ LATEX_OPTS=(
   --highlight-style=pygments
   -f markdown+raw_tex
   "--metadata=title-meta:Avalonia Book"
-  --listings
   -t latex
 )
 
